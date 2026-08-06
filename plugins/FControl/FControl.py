@@ -15,7 +15,7 @@ plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
 # ______________________________ Initializing ______________________________ #
 gui = QtBind.init(__name__, pName)
-lblInject = QtBind.createLabel(gui, '<font color="#00d2ff"><b>⚜ Made By FasscinaTe</b></font>', 4, 9)
+lblInject = QtBind.createLabel(gui, '<font color="#00d2ff"><b>⚜ Made By FascinaTe</b></font>', 4, 9)
 
 # QtBind does not expose native child tabs. As in FCaravanNavigator, pages are
 # implemented by moving each page's widgets on/off screen.
@@ -455,7 +455,7 @@ cbxIgnoreSetLeader = QtBind.createCheckBox(
     _x,
     _y + 20
 )
-QtBind.setChecked(gui, cbxIgnoreSetLeader, True)
+QtBind.setChecked(gui, cbxIgnoreSetLeader, False)
 
 _y += 40
 # Leaders section
@@ -2191,7 +2191,7 @@ def _send_runtime_tp_announcement(source):
         log("Plugin: TPR duyurusu gönderilemedi (phBotChat mesaj gönderimi başarısız döndü).")
 
 # Plugin loaded
-log('[' + pName + ' V2] v' + pVersion + ' loaded — ⚜ Made By FasscinaTe')
+log('[' + pName + ' V2] v' + pVersion + ' loaded — ⚜ Made By FascinaTe')
 if os.path.exists(getPath()):
     loadLeadersConfigs()
     loadOpcodeConfigs()

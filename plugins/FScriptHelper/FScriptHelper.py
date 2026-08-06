@@ -543,7 +543,7 @@ QtBind.createLabel(gui,
 QtBind.createLabel(gui, '<font color="%s">v%s · NPC command recorder</font>' %
     (COLOR_MUTED, pVersion), 195, 12)
 QtBind.createLabel(gui,
-    '<font color="%s"><b>⚜ Made By FasscinaTe</b></font>' % COLOR_PRIMARY, 555, 11)
+    '<font color="%s"><b>⚜ Made By FascinaTe</b></font>' % COLOR_PRIMARY, 555, 11)
 QtBind.createLineEdit(gui, '', 12, 31, 716, 1)
 
 QtBind.createLabel(gui,
@@ -594,4 +594,4 @@ try:
 except Exception as ex:
     _log('Başlatma hatası: %s' % ex)
 
-_log('v%s yüklendi · ⚜ Made By FasscinaTe' % pVersion)
+_log('v%s yüklendi · ⚜ Made By FascinaTe' % pVersion)

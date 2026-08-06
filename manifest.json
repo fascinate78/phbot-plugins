@@ -27,9 +27,9 @@
                         "version":  "1.6.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
-                        "install_path":  "FChamberViciousShadows.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows.py",
-                        "sha256":  "71e285b8f2113fb64c4faaf6deb53f1d5ce9f93d7c8cf5e2d9ef79f5d082483c"
+                        "install_path":  "FChamberViciousShadows_loopyedek.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows_loopyedek.py",
+                        "sha256":  "ded55337b51a10688227ab00a524a1c7b4496577d86b256fbd17b9bb3d768ec8"
                     },
                     {
                         "id":  "FControl",
@@ -39,7 +39,7 @@
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "afdf66fa93dec60752c843e397c8dfcc75724003d24022b0a0fc0621d7180e4f"
+                        "sha256":  "16940fc567b9a41b6281638d9af969e2ab5defa9b742a60b2f2a5813f0ce44d4"
                     },
                     {
                         "id":  "FScriptHelper",
@@ -49,7 +49,17 @@
                         "description":  "Records and replays NPC interactions as reusable script commands.",
                         "install_path":  "FScriptHelper.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/FScriptHelper.py",
-                        "sha256":  "9f0f2787531c5616238f34638edf038efb7e8b1959e7b73b722d0a3d788519ad"
+                        "sha256":  "7914917759a92ef0455f0bff9949dbb1cf0c1477c29a406539bb912635631fb5"
+                    },
+                    {
+                        "id":  "FSroRAutoTrade",
+                        "name":  "FSroRAutoTrade",
+                        "version":  "2.0.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FSroRAutoTrade.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
+                        "sha256":  "33c6d1f2de7a141492bab4569691f703c4c27bb7e16406c987b49fadfb865f57"
                     },
                     {
                         "id":  "FUniqueNotifier",
@@ -59,7 +69,7 @@
                         "description":  "Notifies you when configured unique monsters appear.",
                         "install_path":  "FUniqueNotifier.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FUniqueNotifier/FUniqueNotifier.py",
-                        "sha256":  "561eb98bc3212ed5b6b58333b7f42ed142103339f7c741ac9870c9fca6591e04"
+                        "sha256":  "8e5d6be09be21341ba8d29f3161d3880323b58e42e712ebb8655c6476182f0f4"
                     }
                 ]
 }

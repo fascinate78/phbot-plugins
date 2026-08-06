@@ -24,7 +24,7 @@ last_message_time = 0.0
 gui = QtBind.init(__name__, 'FUniqueNotifier')
 
 QtBind.createLabel(gui, u'✨ FUniqueNotifier  v%s' % pVersion, 5, 2)
-QtBind.createLabel(gui, u'⚜ Made By FasscinaTe', 565, 2)
+QtBind.createLabel(gui, u'⚜ Made By FascinaTe', 565, 2)
 QtBind.createLabel(gui, u'Share unique spawn alerts with your team quickly and reliably.', 5, 24)
 QtBind.createLabel(gui, u'─' * 90, 5, 40)
 
@@ -266,4 +266,4 @@ def event_loop():
         set_status(u'❌ A notification could not be sent')
 
 
-log('[%s] Loaded - ⚜ Made By FasscinaTe' % pName)
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

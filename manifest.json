@@ -22,6 +22,16 @@
                         "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
                     },
                     {
+                        "id":  "FChamberViciousShadows",
+                        "name":  "FChamberViciousShadows",
+                        "version":  "1.6.1",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FChamberViciousShadows.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows.py",
+                        "sha256":  "f52fe8995228d7ea0d36c3d6a2c96c3b24f251255d56b9a14e441c2101fc0fca"
+                    },
+                    {
                         "id":  "FControl",
                         "name":  "FControl",
                         "version":  "1.2.6",

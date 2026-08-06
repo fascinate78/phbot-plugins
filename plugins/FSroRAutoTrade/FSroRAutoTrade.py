@@ -7,7 +7,7 @@ import time
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '2.0.0'
+pVersion = '2.0.1'
 pUrl = ''
 
 EVENT_TRANSPORT_DIED = 3

@@ -1,14 +1,32 @@
 {
-  "schema_version": 1,
-  "plugins": [
-    {
-      "id": "FaaUpdater",
-      "name": "FasscinaTe Plugin Updater",
-      "version": "1.0.1",
-      "description": "Installs and updates FasscinaTe phBot plugins from GitHub.",
-      "install_path": "FaaUpdater/FaaUpdater.py",
-      "download_url": "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
-      "sha256": "b9db7fb28903e43f95e09a608aa3a93bbe98f7d24e668dc2cf702f40d7a60955"
-    }
-  ]
+    "schema_version":  1,
+    "plugins":  [
+                    {
+                        "id":  "FaaUpdater",
+                        "name":  "FaaUpdater",
+                        "version":  "1.0.1",
+                        "description":  "Installs and updates FasscinaTe phBot plugins from GitHub.",
+                        "install_path":  "FaaUpdater/FaaUpdater.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
+                        "sha256":  "b9db7fb28903e43f95e09a608aa3a93bbe98f7d24e668dc2cf702f40d7a60955"
+                    },
+                    {
+                        "id":  "FCaravanNavigator",
+                        "name":  "FCaravanNavigator V3",
+                        "version":  "3.0.0",
+                        "description":  "FasscinaTe phBot plugin.",
+                        "install_path":  "FCaravanNavigator/FCaravanNavigatorV3.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/FCaravanNavigatorV3.py",
+                        "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
+                    },
+                    {
+                        "id":  "FUniqueNotifier",
+                        "name":  "FUniqueNotifier",
+                        "version":  "1.0.0",
+                        "description":  "FasscinaTe phBot plugin.",
+                        "install_path":  "FUniqueNotifier/FUniqueNotifier.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FUniqueNotifier/FUniqueNotifier.py",
+                        "sha256":  "561eb98bc3212ed5b6b58333b7f42ed142103339f7c741ac9870c9fca6591e04"
+                    }
+                ]
 }

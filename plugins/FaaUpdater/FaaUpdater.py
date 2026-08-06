@@ -2,6 +2,7 @@
 
 from phBot import *
 import QtBind
+import phBotChat
 
 import hashlib
 import json
@@ -15,7 +16,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.7'
+pVersion = '1.0.8'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -28,6 +29,7 @@ ALLOWED_RAW_PREFIX = (
 NETWORK_TIMEOUT = 15
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_PLUGIN_BYTES = 5 * 1024 * 1024
+CATALOG_CHECK_INTERVAL_SECONDS = 10 * 60
 
 COLOR_PRIMARY = '#5b57e0'
 COLOR_DARK = '#30323a'
@@ -41,6 +43,8 @@ _display_to_plugin = {}
 _busy = [False]
 _auto_refresh_started = [False]
 _last_selected_display = ['']
+_last_catalog_check_at = [0.0]
+_notified_updates = set()
 
 
 def _html_escape(value):
@@ -464,29 +468,86 @@ def _render_catalog():
         _set_summary('No plugins are published yet.')
 
 
-def _refresh_worker():
+def _notify_available_updates():
+    updates = []
+    for plugin in _catalog:
+        state, installed, latest = _plugin_state(plugin)
+        if state != 'update':
+            continue
+        notification_key = '%s:%s' % (plugin.get('id'), latest)
+        if notification_key in _notified_updates:
+            continue
+        updates.append((plugin, installed, latest, notification_key))
+
+    if not updates:
+        return
+
+    if len(updates) == 1:
+        plugin, installed, latest, notification_key = updates[0]
+        name = str(plugin.get('name') or plugin.get('id'))
+        message = (
+            '[F Plugin Manager] Update available: %s v%s (installed: v%s). '
+            'Open FaaUpdater, install the update, then refresh plugins or restart phBot.' %
+            (name, latest, installed)
+        )
+    else:
+        visible_updates = updates[:3]
+        names = [
+            '%s v%s' % (str(plugin.get('name') or plugin.get('id')), latest)
+            for plugin, installed, latest, notification_key in visible_updates
+        ]
+        remaining = len(updates) - len(visible_updates)
+        if remaining > 0:
+            names.append('+%d more' % remaining)
+        message = (
+            '[F Plugin Manager] Updates available for %d plugins: %s. '
+            'Open FaaUpdater, update them, then refresh plugins or restart phBot.' %
+            (len(updates), ', '.join(names))
+        )
+
+    try:
+        phBotChat.ClientNotice(message)
+        for plugin, installed, latest, notification_key in updates:
+            _notified_updates.add(notification_key)
+        log(message)
+    except Exception as error:
+        log('[%s] Client notice error: %s' % (pName, error))
+
+
+def _refresh_worker(silent=False, notify_updates=False):
     global _catalog
     try:
-        _set_status('Checking GitHub catalog...', COLOR_WARNING)
+        if not silent:
+            _set_status('Checking GitHub catalog...', COLOR_WARNING)
         raw = _download(MANIFEST_URL, MAX_MANIFEST_BYTES, force_fresh=True)
         payload = json.loads(raw.decode('utf-8-sig'))
         _catalog = _validate_manifest(payload)
         _render_catalog()
-        _set_status('Catalog is ready', COLOR_SUCCESS)
+        if notify_updates:
+            _notify_available_updates()
+        if not silent:
+            _set_status('Catalog is ready', COLOR_SUCCESS)
     except Exception as error:
         log('[%s] Catalog error: %s' % (pName, error))
-        _set_status('Catalog check failed', COLOR_ERROR)
-        _set_summary(str(error))
+        if not silent:
+            _set_status('Catalog check failed', COLOR_ERROR)
+            _set_summary(str(error))
     finally:
         _busy[0] = False
 
 
-def _start_refresh():
+def _start_refresh(silent=False, notify_updates=False):
     if _busy[0]:
-        _set_status('Another operation is running', COLOR_WARNING)
+        if not silent:
+            _set_status('Another operation is running', COLOR_WARNING)
         return
     _busy[0] = True
-    threading.Thread(target=_refresh_worker, daemon=True).start()
+    _last_catalog_check_at[0] = time.time()
+    threading.Thread(
+        target=_refresh_worker,
+        args=(silent, notify_updates),
+        daemon=True
+    ).start()
 
 
 def refresh_catalog_clicked():
@@ -580,7 +641,12 @@ def update_all_clicked():
 def event_loop():
     if not _auto_refresh_started[0]:
         _auto_refresh_started[0] = True
-        _start_refresh()
+        _start_refresh(notify_updates=True)
+    elif (
+        not _busy[0] and
+        time.time() - _last_catalog_check_at[0] >= CATALOG_CHECK_INTERVAL_SECONDS
+    ):
+        _start_refresh(silent=True, notify_updates=True)
     _refresh_selected_plugin()
 
 

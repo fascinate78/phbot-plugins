@@ -8,7 +8,7 @@
       "description": "Installs and updates FasscinaTe phBot plugins from GitHub.",
       "install_path": "FaaUpdater/FaaUpdater.py",
       "download_url": "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
-      "sha256": "bbdbfe9dfc2430105f49d2c5f554c038e5084326e5e203d44765d384638289a1"
+      "sha256": "b9db7fb28903e43f95e09a608aa3a93bbe98f7d24e668dc2cf702f40d7a60955"
     }
   ]
 }

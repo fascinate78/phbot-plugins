@@ -13,7 +13,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.1'
+pVersion = '1.0.2'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -44,7 +44,7 @@ gui = QtBind.init(__name__, pName)
 
 QtBind.createLabel(
     gui,
-    u'<font color="%s" size="4"><b>↻ FasscinaTe Plugin Updater</b></font>' %
+    u'<font color="%s" size="4"><b>↻ F Plugin Manager</b></font>' %
     COLOR_PRIMARY,
     12,
     6

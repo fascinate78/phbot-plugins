@@ -13,7 +13,7 @@ plugin updates, support, and community discussion.
 You only need to install **FaaUpdater** manually. All other available plugins
 can then be installed and updated directly through FaaUpdater.
 
-1. Download `FaaUpdater.py` from the `plugins/FaaUpdater` directory.
+1. Download [`FaaUpdater.py`](https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py).
 2. Copy it into the phBot `Plugins` directory.
 3. Reload the plugin list or restart phBot.
 4. Open **FascinaTe Plugin Updater** and use it to install or update any

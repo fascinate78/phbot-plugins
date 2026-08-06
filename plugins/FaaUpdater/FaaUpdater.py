@@ -9,12 +9,13 @@ import os
 import re
 import textwrap
 import threading
+import time
 import urllib.parse
 import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.6'
+pVersion = '1.0.7'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -241,10 +242,18 @@ def _validate_download_url(url):
     return value
 
 
-def _download(url, maximum_bytes):
+def _download(url, maximum_bytes, force_fresh=False):
+    request_url = url
+    if force_fresh:
+        separator = '&' if '?' in request_url else '?'
+        request_url += separator + 'fpm_cache_bust=%d' % int(time.time() * 1000)
     request = urllib.request.Request(
-        url,
-        headers={'User-Agent': '%s/%s' % (pName, pVersion)}
+        request_url,
+        headers={
+            'User-Agent': '%s/%s' % (pName, pVersion),
+            'Cache-Control': 'no-cache, no-store, max-age=0',
+            'Pragma': 'no-cache'
+        }
     )
     response = urllib.request.urlopen(request, timeout=NETWORK_TIMEOUT)
     try:
@@ -459,7 +468,7 @@ def _refresh_worker():
     global _catalog
     try:
         _set_status('Checking GitHub catalog...', COLOR_WARNING)
-        raw = _download(MANIFEST_URL, MAX_MANIFEST_BYTES)
+        raw = _download(MANIFEST_URL, MAX_MANIFEST_BYTES, force_fresh=True)
         payload = json.loads(raw.decode('utf-8-sig'))
         _catalog = _validate_manifest(payload)
         _render_catalog()
@@ -491,7 +500,7 @@ def _install_plugin(plugin):
     target = _safe_target(plugin)
 
     _set_status('Downloading %s...' % plugin_id, COLOR_WARNING)
-    data = _download(url, MAX_PLUGIN_BYTES)
+    data = _download(url, MAX_PLUGIN_BYTES, force_fresh=True)
     actual_hash = hashlib.sha256(data).hexdigest()
     if actual_hash != expected_hash:
         raise ValueError('%s failed SHA-256 verification' % plugin_id)

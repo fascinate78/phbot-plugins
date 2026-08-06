@@ -4,11 +4,11 @@
                     {
                         "id":  "FaaUpdater",
                         "name":  "FaaUpdater",
-                        "version":  "1.0.6",
+                        "version":  "1.0.7",
                         "description":  "Installs and updates FascinaTe phBot plugins from GitHub.",
                         "install_path":  "FaaUpdater.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
-                        "sha256":  "b439e01ece9f2d4123b7228564045c38b55398c7d6054c854b93e3f1ab294ca1"
+                        "sha256":  "38d5ebeb13fac61432efeb699233c6f8d85fe9e6edf0472877500eea6ef944e7"
                     },
                     {
                         "id":  "FCaravanNavigator",

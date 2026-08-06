@@ -1,0 +1,2202 @@
+from phBot import *
+import QtBind
+import json
+import os
+from threading import Timer
+import struct
+import phBotChat
+import random
+import time
+
+pName = 'FControl'
+pVersion = '1.2.6'
+
+plugin_dir = os.path.dirname(os.path.abspath(__file__))
+
+# ______________________________ Initializing ______________________________ #
+gui = QtBind.init(__name__, pName)
+lblInject = QtBind.createLabel(gui, '<font color="#00d2ff"><b>⚜ Made By FasscinaTe</b></font>', 4, 9)
+
+# QtBind does not expose native child tabs. As in FCaravanNavigator, pages are
+# implemented by moving each page's widgets on/off screen.
+OFFSCREEN_X = 3000
+active_page = 'control'
+control_widgets = []
+buttons_widgets = []
+
+btnControlPage = QtBind.createButton(gui, 'show_control_page', 'Control', 300, 5)
+btnButtonsPage = QtBind.createButton(gui, 'show_buttons_page', 'Buttons', 370, 5)
+
+# Globals
+inGame = None
+current_character_name = "Unknown"
+current_account_name = None
+
+# xControlAttack globals
+followActivated = False
+followPlayer = ''
+followDistance = 0
+attackMode = False
+targetX = 0
+targetY = 0
+targetZ = 0
+
+# Leader TP announce globals
+announce_own_teleports = False
+ignore_setfcontrolleader = True
+_pending_tp_source = None
+_pending_tp_destination_id = None
+_pending_tp_armed_at = None
+_pending_tp_is_runtime = False
+_runtime_tp_command_until = 0.0
+_suppress_runtime_announce_until = 0.0
+_last_seen_announce_channel = None
+_announce_settings_loaded_for = None
+_leaders_loaded_for = None
+_last_selected_tp_uid = None
+_last_selected_tp_source = None
+_last_selected_tp_at = 0.0
+
+# Item Storage (TIS) command state
+tis_active = False
+tis_claim_pending = False
+tis_item_count = 0
+tis_deadline = 0.0
+
+TELEPORT_PROXIMITY_METERS = 45  # FControl portunda aynı sabit 45m olarak tutuldu
+TP_ANNOUNCE_TIMEOUT = 60  # saniye; ışınlanma başarısız olursa eski duyuru gönderilmesin diye
+TP_ANNOUNCE_DELAY = 2.0  # saniye; sahne geçişi bitmeden gönderilen chat paketleri sunucu tarafından sessizce yutulabiliyor
+
+# Karakterin dinlediği (hedef gerektirmeyen, broadcast) chat kanalları - chat-api.md'de belgelenen
+# phBotChat fonksiyonlarıyla birebir eşleşiyor
+ANNOUNCE_CHANNEL_ORDER = ('All', 'Party', 'Guild', 'Union')
+ANNOUNCE_CHANNELS = {
+    'All': phBotChat.All,
+    'Party': phBotChat.Party,
+    'Guild': phBotChat.Guild,
+    'Union': phBotChat.Union,
+}
+
+# phBot chat type IDs
+CHAT_PARTY = 4
+CHAT_GUILD = 5
+
+def get_game_name():
+    global inGame
+    if not inGame:
+        isJoined()
+    if inGame and "server" in inGame and inGame["server"]:
+        return inGame["server"]
+    return "Unknown Server"
+
+
+def update_account_info():
+    global current_account_name
+    profile = get_profile()
+    current_account_name = profile if profile else read_account_from_ini()
+
+
+def read_account_from_ini():
+    ini_path = get_config_dir() + "phBot.ini"
+    if not ini_path or not os.path.exists(ini_path):
+        return None
+    try:
+        with open(ini_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.strip().lower().startswith("username"):
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        return parts[1].strip()
+    except Exception:
+        pass
+    return None
+
+
+# Commands section - right under title
+_x_cmd = 6
+_y_cmd = 30
+lblCommands = QtBind.createLabel(gui, '<font color="#ffd86b"><b>𝙰𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎 𝙲𝚘𝚖𝚖𝚊𝚗𝚍𝚜</b></font>', _x_cmd, _y_cmd)
+_y_cmd += 18
+lstCommands = QtBind.createList(gui, _x_cmd, _y_cmd, 500, 200)
+commands_list = [
+
+    "- (T)   : Start Trace",
+    "- (T) Player           : Start Trace to specific player",
+    "- (N)   : Stop Trace",
+    "- (S)   : Start Bot",
+    "- (SS)  : Stop Bot",
+    "- (D)   : Dismount",
+    "- (M)   : Mount",
+    "- (RE)  : Return Scroll",
+    "- (COME): Reverse Return Scroll to Leader",
+    "- (Q1)  : Teleport",
+    "- (Q2)  : Teleport",
+    "- (Q3)  : Teleport",
+    "- (SIT) : Sit/Stand",
+    "- (ZK)  : Berserker Mode",
+    "- (DC)  : Disconnect",
+    "- (LP)  : Leave Party",
+    "- (TIS) : Check Item Storage and claim all items",
+    "- (TP) Source Dest     : Teleport Follower to Dest via Source",
+    "- (TPR) Source          : Teleport through a runtime portal",
+    "- (REVERSE return|death|player Name|zone Name) : Use reverse return scroll",
+    "- (RC) Town            : Recall to Town Portal",
+    "- (SP) X? Y? Region? Z? : Set Training Position (current pos if empty)",
+    "- (SR) Radius?          : Set Training Radius (default 35 if empty)",
+    "- (FL) Player? Distance? : Follow a party player",
+    "- (NF)                  : Stop Following",
+    "- (EQ) ItemName         : Equip Item",
+    "- (UQ) ItemName         : Unequip Item",
+    "- (USE) ItemName        : Use Item from Inventory",
+    "- (MOVEATTACK) X Y     : Move Attack Example MOVE 154 49",
+    "- (MOVE) X Y           : Move No Attack MOVE 154 49",
+    "- (GETPOS)             : Get Position",
+]
+for cmd in commands_list:
+    QtBind.append(gui, lstCommands, cmd)
+
+# Leaders section data
+lstLeadersData = []
+
+# Command-based injection data
+injection_sets = {
+    # Custom Command
+    "DH": {
+        "injections": [
+            {"opcode": 0x7045, "data": bytearray([0x00, 0x00, 0x00, 0x00]), "delay": 0}
+        ]
+    }
+}
+
+
+# ______________________________ Methods ______________________________ #
+
+# Check if character is ingame
+def isJoined():
+    global inGame
+    inGame = get_character_data()
+    if not (inGame and "name" in inGame and inGame["name"]):
+        inGame = None
+    return inGame
+
+# Return plugin folder path
+def getPath():
+    return get_config_dir() + pName + "\\"
+
+# Return character configs path (JSON)
+def getConfig():
+    isJoined()
+    if inGame:
+        return getPath() + inGame['server'] + "_" + inGame['name'] + ".json"
+    return getPath() + "default_leaders.json"
+
+
+# Character-specific announce settings path. None until character data is ready.
+def getAnnounceConfig():
+    character = get_character_data() or {}
+    server = character.get('server')
+    name = character.get('name')
+    if not server or not name:
+        return None
+    return getPath() + server + "_" + name + ".json"
+
+# Add leader to the list
+def btnAddLeader_clicked():
+    player = QtBind.text(gui, tbxLeaders)
+    if player and not lstLeaders_exist(player):
+        if not os.path.exists(getPath()):
+            os.makedirs(getPath())
+        data = {}
+        config_path = getConfig()
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    data = json.load(f)
+            except:
+                data = {}
+        if not "Leaders" in data:
+            data['Leaders'] = []
+        data['Leaders'].append(player)
+        try:
+            with open(config_path, "w") as f:
+                f.write(json.dumps(data, indent=4, sort_keys=True))
+        except Exception as e:
+            log('Plugin: Error saving config - ' + str(e))
+            return
+        name_file_path = getPath() + "name.txt"
+        try:
+            with open(name_file_path, "a") as f:
+                f.write(player + "\n")
+        except Exception as e:
+            log('Plugin: Error saving name.txt - ' + str(e))
+        QtBind.append(gui, lstLeaders, player)
+        QtBind.setText(gui, tbxLeaders, "")
+        # Update in-memory list immediately so commands work without restart
+        if player not in lstLeadersData:
+            lstLeadersData.append(player)
+        log('Plugin: Leader added [' + player + ']')
+    else:
+        if not player:
+            log('Plugin: Enter leader name first')
+        else:
+            log('Plugin: This leader already exists')
+
+# Remove leader from the list
+def btnRemLeader_clicked():
+    selectedItem = QtBind.text(gui, lstLeaders)
+    if selectedItem:
+        if os.path.exists(getConfig()):
+            data = {"Leaders":[]}
+            with open(getConfig(), 'r') as f:
+                data = json.load(f)
+            try:
+                data["Leaders"].remove(selectedItem)
+                with open(getConfig(),"w") as f:
+                    f.write(json.dumps(data, indent=4, sort_keys=True))
+            except:
+                pass
+        QtBind.remove(gui, lstLeaders, selectedItem)
+        # Remove from in-memory list immediately
+        try:
+            lstLeadersData.remove(selectedItem)
+        except ValueError:
+            pass
+        log('Plugin: Leader removed [' + selectedItem + ']')
+
+# Return True if nickname exist at the leader list
+def lstLeaders_exist(nickname):
+    nickname = nickname.lower()
+    players = QtBind.getItems(gui, lstLeaders)
+    for i in range(len(players)):
+        if players[i].lower() == nickname:
+            return True
+    return False
+
+
+def add_chat_leader(nickname):
+    """Add and persist a leader received through an authorized chat channel."""
+    if not nickname or lstLeaders_exist(nickname):
+        return False
+
+    if not os.path.exists(getPath()):
+        os.makedirs(getPath())
+
+    config_path = getConfig()
+    data = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                data = json.load(f)
+        except Exception as e:
+            log('Plugin: Error loading config while adding chat leader - ' + str(e))
+
+    leaders = data.setdefault('Leaders', [])
+    if not any(name.lower() == nickname.lower() for name in leaders):
+        leaders.append(nickname)
+
+    try:
+        with open(config_path, 'w') as f:
+            f.write(json.dumps(data, indent=4, sort_keys=True))
+    except Exception as e:
+        log('Plugin: Error saving chat leader - ' + str(e))
+        return False
+
+    QtBind.append(gui, lstLeaders, nickname)
+    if not any(name.lower() == nickname.lower() for name in lstLeadersData):
+        lstLeadersData.append(nickname)
+    log('Plugin: Leader added via chat [' + nickname + ']')
+    return True
+
+
+def is_own_character(nickname):
+    if not nickname:
+        return False
+    character = get_character_data() or {}
+    own_name = character.get('name') or current_character_name
+    return bool(own_name and own_name != "Unknown" and own_name.lower() == nickname.lower())
+
+
+# Teleport helpers
+def inject_teleport(source, destination):
+    t = get_teleport_data(source, destination)
+    if t:
+        npcs = get_npcs()
+        for key, npc in npcs.items():
+            if npc['name'] == source or npc['servername'] == source:
+                log("Plugin: Selecting teleporter [" + source + "]")
+                inject_joymax(0x7045, struct.pack('<I', key), False)
+                Timer(2.0, inject_joymax, (0x705A, struct.pack('<IBI', key, 2, t[1]), False)).start()
+                Timer(2.0, log, ("Plugin: Teleporting to [" + destination + "]",)).start()
+                return
+        log('Plugin: NPC not found. Wrong NPC name or servername')
+    else:
+        log('Plugin: Teleport data not found. Wrong teleport name or servername')
+
+
+def _leader_teleport_sequence(name, routes):
+    log(f"Plugin: Teleport sequence [{name}] started...")
+    for src, dst in routes:
+        inject_teleport(src, dst)
+
+
+Q1_ROUTES = [
+    ("Ferry Ticket Seller Doji", "Boat Ticket Seller Rahan"),
+    ("Boat Ticket Seller Rahan", "Ferry Ticket Seller Doji"),
+    ("Harbor Manager Marwa", "Pirate Morgun"),
+    ("Pirate Morgun", "Harbor Manager Gale"),
+    ("Harbor Manager Gale", "Pirate Morgun"),
+    ("Priate Blackbeard", "Harbor Manager Gale"),
+    ("Aircraft Ticket Seller Shard", "Aircraft Ticket Seller Sangnia"),
+    ("Aircraft Ticket Seller Sangnia", "Aircraft Ticket Seller Shard"),
+    ("Tunnel Manager Salhap", "Tunnel Manager Maryokuk"),
+    ("Tunnel Manager Maryokuk", "Tunnel Manager Salhap"),
+    ("Tunnel Manager Topni", "Tunnel Manager Asui"),
+    ("Tunnel Manager Asui", "Tunnel Manager Topni"),
+    ("Aircraft Ticket Seller Saena", "Aircraft Ticket Seller Ajati"),
+    ("Aircraft Ticket Seller Ajati", "Airship Ticket Seller Dawari"),
+    ("Airship Ticket Seller Dawari", "Aircraft Ticket Seller Ajati"),
+    ("Aircraft Ticket Seller Sayun", "Airship Ticket Seller Dawari"),
+    ("Airship Ticket Seller Poy", "Aircraft Ticket Seller Ajati"),
+    ("Boat Ticket Seller Rahan", "Boat Ticket Seller Salmai"),
+    ("Boat Ticket Seller Salmai", "Boat Ticket Seller Rahan"),
+    ("Boat Ticket Seller Asimo", "Boat Ticket Seller Asa"),
+    ("Boat Ticket Seller Asa", "Boat Ticket Seller Asimo"),
+    ("Ferry Ticket Seller Tayun", "Ferry Ticket Seller Doji"),
+    ("Ferry Ticket Seller Doji", "Ferry Ticket Seller Tayun"),
+    ("Ferry Ticket Seller Hageuk", "Ferry Ticket Seller Chau"),
+    ("Ferry Ticket Seller Chau", "Ferry Ticket Seller Hageuk"),
+    ("forbidden plain", "Kings Valley"),
+    ("Kings Valley", "forbidden plain"),
+    ("abundance ground", "Storm and cloud Desert"),
+    ("Storm and cloud Desert", "abundance ground"),
+    ("Boat Ticket Seller Rahan", "Ferry Ticket Seller Chau"),
+    ("Ferry Ticket Seller Chau", "Boat Ticket Seller Rahan")
+]
+
+Q2_ROUTES = [
+    ("Harbor Manager Marwa", "Priate Blackbeard"),
+    ("Harbor Manager Gale", "Priate Blackbeard"),
+    ("Pirate Morgun", "Harbor Manager Marwa"),
+    ("Priate Blackbeard", "Harbor Manager Marwa"),
+    ("Aircraft Ticket Seller Saena", "Airship Ticket Seller Dawari"),
+    ("Airship Ticket Seller Dawari", "Aircraft Ticket Seller Sayun"),
+    ("Aircraft Ticket Seller Sayun", "Aircraft Ticket Seller Poy"),
+    ("Airship Ticket Seller Poy", "Aircraft Ticket Seller Sayun"),
+    ("Aircraft Ticket Seller Ajati", "Airship Ticket Seller Poy")
+]
+
+Q3_ROUTES = [
+    ("Harbor Manager Marwa", "Harbor Manager Gale"),
+    ("Harbor Manager Gale", "Harbor Manager Marwa"),
+    ("Aircraft Ticket Seller Ajati", "Aircraft Ticket Seller Saena"),
+    ("Airship Ticket Seller Dawari", "Aircraft Ticket Seller Saena")
+]
+
+
+# Load default configs for leaders
+def loadDefaultLeadersConfig():
+    QtBind.clear(gui, lstLeaders)
+
+# Loads all leader configs previously saved
+def loadLeadersConfigs():
+    global lstLeadersData, _leaders_loaded_for
+    loadDefaultLeadersConfig()
+    config_file = getConfig()
+    if os.path.exists(config_file):
+        try:
+            data = {}
+            with open(config_file,"r") as f:
+                data = json.load(f)
+            if "Leaders" in data:
+                lstLeadersData = data["Leaders"]
+                for nickname in lstLeadersData:
+                    QtBind.append(gui, lstLeaders, nickname)
+        except Exception as e:
+            log('Plugin: Error loading config - ' + str(e))
+    _leaders_loaded_for = config_file
+
+# Check if player is in leaders list
+def isLeader(player_name):
+    return lstLeaders_exist(player_name)
+
+# ______________________________ Custom Command DH ______________________________ #
+# GUI paneli gizlendi (satırlar yorum satırına alındı; fonksiyonlar korunuyor)
+# _x_dh = 6
+# _y_dh = 260
+#
+# QtBind.createLabel(gui, '<font color="#ff4b5c"><b>(◣ _ ◢)</b></font>', _x_dh, _y_dh)
+# txtOpcodeDH = QtBind.createLineEdit(gui, "", _x_dh + 45, _y_dh - 3, 32, 20)
+# lblDataDH = QtBind.createLabel(gui, 'DH☠️', _x_dh + 45 + 32 + 6, _y_dh)
+# txtDataDH = QtBind.createLineEdit(gui, "", _x_dh + 45 + 32 + 6 + 32, _y_dh - 3, 385, 20)
+# _y_dh += 25
+# btnInjectDH = QtBind.createButton(gui, 'btnInjectDH_clicked', "  Inject To Server  ", _x_dh + 404, _y_dh)
+# _y_dh += 1
+# cbxAutoDH = QtBind.createCheckBox(gui, 'cbxAutoDH_clicked', '🍁𝙰𝚞𝚝𝚘 𝙸𝚗𝚓𝚎𝚌𝚝 𝙴𝚟𝚎𝚛𝚢 𝟹𝟶𝚂𝚎𝚌🍁', _x_dh + 1, _y_dh)
+txtOpcodeDH = None
+txtDataDH = None
+autoInjectEnabledDH = False
+autoInjectTimerDH = None
+
+
+# Filter section
+_x = 720 - 176
+_y = 12
+separatorMain = QtBind.createLineEdit(gui, "", _x - 26, _y, 1, 265)  # Separator line
+
+cbxSro = QtBind.createCheckBox(gui, 'cbxShowClient_checked', 'Show Client Packets', _x + 10, _y)
+cbxShowClient = False
+_y += 20
+cbxJmx = QtBind.createCheckBox(gui, 'cbxShowServer_checked', 'Show Server Packets', _x + 10, _y)
+cbxShowServer = False
+cbxIgnoreSetLeader = QtBind.createCheckBox(
+    gui,
+    'cbxIgnoreSetLeader_clicked',
+    'Ignore SETFCONTROLLEADER command',
+    _x,
+    _y + 20
+)
+QtBind.setChecked(gui, cbxIgnoreSetLeader, True)
+
+_y += 40
+# Leaders section
+lblLeaders = QtBind.createLabel(gui, '<font color="#3cff7a"><b>𝙻𝚎𝚊𝚍𝚎𝚛𝚜</b></font>', _x, _y)
+_y += 18
+tbxLeaders = QtBind.createLineEdit(gui, "", _x, _y, 100, 20)
+btnAddLeader = QtBind.createButton(gui, 'btnAddLeader_clicked', "Add", _x + 100 + 2, _y - 2)
+_y += 20
+lstLeaders = QtBind.createList(gui, _x, _y, 176, 80)
+btnRemLeader = QtBind.createButton(gui, 'btnRemLeader_clicked', "Remove", _x + 88 - 32, _y - 1 + 80)
+
+_y += 115  # lstLeaders + btnRemLeader yüksekliği + boşluk (Remove butonunun altında kalmaması için)
+cbxAnnounceOwnTp = QtBind.createCheckBox(gui, 'cbxAnnounceOwnTp_clicked', "Auto-announce my own TPs", _x, _y)
+_y += 20
+lblAnnounceChannel = QtBind.createLabel(gui, 'Announce Channel:', _x, _y)
+_y += 16
+cbxAnnounceChannel = QtBind.createCombobox(gui, _x, _y, 90, 20)
+for _channel_name in ANNOUNCE_CHANNEL_ORDER:
+    QtBind.append(gui, cbxAnnounceChannel, _channel_name)
+
+
+# Control page widgets and their original positions.
+control_widgets = [
+    (lblCommands, _x_cmd, 30),
+    (lstCommands, _x_cmd, 48),
+    (separatorMain, 518, 12),
+    (cbxSro, 554, 12),
+    (cbxJmx, 554, 32),
+    (cbxIgnoreSetLeader, 544, 52),
+    (lblLeaders, 544, 72),
+    (tbxLeaders, 544, 90),
+    (btnAddLeader, 646, 88),
+    (lstLeaders, 544, 110),
+    (btnRemLeader, 600, 189),
+    (cbxAnnounceOwnTp, 544, 225),
+    (lblAnnounceChannel, 544, 245),
+    (cbxAnnounceChannel, 544, 261),
+]
+
+
+# ______________________________ Buttons page ______________________________ #
+
+def _add_buttons_widget(widget, x, y):
+    buttons_widgets.append((widget, x, y))
+    QtBind.move(gui, widget, OFFSCREEN_X, y)
+    return widget
+
+
+lblButtonsTitle = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#00d2ff" size="4"><b>BUTTONS</b></font>', 12, 38),
+    12, 38
+)
+lblButtonsChannel = _add_buttons_widget(
+    QtBind.createLabel(gui, '<b>Chat Type:</b>', 12, 70), 12, 70
+)
+cbxButtonsChannel = _add_buttons_widget(
+    QtBind.createCombobox(gui, 85, 66, 100, 22), 85, 66
+)
+for _channel_name in ANNOUNCE_CHANNEL_ORDER:
+    QtBind.append(gui, cbxButtonsChannel, _channel_name)
+QtBind.setText(gui, cbxButtonsChannel, 'All')
+
+lblJobSuitGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>EQ/UQ Job Suit</b></font>', 12, 108),
+    12, 108
+)
+lineJobSuitGroup = _add_buttons_widget(
+    QtBind.createLineEdit(gui, '', 12, 128, 430, 1), 12, 128
+)
+lblJobSuit = _add_buttons_widget(
+    QtBind.createLabel(gui, 'Job Suit:', 12, 148), 12, 148
+)
+cbxJobSuit = _add_buttons_widget(
+    QtBind.createCombobox(gui, 75, 144, 300, 22), 75, 144
+)
+btnRefreshJobSuits = _add_buttons_widget(
+    QtBind.createButton(gui, 'refresh_job_suit_list', 'Refresh', 382, 142), 382, 142
+)
+btnEquipJobSuit = _add_buttons_widget(
+    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', 'Equip', 75, 178), 75, 178
+)
+btnUnequipJobSuit = _add_buttons_widget(
+    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', 'Unequip', 155, 178), 155, 178
+)
+lblJobSuitStatus = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#9aa0ac">Open Buttons or press Refresh to scan inventory.</font>', 12, 216),
+    12, 216
+)
+
+lblSetProfileGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Profile</b></font>', 12, 252),
+    12, 252
+)
+lineSetProfileGroup = _add_buttons_widget(
+    QtBind.createLineEdit(gui, '', 12, 272, 430, 1), 12, 272
+)
+lblProfileName = _add_buttons_widget(
+    QtBind.createLabel(gui, 'Profile Name:', 12, 292), 12, 292
+)
+tbxProfileName = _add_buttons_widget(
+    QtBind.createLineEdit(gui, '', 95, 288, 220, 22), 95, 288
+)
+btnSetProfile = _add_buttons_widget(
+    QtBind.createButton(gui, 'btnSetProfile_clicked', 'Set Profile', 322, 286), 322, 286
+)
+lblSetProfileStatus = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#9aa0ac">Enter a phBot profile name.</font>', 12, 324),
+    12, 324
+)
+
+
+def _set_job_suit_status(message, color='#9aa0ac'):
+    QtBind.setText(gui, lblJobSuitStatus, '<font color="%s">%s</font>' % (color, message))
+
+
+def _is_job_suit_name(name):
+    value = (name or '').lower()
+    return 'warrior outfit' in value or 'thief outfit' in value
+
+
+def get_available_job_suits():
+    """Return unique equipped suits first, followed by matching inventory suits."""
+    inventory = get_inventory() or {}
+    items = inventory.get('items') or []
+    equipped = []
+    carried = []
+    seen = set()
+
+    for slot, item in enumerate(items):
+        if not item:
+            continue
+        name = item.get('name') or ''
+        key = name.lower()
+        if not _is_job_suit_name(name) or key in seen:
+            continue
+        seen.add(key)
+        if slot <= 12:
+            equipped.append(name)
+        else:
+            carried.append(name)
+
+    return equipped + carried
+
+
+def refresh_job_suit_list():
+    suits = get_available_job_suits()
+    QtBind.clear(gui, cbxJobSuit)
+    for name in suits:
+        QtBind.append(gui, cbxJobSuit, name)
+
+    if suits:
+        QtBind.setText(gui, cbxJobSuit, suits[0])
+        _set_job_suit_status('%d matching job suit(s) found.' % len(suits), '#3cff7a')
+    else:
+        _set_job_suit_status('No Warrior Outfit or Thief Outfit found.', '#ff4b5c')
+    return suits
+
+
+def _send_job_suit_command(command):
+    item_name = (QtBind.text(gui, cbxJobSuit) or '').strip()
+    if not item_name:
+        _set_job_suit_status('Select a job suit first.', '#ff4b5c')
+        log('Plugin: Buttons: No Warrior Outfit or Thief Outfit found')
+        return False
+
+    channel = QtBind.text(gui, cbxButtonsChannel) or 'All'
+    if channel not in ANNOUNCE_CHANNELS:
+        channel = 'All'
+    message = '%s %s' % (command, item_name)
+    sent = ANNOUNCE_CHANNELS[channel](message)
+    if sent:
+        _set_job_suit_status('Sent on %s: %s' % (channel, message), '#3cff7a')
+        log('Plugin: Buttons: Sent on %s: %s' % (channel, message))
+    else:
+        _set_job_suit_status('Could not send: %s' % message, '#ff4b5c')
+        log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
+    return sent
+
+
+def btnEquipJobSuit_clicked():
+    return _send_job_suit_command('EQ')
+
+
+def btnUnequipJobSuit_clicked():
+    return _send_job_suit_command('UQ')
+
+
+def btnSetProfile_clicked():
+    profile_name = (QtBind.text(gui, tbxProfileName) or '').strip()
+    if not profile_name:
+        QtBind.setText(
+            gui, lblSetProfileStatus,
+            '<font color="#ff4b5c">Enter a profile name first.</font>'
+        )
+        log('Plugin: Buttons: Profile name is empty')
+        return False
+
+    channel = QtBind.text(gui, cbxButtonsChannel) or 'All'
+    if channel not in ANNOUNCE_CHANNELS:
+        channel = 'All'
+    message = 'SETPROFILE ' + profile_name
+    sent = ANNOUNCE_CHANNELS[channel](message)
+    if sent:
+        QtBind.setText(
+            gui, lblSetProfileStatus,
+            '<font color="#3cff7a">Sent on %s: %s</font>' % (channel, message)
+        )
+        log('Plugin: Buttons: Sent on %s: %s' % (channel, message))
+    else:
+        QtBind.setText(
+            gui, lblSetProfileStatus,
+            '<font color="#ff4b5c">Could not send: %s</font>' % message
+        )
+        log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
+    return sent
+
+
+def show_control_page():
+    global active_page
+    active_page = 'control'
+    for widget, x, y in buttons_widgets:
+        QtBind.move(gui, widget, OFFSCREEN_X, y)
+    for widget, x, y in control_widgets:
+        QtBind.move(gui, widget, x, y)
+
+
+def show_buttons_page():
+    global active_page
+    active_page = 'buttons'
+    for widget, x, y in control_widgets:
+        QtBind.move(gui, widget, OFFSCREEN_X, y)
+    for widget, x, y in buttons_widgets:
+        QtBind.move(gui, widget, x, y)
+    refresh_job_suit_list()
+
+
+def cbxAnnounceOwnTp_clicked(checked):
+    global announce_own_teleports
+    announce_own_teleports = checked
+    save_announce_settings()
+
+
+def cbxIgnoreSetLeader_clicked(checked):
+    global ignore_setfcontrolleader
+    ignore_setfcontrolleader = bool(checked)
+    save_announce_settings()
+
+
+def get_announce_channel():
+    """Combobox'ta seçili kanalı okur (All/Party/Guild/Union). QtBind'te combobox için
+    onChange callback'i olmadığından, değeri her ihtiyaç anında canlı okuyoruz."""
+    try:
+        value = QtBind.text(gui, cbxAnnounceChannel)
+        return value if value in ANNOUNCE_CHANNELS else 'All'
+    except Exception:
+        return 'All'
+
+
+def save_announce_settings():
+    """Save teleport announcement settings for the current character."""
+    data = {}
+    config_path = getAnnounceConfig()
+    if not config_path:
+        log('Plugin: Character data is not ready; announce settings were not saved yet')
+        return False
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+    data['AnnounceOwnTeleports'] = announce_own_teleports
+    data['AnnounceChannel'] = get_announce_channel()
+    data['IgnoreSetFControlLeader'] = ignore_setfcontrolleader
+    if not os.path.exists(getPath()):
+        os.makedirs(getPath())
+    try:
+        with open(config_path, "w") as f:
+            f.write(json.dumps(data, indent=4, sort_keys=True))
+    except Exception as e:
+        log('Plugin: Error saving announce settings - ' + str(e))
+        return False
+    return True
+
+
+def load_announce_settings():
+    """Load teleport announcement settings for the current character."""
+    global announce_own_teleports, ignore_setfcontrolleader
+    global _last_seen_announce_channel, _announce_settings_loaded_for
+    config_file = getAnnounceConfig()
+    if not config_file:
+        return False
+    saved_channel = 'All'
+    announce_own_teleports = False
+    ignore_setfcontrolleader = True
+    if os.path.exists(config_file):
+        try:
+            with open(config_file, "r") as f:
+                data = json.load(f)
+            announce_own_teleports = bool(data.get("AnnounceOwnTeleports", False))
+            ignore_setfcontrolleader = bool(data.get("IgnoreSetFControlLeader", True))
+            saved_channel = data.get("AnnounceChannel", "All")
+            if saved_channel not in ANNOUNCE_CHANNELS:
+                saved_channel = 'All'
+        except Exception as e:
+            log('Plugin: Error loading announce settings - ' + str(e))
+            return False
+    QtBind.setChecked(gui, cbxAnnounceOwnTp, announce_own_teleports)
+    QtBind.setChecked(gui, cbxIgnoreSetLeader, ignore_setfcontrolleader)
+    QtBind.setText(gui, cbxAnnounceChannel, saved_channel)
+    _last_seen_announce_channel = saved_channel
+    _announce_settings_loaded_for = config_file
+    return True
+
+
+cbxDontShow_checked = True
+lstOpcodesData = []
+
+
+# ______________________________ Methods ______________________________ #
+
+# Return plugin configs path (JSON)
+def getPluginConfig():
+    return get_config_dir() + pName + ".json"
+
+# Load default configs for opcodes
+def loadDefaultOpcodeConfig():
+    global lstOpcodesData
+    lstOpcodesData = []
+
+# Load the list of opcodes with the config file
+def loadOpcodeConfigs():
+    loadDefaultOpcodeConfig()
+    if os.path.exists(getPluginConfig()):
+        data = {}
+        with open(getPluginConfig(), "r") as f:
+            data = json.load(f)
+        if "FilteredOpcodes" in data:
+            global lstOpcodesData
+            lstOpcodesData = data["FilteredOpcodes"]
+        if "DontShow" in data:
+            global cbxDontShow_checked
+            cbxDontShow_checked = data["DontShow"]
+
+# Save all config
+def saveConfigs():
+    data = {}
+    data['DontShow'] = cbxDontShow_checked
+    data['FilteredOpcodes'] = lstOpcodesData
+    with open(getPluginConfig(), "w") as f:
+        f.write(json.dumps(data, indent=4, sort_keys=True))
+
+# Checkbox "Show Client Packets" checked
+def cbxShowClient_checked(checked):
+    global cbxShowClient
+    cbxShowClient = checked
+
+# Checkbox "Show Server Packets" checked
+def cbxShowServer_checked(checked):
+    global cbxShowServer
+    cbxShowServer = checked
+
+# return True if can log/show the packet
+def CanShowPacket(opcode):
+    if opcode in lstOpcodesData:
+        if not cbxDontShow_checked:
+            return True
+    elif cbxDontShow_checked:
+        return True
+    return False
+
+# Inject packet using command-based system
+def inject_packet(cmd_name):
+    if cmd_name not in injection_sets:
+        return
+
+    set_data = injection_sets[cmd_name]
+
+    log("Plugin: Executing command " + cmd_name)
+
+    if "injections" in set_data:
+        total_delay = 0
+        for idx, inj in enumerate(set_data["injections"]):
+            def do_inject(injection_data=inj, part_num=idx+1, cmd=cmd_name):
+                opcode = injection_data.get("opcode", 0x7045)
+                data = injection_data["data"]
+                log("Plugin: Injecting packet (Command: " + cmd + ", Part " + str(part_num) + ") :")
+                log("(Opcode) 0x" + '{:04X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
+                    '{:02X}'.format(x) for x in data)))
+                inject_joymax(opcode, data, False)
+            delay = inj.get("delay", 0)
+            total_delay += delay
+            if total_delay > 0:
+                Timer(total_delay, do_inject).start()
+            else:
+                do_inject()
+    return False
+
+
+def inject(args):
+    argCount = len(args)
+    if argCount < 2:
+        log("Plugin: Incorrect structure to inject packet")
+        return 0
+    opcode = int(args[1], 16)
+    data = bytearray()
+    encrypted = False
+    dataIndex = 2
+    if argCount >= 3:
+        enc = args[2].lower()
+        if enc == 'true' or enc == 'false':
+            encrypted = enc == "true"
+            dataIndex += 1
+    for i in range(dataIndex, argCount):
+        data.append(int(args[i], 16))
+    log("Plugin: Injecting packet" + (' (Encrypted)' if encrypted else '') + " :")
+    log("(Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
+        '{:02X}'.format(x) for x in data)))
+    inject_joymax(opcode, data, encrypted)
+    return 0
+
+
+def btnInjectDH_clicked():
+    strOpcode = QtBind.text(gui, txtOpcodeDH).strip()
+    strData = QtBind.text(gui, txtDataDH).strip().replace(' ', '')
+    if strOpcode and strData:
+        data = bytearray()
+        try:
+            opcode = int(strOpcode, 16)
+        except ValueError:
+            log("Plugin: Error, opcode must be a valid hex string")
+            return
+        strDataLen = len(strData)
+        if strDataLen == 0 or not strDataLen % 2 == 0:
+            log("Plugin: Error, data needs to be a raw of bytes")
+            return
+        for i in range(0, int(strDataLen), 2):
+            data.append(int(strData[i:i + 2], 16))
+        log("Plugin: Injecting DH packet :")
+        log("(Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join('{:02X}'.format(x) for x in data)))
+        inject_joymax(opcode, data, False)
+
+def cbxAutoDH_clicked(checked):
+    global autoInjectEnabledDH
+    autoInjectEnabledDH = checked
+    if checked:
+        auto_inject_dh()
+
+def auto_inject_dh():
+    global autoInjectEnabledDH, autoInjectTimerDH
+    if autoInjectEnabledDH:
+        btnInjectDH_clicked()
+        autoInjectTimerDH = Timer(30.0, auto_inject_dh)
+        autoInjectTimerDH.start()
+
+def handle_training_area_command(player, text):
+    parts = text.split()
+    if len(parts) < 2:
+        log(f"Plugin: !C command from {player} missing area name or ID")
+        return False
+    area_name = " ".join(parts[1:])
+    success = set_training_area(area_name)
+    if success:
+        area_info = get_training_area() or {}
+        radius = area_info.get("radius", "unknown")
+        log(f"Plugin: {player} switched training area to '{area_name}' (radius {radius})")
+        log("Plugin: Starting bot after training area change...")
+        start_bot()
+    else:
+        log(f"Plugin: Failed to change training area to '{area_name}' requested by {player}")
+    return success
+
+def handle_game_command(command_text):
+    handle_command(command_text)
+    return True
+
+def GetItemByExpression(_lambda, start=0, end=0):
+    """Search an item by name or servername through lambda expression and return its information"""
+    inventory = get_inventory()
+    items = inventory['items']
+    if end == 0:
+        end = inventory['size']
+    for slot, item in enumerate(items):
+        if start <= slot and slot <= end:
+            if item:
+                if _lambda(item['name'], item['servername']):
+                    item['slot'] = slot
+                    return item
+    return None
+
+# Gets the NPC unique ID if the specified name is found near
+def GetNPCUniqueID(name):
+    NPCs = get_npcs()
+    if NPCs:
+        name = name.lower()
+        for UniqueID, NPC in NPCs.items():
+            if NPC['name'].lower() == name:
+                return UniqueID
+    return 0
+
+# Finds an empty inventory slot (excluding equip slots 0-12), returns -1 if full
+def GetEmptySlot():
+    items = get_inventory()['items']
+    for slot, item in enumerate(items):
+        if slot >= 13:
+            if not item:
+                return slot
+    return -1
+
+# Injects item movement on inventory (equip/unequip/avatar slots)
+def Inject_InventoryMovement(movementType, slotInitial, slotFinal, logItemName, quantity=0):
+    p = struct.pack('<B', movementType)
+    p += struct.pack('<B', slotInitial)
+    p += struct.pack('<B', slotFinal)
+    p += struct.pack('<H', quantity)
+    log('Plugin: Moving item "' + logItemName + '"...')
+    # CLIENT_INVENTORY_ITEM_MOVEMENT
+    inject_joymax(0x7034, p, False)
+
+# Try to equip item, based on its tid1/tid2/tid3 classification (get_item())
+def EquipItem(item):
+    itemData = get_item(item['model'])
+    if not itemData or itemData['tid1'] != 1:
+        log('Plugin: ' + item['name'] + ' cannot be equipped!')
+        return
+    t = itemData['tid2']
+    # garment, protector, armor, robe, light, heavy
+    if t == 1 or t == 2 or t == 3 or t == 9 or t == 10 or t == 11:
+        t = itemData['tid3']
+        if t == 1:  # head
+            Inject_InventoryMovement(0, item['slot'], 0, item['name'])
+        elif t == 2:  # shoulders
+            Inject_InventoryMovement(0, item['slot'], 2, item['name'])
+        elif t == 3:  # chest
+            Inject_InventoryMovement(0, item['slot'], 1, item['name'])
+        elif t == 4:  # pants
+            Inject_InventoryMovement(0, item['slot'], 4, item['name'])
+        elif t == 5:  # gloves
+            Inject_InventoryMovement(0, item['slot'], 3, item['name'])
+        elif t == 6:  # boots
+            Inject_InventoryMovement(0, item['slot'], 5, item['name'])
+    elif t == 4:  # shields
+        Inject_InventoryMovement(0, item['slot'], 7, item['name'])
+    elif t == 5 or t == 12:  # accessories ch/eu
+        t = itemData['tid3']
+        if t == 1:  # earring
+            Inject_InventoryMovement(0, item['slot'], 9, item['name'])
+        elif t == 2:  # necklace
+            Inject_InventoryMovement(0, item['slot'], 10, item['name'])
+        elif t == 3:  # ring
+            if not GetItemByExpression(lambda n, s: True, 11):
+                Inject_InventoryMovement(0, item['slot'], 12, item['name'])
+            else:
+                Inject_InventoryMovement(0, item['slot'], 11, item['name'])
+    elif t == 6:  # weapon ch/eu
+        Inject_InventoryMovement(0, item['slot'], 6, item['name'])
+    elif t == 7:  # job
+        Inject_InventoryMovement(0, item['slot'], 8, item['name'])
+    elif t == 13:  # avatar
+        t = itemData['tid3']
+        if t == 1:  # hat
+            Inject_InventoryMovement(36, item['slot'], 0, item['name'])
+        elif t == 2:  # dress
+            Inject_InventoryMovement(36, item['slot'], 1, item['name'])
+        elif t == 3:  # accessory
+            Inject_InventoryMovement(36, item['slot'], 2, item['name'])
+        elif t == 4:  # flag
+            Inject_InventoryMovement(36, item['slot'], 3, item['name'])
+    elif t == 14:  # devil spirit
+        Inject_InventoryMovement(36, item['slot'], 4, item['name'])
+
+# Try to unequip item
+def UnequipItem(item):
+    slot = GetEmptySlot()
+    if slot != -1:
+        Inject_InventoryMovement(0, item['slot'], slot, item['name'])
+    else:
+        log('Plugin: Inventory is full, cannot unequip ' + item['name'])
+
+# Get Type ID from item - game-data.md'deki resmi get_item() üzerinden hesaplanıyor,
+# xControl.py'deki sqlite3/vSRO.json tabanlı GetDatabaseConnection() zincirine hiç gerek yok
+def GetTIDFromItem(itemId):
+    itemData = get_item(itemId)
+    if not itemData:
+        return None
+    return itemData['cash_item'] + (3 * 4) + (itemData['tid1'] * 32) + (itemData['tid2'] * 128) + (itemData['tid3'] * 2048)
+
+# Try to use the item specified
+def UseItem(item):
+    tid = GetTIDFromItem(item['model'])
+    if tid is None:
+        log('Plugin: Item data not found for "' + item['name'] + '"')
+        return
+    p = struct.pack('<B', item['slot'])
+    loc = get_locale()
+    if loc == 22:  # vsro
+        p += struct.pack('<H', tid)
+    else:
+        p += struct.pack('<I', tid)
+    log('Plugin: Using item "' + item['name'] + '"...')
+    # CLIENT_INVENTORY_ITEM_USE
+    inject_joymax(0x704C, p, True)
+
+def DismountPet():
+    """Try to dismount any mounted pet, return success"""
+    try:
+        pets = get_pets()
+        if pets:
+            for uid, pet in pets.items():
+                if 'mounted' in pet and pet['mounted']:
+                    p = b'\x00'
+                    p += struct.pack('I', uid)
+                    inject_joymax(0x70CB, p, False)
+                    log(f"Plugin: Sending dismount packet for {pet.get('name', 'unknown')} (UID: {uid})")
+                    return True
+        return False
+    except Exception as e:
+        log(f'Plugin ERROR in DismountPet: {str(e)}')
+        return False
+
+def MountPet(pet_type):
+    """Try to mount a pet by type, return success"""
+    try:
+        pet_type = pet_type.lower()
+        if pet_type == 'horse':
+            items = get_inventory()['items']
+            for slot, item in enumerate(items):
+                if item:
+                    sn = item['servername']
+                    if 'ITEM_COS' in sn and 'SCROLL' in sn:
+                        log(f"Plugin: Using mount item at slot {slot}: {sn}")
+                        packet = struct.pack('B', slot)
+                        packet += struct.pack('H', 4588 + (1 if sn.endswith('_SCROLL') else 0))
+                        inject_joymax(0x704C, packet, True)
+                        return True
+            log('Plugin: Mount scroll not found in inventory')
+            return False
+        pets = get_pets()
+        if pets:
+            for uid, pet in pets.items():
+                if pet['type'] == pet_type:
+                    p = b'\x01'
+                    p += struct.pack('I', uid)
+                    inject_joymax(0x70CB, p, False)
+                    return True
+        return False
+    except Exception as e:
+        log(f'Plugin ERROR in MountPet: {str(e)}')
+        return False
+
+
+# ______________________________ xControlAttack Methods ______________________________ #
+
+def GetDistance(ax, ay, bx, by):
+    return ((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5
+
+# Return True if the player is in the party
+def party_player(player):
+    players = get_party()
+    if players:
+        for p in players:
+            if players[p]['name'] == player:
+                return True
+    return False
+
+# Return point (dict with 'x'/'y') if player is in the party and near, otherwise None
+def near_follow_player(player):
+    # Prefer party data because it includes a reliable visibility/player_id flag.
+    players = get_party()
+    if players:
+        for p in players:
+            if players[p]['name'].lower() == player.lower() and players[p]['player_id'] > 0:
+                return players[p]
+
+    # FL is also allowed for non-party players when phBot exposes nearby players.
+    players = get_players() or {}
+    for player_data in players.values():
+        if player_data.get('name', '').lower() == player.lower():
+            return player_data
+    return None
+
+# Start following a party player using distance. Return success
+def start_follow(player, distance):
+    global followActivated, followPlayer, followDistance
+    followPlayer = player
+    followDistance = distance
+    followActivated = True
+    return True
+
+# Stop follow player, return whether it was active
+def stop_follow():
+    global followActivated, followPlayer, followDistance
+    result = followActivated
+    followActivated = False
+    followPlayer = ""
+    followDistance = 0
+    return result
+
+def get_region_from_coords(x, y):
+    if x < 0 and y < 0:
+        return 'Jangan'
+    elif x >= 0 and y < 0:
+        return 'Donwhang'
+    elif x >= 0 and y >= 0:
+        return 'Hotan'
+    elif x < 0 and y >= 0:
+        return 'Samarkand'
+    return None
+
+def find_nearby_monsters(max_distance=30):
+    monsters = get_monsters()
+    nearby = []
+    if monsters:
+        current_pos = get_position()
+        for uid, monster in monsters.items():
+            if monster['hp'] > 0:
+                distance = GetDistance(current_pos['x'], current_pos['y'], monster['x'], monster['y'])
+                if distance <= max_distance:
+                    nearby.append({'uid': uid, 'distance': distance, 'monster': monster})
+    nearby.sort(key=lambda x: x['distance'])
+    return nearby
+
+def attack_monster(uid):
+    log('Plugin: Attacking monster UID: ' + str(uid))
+    inject_joymax(0x7075, struct.pack('<I', uid), False)
+
+def move_and_attack(x, y, z=0):
+    global attackMode, targetX, targetY, targetZ
+    targetX = x
+    targetY = y
+    targetZ = z
+    attackMode = True
+    log('Plugin: Walking to (X:%.1f,Y:%.1f)' % (x, y))
+    current_pos = get_position()
+    script = generate_script(current_pos['region'], x, y, z)
+    if script:
+        script_str = '\n'.join(script)
+        start_script(script_str)
+    else:
+        log('Plugin: Could not generate path, using direct movement')
+        move_to(x, y, z)
+
+
+def handle_tp_command(player, text):
+    """'TP <kaynak NPC adı> <ham hedef ID>' formatını işler - RSBot portundaki HandleTp ile
+    aynı mantık: önce takipçinin kaynak NPC'ye gerçekten yakın olup olmadığı kontrol edilir,
+    sadece o zaman ışınlanma isteği gönderilir."""
+    rest = text[2:].strip()
+    if not rest:
+        log("Plugin: TP komutu hatalı biçimde, atlandı.")
+        return
+
+    last_space = rest.rfind(' ')
+    if last_space <= 0:
+        log("Plugin: TP komutu hatalı biçimde, atlandı.")
+        return
+
+    source_name = rest[:last_space].strip()
+    dest_text = rest[last_space + 1:].strip()
+
+    try:
+        destination_id = int(dest_text)
+    except ValueError:
+        log(f"Plugin: TP komutu hedef kodu geçersiz: '{dest_text}'")
+        return
+
+    npcs = get_npcs() or {}
+    current_pos = get_position()
+
+    nearest_uid = None
+    nearest_distance = None
+    for uid, npc in npcs.items():
+        if npc.get('name') == source_name or npc.get('servername') == source_name:
+            distance = GetDistance(current_pos['x'], current_pos['y'], npc['x'], npc['y'])
+            if nearest_distance is None or distance < nearest_distance:
+                nearest_distance = distance
+                nearest_uid = uid
+
+    if nearest_uid is None:
+        log(f"Plugin: TP: '{source_name}' isimli teleporter yakınlarda bulunamadı, komut atlandı (Leader: {player}).")
+        return
+
+    if nearest_distance > TELEPORT_PROXIMITY_METERS:
+        log(f"Plugin: TP: teleporter'a yakın değilim ({nearest_distance:.1f}m > {TELEPORT_PROXIMITY_METERS}m), komut atlandı.")
+        return
+
+    log(f"Plugin: TP: Selecting teleporter [{source_name}] (Leader: {player})")
+    inject_joymax(0x7045, struct.pack('<I', nearest_uid), False)
+    Timer(2.0, inject_joymax, (0x705A, struct.pack('<IBI', nearest_uid, 2, destination_id), False)).start()
+    Timer(2.0, log, (f"Plugin: TP: Işınlanıyor -> {source_name}",)).start()
+
+
+def handle_runtime_tp_command(player, text):
+    """'TPR <source>' finds the nearby runtime portal and replays its type-3 teleport flow."""
+    global _runtime_tp_command_until, _suppress_runtime_announce_until
+
+    source_name = text[4:].strip()
+    if not source_name:
+        log(f"Plugin: TPR: Portal name is required (Leader: {player})")
+        return
+
+    now = time.time()
+    if _runtime_tp_command_until > now:
+        log(f"Plugin: TPR: A runtime portal operation is already running (Leader: {player})")
+        return
+
+    npcs = get_npcs() or {}
+    current_pos = get_position()
+    nearest_uid = None
+    nearest_distance = None
+
+    for uid, npc in npcs.items():
+        if npc.get('servername') != source_name and npc.get('name') != source_name:
+            continue
+        if 'x' not in npc or 'y' not in npc:
+            continue
+        distance = GetDistance(current_pos['x'], current_pos['y'], npc['x'], npc['y'])
+        if nearest_distance is None or distance < nearest_distance:
+            nearest_uid = uid
+            nearest_distance = distance
+
+    if nearest_uid is None:
+        log(f"Plugin: TPR: Runtime portal '{source_name}' was not found nearby (Leader: {player})")
+        return
+
+    if nearest_distance > TELEPORT_PROXIMITY_METERS:
+        log(f"Plugin: TPR: Portal is too far away ({nearest_distance:.1f}m > {TELEPORT_PROXIMITY_METERS}m)")
+        return
+
+    # Suppress the outgoing type-3 packet generated below so followers do not
+    # announce TPR again and create a command loop.
+    _runtime_tp_command_until = now + 15.0
+    _suppress_runtime_announce_until = now + 10.0
+    uid_data = struct.pack('<I', nearest_uid)
+    runtime_data = struct.pack('<IBB', nearest_uid, 3, 0)
+
+    log(f"Plugin: TPR: Selecting runtime portal [{source_name}] (Leader: {player})")
+    inject_joymax(0x7045, uid_data, False)
+    Timer(1.5, inject_joymax, (0x704B, uid_data, False)).start()
+    Timer(1.7, inject_joymax, (0x705A, runtime_data, False)).start()
+    Timer(1.7, log, (f"Plugin: TPR: Teleporting through [{source_name}]",)).start()
+
+
+def handle_reverse_command(player, text):
+    """'REVERSE return|death|player <isim>|zone <isim>' formatını işler - xControl.py'deki
+    REVERSE komutuyla aynı mantık, inventory.md'deki reverse_return(type, name) üzerine kurulu:
+    0=son dönüş noktası, 1=son ölüm noktası, 2=parti üyesi, 3=belirli bir konum/bölge."""
+    rest = text[8:].strip()
+    if not rest:
+        log("Plugin: REVERSE komutu hatalı biçimde, atlandı.")
+        return
+
+    parts = rest.split(' ', 1)
+    sub_type = parts[0].lower()
+
+    if sub_type == 'return':
+        if reverse_return(0, ''):
+            log(f"Plugin: REVERSE: Using reverse to the last return scroll location (Leader: {player})")
+        else:
+            log(f"Plugin: REVERSE: No reverse return scroll available (Leader: {player})")
+    elif sub_type == 'death':
+        if reverse_return(1, ''):
+            log(f"Plugin: REVERSE: Using reverse to the last death location (Leader: {player})")
+        else:
+            log(f"Plugin: REVERSE: No reverse death scroll available (Leader: {player})")
+    elif sub_type == 'player':
+        if len(parts) < 2 or not parts[1].strip():
+            log(f"Plugin: REVERSE player komutu için isim gerekli (Leader: {player}).")
+            return
+        target_name = parts[1].strip()
+        if reverse_return(2, target_name):
+            log(f"Plugin: REVERSE: Using reverse to player \"{target_name}\" location (Leader: {player})")
+        else:
+            log(f"Plugin: REVERSE: No reverse scroll available for player \"{target_name}\" (Leader: {player})")
+    elif sub_type == 'zone':
+        if len(parts) < 2 or not parts[1].strip():
+            log(f"Plugin: REVERSE zone komutu için bölge adı gerekli (Leader: {player}).")
+            return
+        zone_name = parts[1].strip()
+        if reverse_return(3, zone_name):
+            log(f"Plugin: REVERSE: Using reverse to zone \"{zone_name}\" location (Leader: {player})")
+        else:
+            log(f"Plugin: REVERSE: No reverse scroll available for zone \"{zone_name}\" (Leader: {player})")
+    else:
+        log(f"Plugin: REVERSE komutu bilinmeyen tip: '{sub_type}' (return/death/player/zone bekleniyor) (Leader: {player}).")
+
+
+def handle_setpos_command(player, text):
+    """'SP' ya da 'SP X Y Region? Z?' - xControl.py'deki SETPOS ile aynı mantık: argümansız
+    çağrılırsa training konumu karakterin o anki konumuna ayarlanır."""
+    rest = text[2:].strip()
+    if not rest:
+        p = get_position()
+        set_training_position(p['region'], p['x'], p['y'], p['z'])
+        log(f"Plugin: SP: Training area set to current position (X:{p['x']:.1f},Y:{p['y']:.1f}) (Leader: {player})")
+        return
+    try:
+        parts = rest.split()
+        x = float(parts[0])
+        y = float(parts[1])
+        region = int(parts[2]) if len(parts) >= 3 else 0
+        z = float(parts[3]) if len(parts) >= 4 else 0
+        set_training_position(region, x, y, z)
+        log(f"Plugin: SP: Training area set to (X:{x:.1f},Y:{y:.1f}) (Leader: {player})")
+    except (IndexError, ValueError):
+        log(f"Plugin: SP: Wrong training area coordinates! (Leader: {player})")
+
+
+def handle_setradius_command(player, text):
+    """'SR' ya da 'SR Radius' - xControl.py'deki SETRADIUS ile aynı mantık: argümansız
+    çağrılırsa yarıçap varsayılan olarak 35 metreye ayarlanır."""
+    rest = text[2:].strip()
+    if not rest:
+        radius = 35
+        set_training_radius(radius)
+        log(f"Plugin: SR: Training radius reset to {radius} m. (Leader: {player})")
+        return
+    try:
+        radius = abs(int(float(rest.split()[0])))
+        set_training_radius(radius)
+        log(f"Plugin: SR: Training radius set to {radius} m. (Leader: {player})")
+    except (IndexError, ValueError):
+        log(f"Plugin: SR: Wrong training radius value! (Leader: {player})")
+
+
+def handle_follow_command(player, text):
+    """'FL' ya da 'FL Player Distance?' - xControl.py'deki FOLLOW ile aynı mantık: argümansız
+    çağrılırsa lideri 10m mesafeden takip eder. Gerçek hareket event_loop() içinde yapılır."""
+    rest = text[2:].strip()
+    char_name = player
+    distance = 10
+    if rest:
+        parts = rest.split()
+        try:
+            if len(parts) >= 1:
+                char_name = parts[0]
+            if len(parts) >= 2:
+                distance = float(parts[1])
+        except ValueError:
+            log(f"Plugin: FL: Follow distance incorrect (Leader: {player})")
+            return
+    start_follow(char_name, distance)
+    log(f"Plugin: FL: Starting to follow [{char_name}] using [{distance}] as distance (Leader: {player})")
+
+
+def handle_trace_command(player, text):
+    """'T Player' - bare 'T' zaten leader_commands setinde lideri izliyor; bu, xControl.py'deki
+    TRACE #Player? argümanının karşılığı (başka bir oyuncuyu izlemek için)."""
+    target = text[2:].strip()
+    if not target:
+        target = player
+    if start_trace(target):
+        log(f"Plugin: T: Starting trace to [{target}] (Leader: {player})")
+
+
+def handle_equip_command(player, text):
+    """'EQ ItemName' - xControl.py'deki EQUIP ile aynı mantık: envanterden (slot 13+) ismi
+    eşleşen ilk item bulunup kuşanılır."""
+    item_name = text[3:].strip()
+    if not item_name:
+        log(f"Plugin: EQ komutu için item adı gerekli (Leader: {player}).")
+        return
+    item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
+    if item:
+        EquipItem(item)
+    else:
+        log(f"Plugin: EQ: '{item_name}' isimli item envanterde bulunamadı (Leader: {player}).")
+
+
+def handle_unequip_command(player, text):
+    """'UQ ItemName' - xControl.py'deki UNEQUIP ile aynı mantık: kuşanılmış eşyalar arasında
+    (slot 0-12) ismi eşleşen ilk item bulunup çıkarılır."""
+    item_name = text[3:].strip()
+    if not item_name:
+        log(f"Plugin: UQ komutu için item adı gerekli (Leader: {player}).")
+        return
+    item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 0, 12)
+    if item:
+        UnequipItem(item)
+    else:
+        log(f"Plugin: UQ: '{item_name}' isimli kuşanılmış item bulunamadı (Leader: {player}).")
+
+
+def handle_use_command(player, text):
+    """'USE ItemName' - xControl.py'deki USE ile aynı mantık: envanterden (slot 13+) ismi
+    eşleşen ilk item bulunup kullanılır."""
+    item_name = text[4:].strip()
+    if not item_name:
+        log(f"Plugin: USE komutu için item adı gerekli (Leader: {player}).")
+        return
+    item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
+    if item:
+        UseItem(item)
+    else:
+        log(f"Plugin: USE: '{item_name}' isimli item envanterde bulunamadı (Leader: {player}).")
+
+
+def handle_recall_command(player, text):
+    """'RC Town' - xControl.py'deki RECALL ile aynı mantık: yakındaki şehir portalı NPC'sine
+    recall işareti koyar."""
+    town = text[3:].strip()
+    if not town:
+        log(f"Plugin: RC komutu için şehir adı gerekli (Leader: {player}).")
+        return
+    npc_uid = GetNPCUniqueID(town)
+    if npc_uid > 0:
+        log(f"Plugin: RC: Designating recall to \"{town.title()}\"... (Leader: {player})")
+        inject_joymax(0x7059, struct.pack('I', npc_uid), False)
+    else:
+        log(f"Plugin: RC: '{town}' isimli NPC yakınlarda bulunamadı (Leader: {player}).")
+
+
+# ______________________________ xControl.py'den Port Edilen Ek Komutlar ______________________________ #
+
+def handle_chat_send_command(player, text):
+    """'CHAT Type Message' - xControl.py'deki handleChatCommand() ile aynı mantık: All/Private/
+    Party/Guild/Union/Note/Stall/Global kanallarından birine serbest mesaj gönderir."""
+    rest = text[4:].strip()
+    args = rest.split(' ', 1)
+    if len(args) != 2 or not args[0] or not args[1]:
+        log(f"Plugin: CHAT komutu hatalı biçimde, atlandı (Leader: {player}).")
+        return
+
+    t = args[0].lower()
+    message = args[1]
+
+    if t in ('private', 'note'):
+        args_extra = message.split(' ', 1)
+        if len(args_extra) != 2 or not args_extra[0] or not args_extra[1]:
+            log(f"Plugin: CHAT {t} komutu için hedef ve mesaj gerekli (Leader: {player}).")
+            return
+        target, message = args_extra[0], args_extra[1]
+
+    sent = False
+    if t == 'all':
+        sent = phBotChat.All(message)
+    elif t == 'private':
+        sent = phBotChat.Private(target, message)
+    elif t == 'party':
+        sent = phBotChat.Party(message)
+    elif t == 'guild':
+        sent = phBotChat.Guild(message)
+    elif t == 'union':
+        sent = phBotChat.Union(message)
+    elif t == 'note':
+        sent = phBotChat.Note(target, message)
+    elif t == 'stall':
+        sent = phBotChat.Stall(message)
+    elif t == 'global':
+        sent = phBotChat.Global(message)
+    else:
+        log(f"Plugin: CHAT bilinmeyen kanal tipi: '{t}' (Leader: {player}).")
+        return
+
+    if sent:
+        log(f"Plugin: CHAT: Mesaj gönderildi ({t}) (Leader: {player})")
+    else:
+        log(f"Plugin: CHAT: Mesaj gönderilemedi ({t}) (Leader: {player})")
+
+
+def handle_inject_command(player, text):
+    """'INJECT Opcode Encrypted? Data?' - xControl.py'deki INJECT komutuyla aynı mantık,
+    zaten mevcut olan inject() fonksiyonunu chat üzerinden (leader-only) tetikler."""
+    rest = text[7:].strip()
+    if not rest:
+        log(f"Plugin: INJECT komutu hatalı biçimde, atlandı (Leader: {player}).")
+        return
+    args = ['INJECT'] + rest.split()
+    try:
+        inject(args)
+    except (ValueError, IndexError) as e:
+        log(f"Plugin: INJECT komutu hatalı: {e} (Leader: {player}).")
+
+
+def handle_moveon_command(player, text):
+    """'MOVEON Radius?' - xControl.py'deki randomMovement() ile aynı mantık: mevcut konumdan
+    rastgele bir yönde/mesafede (varsayılan 10m yarıçap) hareket eder."""
+    rest = text[6:].strip()
+    radius = 10
+    if rest:
+        try:
+            radius = abs(int(float(rest.split()[0])))
+        except (IndexError, ValueError):
+            log(f"Plugin: MOVEON yarıçap değeri hatalı (Leader: {player}).")
+            return
+    p_x = random.uniform(-radius, radius)
+    p_y = random.uniform(-radius, radius)
+    p = get_position()
+    dest_x = p_x + p['x']
+    dest_y = p_y + p['y']
+    move_to(dest_x, dest_y, p['z'])
+    log(f"Plugin: MOVEON: Rastgele hareket (X:{dest_x:.1f},Y:{dest_y:.1f}) (Leader: {player})")
+
+
+def handle_setscript_command(player, text):
+    """'SETSCRIPT Path?' - xControl.py'deki SETSCRIPT ile aynı mantık: training area script
+    yolunu değiştirir, argümansız çağrılırsa sıfırlar."""
+    rest = text[9:].strip()
+    if not rest:
+        set_training_script('')
+        log(f"Plugin: SETSCRIPT: Training script sıfırlandı (Leader: {player})")
+        return
+    set_training_script(rest)
+    log(f"Plugin: SETSCRIPT: Training script '{rest}' olarak ayarlandı (Leader: {player})")
+
+
+def handle_fsh_command(player, text):
+    """Run an FScriptHelper recording through phBot's walk-script command bridge."""
+    rest = text[3:].strip()
+    if not rest:
+        log("Plugin: FSH: Kullanım: FSH [true|false] kayıt_adı")
+        return
+
+    stop_during = True
+    parts = rest.split(None, 1)
+    first = parts[0].lower()
+    if first in ('true', 'false'):
+        if len(parts) < 2 or not parts[1].strip():
+            log("Plugin: FSH: Kayıt adı gerekli. Kullanım: FSH [true|false] kayıt_adı")
+            return
+        stop_during = first == 'true'
+        command_name = parts[1].strip()
+    else:
+        command_name = rest
+
+    if ',' in command_name or '\r' in command_name or '\n' in command_name:
+        log(f"Plugin: FSH: Geçersiz kayıt adı '{command_name}'; virgül veya satır sonu kullanılamaz.")
+        return
+
+    stop_text = 'true' if stop_during else 'false'
+    script_line = 'FSH_NPC,%s,%s' % (command_name, stop_text)
+    log(f"Plugin: FSH requested by Leader [{player}]: {command_name} (stop_bot={stop_text})")
+    start_script(script_line)
+
+
+def handle_profile_command(player, text):
+    """Handle SETPROFILE (and legacy PROFILE) using phBot's set_profile API."""
+    if text.upper().startswith('SETPROFILE'):
+        rest = text[10:].strip()
+    else:
+        rest = text[7:].strip()
+    profile_name = rest if rest else 'Default'
+    if set_profile(profile_name):
+        log(f"Plugin: SETPROFILE: '{profile_name}' profiline geçildi (Leader: {player})")
+    else:
+        log(f"Plugin: SETPROFILE: '{profile_name}' profiline geçilemedi (Leader: {player}).")
+
+
+def start_item_storage_claim(player):
+    """Start the asynchronous Item Storage list -> claim-all flow."""
+    global tis_active, tis_claim_pending, tis_item_count, tis_deadline
+
+    if tis_active or tis_claim_pending:
+        log(f"Plugin: TIS: An Item Storage operation is already running (Leader: {player})")
+        return
+
+    tis_active = True
+    tis_claim_pending = False
+    tis_item_count = 0
+    tis_deadline = time.time() + 15.0
+    log(f"Plugin: TIS: Checking Item Storage (Leader: {player})")
+    inject_joymax(0x7557, struct.pack('<B', 1), False)
+
+
+def handle_item_storage_packet(opcode, data):
+    """Handle Item Storage list/claim replies. Returns True when consumed by TIS."""
+    global tis_active, tis_claim_pending, tis_item_count, tis_deadline
+
+    if opcode == 0xB557 and tis_active:
+        if len(data) < 4:
+            log("Plugin: TIS: Invalid Item Storage list response; operation cancelled")
+            tis_active = False
+            tis_deadline = 0.0
+            return True
+
+        if data[0] != 1:
+            log(f"Plugin: TIS: Item Storage list request failed (status: {data[0]})")
+            tis_active = False
+            tis_deadline = 0.0
+            return True
+
+        page_count = data[1]
+        current_page = data[2]
+        page_item_count = data[3]
+        tis_item_count += page_item_count
+        tis_deadline = time.time() + 15.0
+        log(f"Plugin: TIS: Page {current_page}/{page_count}, items on page: {page_item_count}")
+
+        if current_page < page_count:
+            Timer(1.0, inject_joymax, (0x7557, struct.pack('<B', current_page + 1), False)).start()
+            return True
+
+        tis_active = False
+        if tis_item_count == 0:
+            tis_deadline = 0.0
+            log("Plugin: TIS: Item Storage is empty; nothing to claim")
+            return True
+
+        tis_claim_pending = True
+        tis_deadline = time.time() + 15.0
+        log(f"Plugin: TIS: List complete ({tis_item_count} items); sending Claim All")
+        inject_joymax(0x7558, b'\x00\x00\x00\x00\x00\x00\x00\x00', False)
+        return True
+
+    if opcode == 0xB558 and tis_claim_pending:
+        tis_claim_pending = False
+        tis_deadline = 0.0
+        if not data:
+            log("Plugin: TIS: Empty Claim All response received")
+        elif data[0] == 2:
+            log("Plugin: TIS: Claim All failed; inventory may be full")
+        else:
+            log(f"Plugin: TIS: Claim All response received (status: {data[0]})")
+        return True
+
+    return False
+
+
+# ______________________________ Events ______________________________ #
+
+def handle_chat(t, player, msg):
+    if not msg:
+        return False
+
+    if t == 11:
+        msg = msg.split(': ', 1)[1]
+
+    text = msg.strip()
+    msg_upper = text.upper()
+
+    # Allow party/guild members to register themselves as an FControl leader.
+    if t in (CHAT_PARTY, CHAT_GUILD) and msg_upper == "SETFCONTROLLEADER":
+        if ignore_setfcontrolleader:
+            log(f"Plugin: SETFCONTROLLEADER ignored because the command is disabled (Sender: {player})")
+            return True
+        if player:
+            if is_own_character(player):
+                log(f"Plugin: SETFControlLeader ignored; [{player}] is this character")
+            elif add_chat_leader(player):
+                log(f"Plugin: SETFControlLeader accepted from [{player}]")
+            else:
+                log(f"Plugin: SETFControlLeader ignored; [{player}] is already a leader or could not be saved")
+        return True
+
+    is_leader = lstLeadersData and isLeader(player)
+
+    if msg_upper.startswith("TPR"):
+        log(f"Plugin: TPR chat received | channel={t} | sender={player} | authorized={bool(is_leader)} | message={text}")
+
+    # Handle !c command
+    if text.lower().startswith("!c"):
+        if not is_leader:
+            return True
+        return handle_training_area_command(player, text)
+
+    # Handle other leader commands
+    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS"}
+    if msg_upper in leader_commands:
+        if not is_leader:
+            return True
+        if msg_upper == "DS":
+            log("Plugin: Attempting dismount from Leader [" + str(player) + "]")
+            if DismountPet():
+                log("Plugin: Sent dismount command for mounted pet")
+            else:
+                log("Plugin: No mounted pet found to dismount")
+            return True
+        elif msg_upper == "M":
+            log("Plugin: Mounting pet from Leader [" + str(player) + "]")
+            pet_type = "transport"
+            if len(text) > 1:
+                parts = text.split()
+                if len(parts) > 1:
+                    pet_type = parts[1].lower()
+            if MountPet(pet_type):
+                log("Plugin: Mounted pet [" + pet_type + "]")
+            else:
+                log("Plugin: Could not mount pet [" + pet_type + "]")
+            return True
+        elif msg_upper == "D":
+            log("Plugin: Dismounting pet from Leader [" + str(player) + "]")
+            if DismountPet():
+                log("Plugin: Dismounted pet")
+            else:
+                log("Plugin: No mounted pet to dismount")
+            return True
+        elif msg_upper == "T":
+            log("Plugin: Start trace from Leader [" + str(player) + "]")
+            start_trace(player)
+        elif msg_upper == "SIT":
+            log("Plugin: Sit/Stand from Leader [" + str(player) + "]")
+            inject_joymax(0x704F, b'\x04', False)
+        elif msg_upper == "N":
+            log("Plugin: Stop trace from Leader [" + str(player) + "]")
+            stop_trace()
+        elif msg_upper == "S":
+            log("Plugin: Start bot from Leader [" + str(player) + "]")
+            start_bot()
+        elif msg_upper == "SS":
+            log("Plugin: Stop bot from Leader [" + str(player) + "]")
+            stop_bot()
+        elif msg_upper == "Q1":
+            _leader_teleport_sequence("Q1", Q1_ROUTES)
+        elif msg_upper == "Q2":
+            _leader_teleport_sequence("Q2", Q2_ROUTES)
+        elif msg_upper == "Q3":
+            _leader_teleport_sequence("Q3", Q3_ROUTES)
+        elif msg_upper == "RE":
+            log("Plugin: Return scroll from Leader [" + str(player) + "]")
+            character = get_character_data()
+            if character['hp'] == 0:
+                log('Plugin: Resurrecting at town...')
+                inject_joymax(0x3053, b'\x01', False)
+            else:
+                log('Plugin: Using return scroll...')
+                use_return_scroll()
+        elif msg_upper == "COME":
+            log("Plugin: COME command from Leader [" + str(player) + "] - using reverse return scroll")
+            if reverse_return(2, player):
+                log("Plugin: Reverse return scroll used, returning to Leader [" + str(player) + "]")
+            else:
+                log("Plugin: No reverse return scroll available for Leader [" + str(player) + "]")
+        elif msg_upper == "NF":
+            if stop_follow():
+                log(f"Plugin: NF: Following stopped (Leader: {player})")
+            else:
+                log(f"Plugin: NF: Zaten takip edilmiyordu (Leader: {player})")
+        elif msg_upper == "ZK":
+            log(f"Plugin: ZK: Using Berserker mode (Leader: {player})")
+            inject_joymax(0x70A7, b'\x01', False)
+        elif msg_upper == "DC":
+            log(f"Plugin: DC: Disconnecting... (Leader: {player})")
+            disconnect()
+        elif msg_upper == "LP":
+            if get_party():
+                log(f"Plugin: LP: Leaving the party... (Leader: {player})")
+                inject_joymax(0x7061, b'', False)
+            else:
+                log(f"Plugin: LP: Not in a party (Leader: {player})")
+        elif msg_upper == "TIS":
+            start_item_storage_claim(player)
+        return True
+
+    if is_leader and msg_upper.startswith("TP "):
+        handle_tp_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("TPR "):
+        handle_runtime_tp_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("REVERSE "):
+        handle_reverse_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("SP"):
+        handle_setpos_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("SR"):
+        handle_setradius_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("FL"):
+        handle_follow_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("T "):
+        handle_trace_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("EQ "):
+        handle_equip_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("UQ "):
+        handle_unequip_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("USE "):
+        handle_use_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("RC "):
+        handle_recall_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("CHAT "):
+        handle_chat_send_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("INJECT "):
+        handle_inject_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("MOVEON"):
+        handle_moveon_command(player, text)
+        return True
+
+    if is_leader and msg_upper.startswith("SETSCRIPT"):
+        handle_setscript_command(player, text)
+        return True
+
+    if is_leader and (msg_upper == "FSH" or msg_upper.startswith("FSH ")):
+        handle_fsh_command(player, text)
+        return True
+
+    if is_leader and (msg_upper == "SETPROFILE" or msg_upper.startswith("SETPROFILE ")):
+        handle_profile_command(player, text)
+        return True
+
+    if is_leader and (msg_upper == "PROFILE" or msg_upper.startswith("PROFILE ")):
+        handle_profile_command(player, text)
+        return True
+
+    # Handle MOVEATTACK / GETPOS / MOVE commands (leaders only)
+    if is_leader or t == 100:
+        msg_stripped = text.rstrip()
+        if msg_stripped.startswith("MOVEATTACK"):
+            try:
+                parts = msg_stripped[10:].split()
+                if len(parts) >= 2:
+                    x = float(parts[0])
+                    y = float(parts[1])
+                    z = float(parts[2]) if len(parts) >= 3 else 0
+                    move_and_attack(x, y, z)
+                else:
+                    log("Plugin: Usage: MOVEATTACK X Y [Z]")
+            except Exception as e:
+                log("Plugin: Invalid coordinates! Error: " + str(e))
+            return True
+        elif msg_stripped == "GETPOS":
+            pos = get_position()
+            phBotChat.Private(player, 'My position is (X:%.1f,Y:%.1f,Z:%.1f,Region:%d)' % (pos['x'], pos['y'], pos['z'], pos['region']))
+            return True
+        elif msg_stripped.startswith("MOVE"):
+            try:
+                parts = msg_stripped[4:].split()
+                if len(parts) >= 2:
+                    x = float(parts[0])
+                    y = float(parts[1])
+                    z = float(parts[2]) if len(parts) >= 3 else 0
+                    log('Plugin: Walking to (X:%.1f,Y:%.1f)' % (x, y))
+                    current_pos = get_position()
+                    script = generate_script(current_pos['region'], x, y, z)
+                    if script:
+                        start_script('\n'.join(script))
+                    else:
+                        log('Plugin: Could not generate path, using direct movement')
+                        move_to(x, y, z)
+                else:
+                    log("Plugin: Usage: MOVE X Y [Z]")
+            except Exception as e:
+                log("Plugin: Invalid coordinates! Error: " + str(e))
+            return True
+
+    return False
+
+
+def handle_silkroad(opcode, data):
+    if cbxShowClient:
+        if CanShowPacket(opcode):
+            log("Client: (Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
+                '{:02X}'.format(x) for x in data)))
+
+    if opcode == 0x7045 and announce_own_teleports:
+        try:
+            _capture_selected_teleporter(data)
+        except Exception as e:
+            log(f"Plugin: TP kaynak önbelleği hatası: {e}")
+
+    if opcode == 0x705A and announce_own_teleports:
+        try:
+            _capture_own_teleport_request(data)
+        except Exception as e:
+            log(f"Plugin: TP duyuru yakalama hatası: {e}")
+
+    return True
+
+
+def _capture_selected_teleporter(data):
+    """Cache the selected NPC before a runtime portal disappears during scene transition."""
+    global _last_selected_tp_uid, _last_selected_tp_source, _last_selected_tp_at
+
+    if len(data) < 4:
+        return
+
+    uid = struct.unpack_from('<I', data, 0)[0]
+    npc = (get_npcs() or {}).get(uid)
+    if not npc:
+        return
+
+    source_name = npc.get('servername') or npc.get('name')
+    if not source_name:
+        return
+
+    _last_selected_tp_uid = uid
+    _last_selected_tp_source = source_name
+    _last_selected_tp_at = time.time()
+
+
+def _capture_own_teleport_request(data):
+    """Capture standard type-2 and six-byte runtime-portal type-3 teleport requests."""
+    global _pending_tp_source, _pending_tp_destination_id, _pending_tp_armed_at
+    global _pending_tp_is_runtime, _suppress_runtime_announce_until
+
+    if len(data) < 5:
+        return
+
+    teleporter_uid = struct.unpack_from('<I', data, 0)[0]
+    teleport_type = data[4]
+
+    if teleport_type == 3:
+        if len(data) < 6:
+            return
+        if time.time() <= _suppress_runtime_announce_until:
+            _suppress_runtime_announce_until = 0.0
+            log("Plugin: TPR: Automatic follower teleport captured; repeat announcement suppressed")
+            return
+        destination_id = None
+        is_runtime = True
+    elif teleport_type == 2:
+        if len(data) < 9:
+            return
+        destination_id = struct.unpack_from('<I', data, 5)[0]
+        is_runtime = False
+    else:
+        return
+
+    npcs = get_npcs() or {}
+    npc = npcs.get(teleporter_uid)
+    source_name = (npc.get('servername') or npc.get('name')) if npc else None
+
+    # Runtime portals can disappear from get_npcs() as soon as teleport begins.
+    # Fall back to the matching NPC cached from the immediately preceding 0x7045.
+    if (not source_name and is_runtime and
+            _last_selected_tp_uid == teleporter_uid and
+            (time.time() - _last_selected_tp_at) <= 10.0):
+        source_name = _last_selected_tp_source
+
+    if not source_name:
+        log(f"Plugin: TP duyurusu atlandı; UID [{teleporter_uid}] için kaynak adı bulunamadı")
+        return
+
+    _pending_tp_source = source_name
+    _pending_tp_destination_id = destination_id
+    _pending_tp_armed_at = time.time()
+    _pending_tp_is_runtime = is_runtime
+
+    if is_runtime:
+        log(f"Plugin: Runtime portal yakalandı -> Kaynak: '{source_name}'. "
+            f"Duyuru, ışınlanma onaylandığında ({get_announce_channel()}) gönderilecek.")
+    else:
+        log(f"Plugin: Işınlanma yakalandı -> Kaynak: '{source_name}' | Hedef kod: {destination_id}. "
+            f"Duyuru, ışınlanma onaylandığında ({get_announce_channel()}) gönderilecek.")
+
+
+def handle_joymax(opcode, data):
+    handle_item_storage_packet(opcode, data)
+    if cbxShowServer:
+        if CanShowPacket(opcode):
+            log("Server: (Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
+                '{:02X}'.format(x) for x in data)))
+    return True
+
+
+def format_bytes(value):
+    if not value:
+        return ""
+    return ' '.join('{:02X}'.format(x) for x in value)
+
+
+def refresh_display_fields():
+    pass
+
+
+# Monitor game commands
+def handle_command(command_text):
+    command_text = command_text.strip().upper()
+    if command_text in injection_sets:
+        log("Plugin: Executing command " + command_text + "...")
+        inject_packet(command_text)
+    return True
+
+
+# Called every 500ms
+def event_loop():
+    global attackMode, targetX, targetY, targetZ, _last_seen_announce_channel
+    global tis_active, tis_claim_pending, tis_deadline
+    global _runtime_tp_command_until, _suppress_runtime_announce_until
+    global _announce_settings_loaded_for
+    global _leaders_loaded_for
+
+    if (tis_active or tis_claim_pending) and tis_deadline and time.time() > tis_deadline:
+        tis_active = False
+        tis_claim_pending = False
+        tis_deadline = 0.0
+        log("Plugin: TIS: Timed out waiting for the Item Storage server response")
+
+    now = time.time()
+    if _runtime_tp_command_until and now > _runtime_tp_command_until:
+        _runtime_tp_command_until = 0.0
+    if _suppress_runtime_announce_until and now > _suppress_runtime_announce_until:
+        _suppress_runtime_announce_until = 0.0
+
+    # Combobox için "değişti" event'i phBot'ta belgeli olmadığından, seçili kanalı burada
+    # (zaten var olan 500ms event_loop() hook'unda) yoklayıp değiştiyse config'e kaydediyoruz.
+    # isJoined() kontrolü, karaktere özel config dosyası (getConfig()) henüz belli değilken
+    # yanlışlıkla "default_leaders.json"a yazmayı önlüyor.
+    if isJoined():
+        leader_config = getConfig()
+        if leader_config and leader_config != _leaders_loaded_for:
+            loadLeadersConfigs()
+        announce_config = getAnnounceConfig()
+        if announce_config and announce_config != _announce_settings_loaded_for:
+            load_announce_settings()
+        current_announce_channel = get_announce_channel()
+        if current_announce_channel != _last_seen_announce_channel:
+            _last_seen_announce_channel = current_announce_channel
+            save_announce_settings()
+
+    # FL/NF komutlarıyla başlatılan takip hareketi - attackMode bloğundan önce çalıştırılıyor
+    # çünkü o blok içindeki erken "return" bu koda hiç ulaşılmamasına sebep olabilir.
+    if followActivated:
+        player_pos = near_follow_player(followPlayer)
+        if player_pos:
+            if followDistance > 0:
+                p = get_position()
+                playerDistance = round(GetDistance(p['x'], p['y'], player_pos['x'], player_pos['y']), 2)
+                if followDistance < playerDistance:
+                    x_unit = (player_pos['x'] - p['x']) / playerDistance
+                    y_unit = (player_pos['y'] - p['y']) / playerDistance
+                    movementDistance = playerDistance - followDistance
+                    log("Plugin: Following " + followPlayer + "...")
+                    move_to(movementDistance * x_unit + p['x'], movementDistance * y_unit + p['y'], 0)
+            else:
+                log("Plugin: Following " + followPlayer + "...")
+                move_to(player_pos['x'], player_pos['y'], 0)
+
+    if attackMode:
+        character = get_character_data()
+        if character and character.get('hp', 0) > 0:
+            current_pos = get_position()
+            if targetX != 0 or targetY != 0:
+                distance = GetDistance(current_pos['x'], current_pos['y'], targetX, targetY)
+                if distance > 2:
+                    return
+                log('Plugin: Reached target position, setting training area...')
+                set_training_position(current_pos['region'], targetX, targetY, targetZ)
+                log('Plugin: Training area set to (X:%.1f,Y:%.1f)' % (targetX, targetY))
+                log('Plugin: Starting bot...')
+                start_bot()
+                attackMode = False
+                targetX = 0
+                targetY = 0
+                targetZ = 0
+
+
+# Called when the bot successfully connects to the game server
+def connected():
+    global inGame, _announce_settings_loaded_for, _leaders_loaded_for
+    inGame = None
+    _announce_settings_loaded_for = None
+    _leaders_loaded_for = None
+
+# Called when the character enters the game world
+def joined_game():
+    global current_character_name
+    character_data = get_character_data()
+    if character_data and isinstance(character_data, dict) and "name" in character_data:
+        current_character_name = character_data.get("name", "Unknown")
+    update_account_info()
+    loadLeadersConfigs()
+    load_announce_settings()
+    loadOpcodeConfigs()
+
+
+def teleported():
+    """phBot'un resmi event'i: karakter ışınlandığında (ve joined_game()'den hemen sonra) çağrılır.
+    Bekleyen bir duyuru varsa burada gönderilir - RSBot portunda "OnTeleportComplete" ile aynı rol."""
+    global _pending_tp_source, _pending_tp_destination_id, _pending_tp_armed_at
+    global _pending_tp_is_runtime, _runtime_tp_command_until, _suppress_runtime_announce_until
+
+    source = _pending_tp_source
+    destination_id = _pending_tp_destination_id
+    armed_at = _pending_tp_armed_at
+    is_runtime = _pending_tp_is_runtime
+
+    _pending_tp_source = None
+    _pending_tp_destination_id = None
+    _pending_tp_armed_at = None
+    _pending_tp_is_runtime = False
+    _runtime_tp_command_until = 0.0
+    _suppress_runtime_announce_until = 0.0
+
+    if source is None:
+        return
+
+    if armed_at is not None and (time.time() - armed_at) > TP_ANNOUNCE_TIMEOUT:
+        return
+
+    # Sahne geçişi tam oturmadan gönderilen chat paketleri sunucu tarafından sessizce
+    # yutulabiliyor (phBotChat True dönse bile mesaj partiye ulaşmıyor) - inject_teleport()
+    # akışındaki 2 saniyelik bekleme ile aynı sebeple burada da kısa bir gecikme kullanıyoruz.
+    if is_runtime:
+        Timer(TP_ANNOUNCE_DELAY, _send_runtime_tp_announcement, (source,)).start()
+    elif destination_id is not None:
+        Timer(TP_ANNOUNCE_DELAY, _send_tp_announcement, (source, destination_id)).start()
+
+
+def _send_tp_announcement(source, destination_id):
+    channel = get_announce_channel()
+    message = f"TP {source} {destination_id}"
+
+    sent = ANNOUNCE_CHANNELS.get(channel, phBotChat.All)(message)
+
+    if sent:
+        log(f"Plugin: TP duyurusu gönderildi ({channel}): {message}")
+        save_announce_settings()
+    else:
+        log("Plugin: TP duyurusu gönderilemedi (phBotChat mesaj gönderimi başarısız döndü).")
+
+
+def _send_runtime_tp_announcement(source):
+    channel = get_announce_channel()
+    message = f"TPR {source}"
+    sent = ANNOUNCE_CHANNELS.get(channel, phBotChat.All)(message)
+
+    if sent:
+        log(f"Plugin: TPR duyurusu gönderildi ({channel}): {message}")
+        save_announce_settings()
+    else:
+        log("Plugin: TPR duyurusu gönderilemedi (phBotChat mesaj gönderimi başarısız döndü).")
+
+# Plugin loaded
+log('[' + pName + ' V2] v' + pVersion + ' loaded — ⚜ Made By FasscinaTe')
+if os.path.exists(getPath()):
+    loadLeadersConfigs()
+    loadOpcodeConfigs()
+else:
+    os.makedirs(getPath())
+    log('Plugin: ' + pName + ' folder has been created')
+update_account_info()
+refresh_display_fields()

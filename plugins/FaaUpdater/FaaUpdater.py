@@ -16,7 +16,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.9'
+pVersion = '1.1.0'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -89,9 +89,9 @@ QtBind.createLabel(
     12,
     43
 )
-QtBind.createLabel(
+lbl_catalog_hint = QtBind.createLabel(
     gui,
-    '<font color="%s">Select a plugin to install or update.</font>' % COLOR_MUTED,
+    '<font color="%s"><b>!* CORE plugins are strongly recommended.</b></font>' % COLOR_WARNING,
     12,
     62
 )
@@ -134,7 +134,7 @@ QtBind.createLabel(
     472,
     135
 )
-QtBind.createLabel(
+lbl_selected_header = QtBind.createLabel(
     gui,
     '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY,
     472,
@@ -343,26 +343,40 @@ def _validate_manifest(payload):
             raise ValueError('Invalid version for ' + plugin_id)
         if not re.match(r'^[0-9a-f]{64}$', sha256):
             raise ValueError('Invalid SHA-256 for ' + plugin_id)
+        if not isinstance(plugin.get('core', False), bool):
+            raise ValueError('Invalid core flag for ' + plugin_id)
         _validate_download_url(plugin.get('download_url', ''))
         _safe_target(plugin)
         validated.append(plugin)
-    return validated
+    return sorted(
+        validated,
+        key=lambda plugin: (
+            not plugin.get('core', False),
+            str(plugin.get('name') or plugin.get('id')).lower()
+        )
+    )
 
 
 def _display_text(plugin):
     state, installed, latest = _plugin_state(plugin)
     name = str(plugin.get('name') or plugin.get('id'))
+    core_prefix = '!* [CORE]' if plugin.get('core', False) else ''
     if state == 'install':
-        return '[INSTALL] %s | v%s' % (name, latest)
+        return '%s[INSTALL] %s | v%s' % (core_prefix, name, latest)
     if state == 'update':
-        return '[UPDATE] %s | %s -> %s' % (name, installed, latest)
+        return '%s[UPDATE] %s | %s -> %s' % (core_prefix, name, installed, latest)
     if state == 'newer':
-        return '[LOCAL NEWER] %s | %s' % (name, installed)
-    return '[CURRENT] %s | v%s' % (name, installed)
+        return '%s[LOCAL NEWER] %s | %s' % (core_prefix, name, installed)
+    return '%s[CURRENT] %s | v%s' % (core_prefix, name, installed)
 
 
 def _set_selected_plugin(plugin):
     if not plugin:
+        QtBind.setText(
+            gui,
+            lbl_selected_header,
+            '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY
+        )
         QtBind.setText(
             gui,
             lbl_selected_name,
@@ -388,6 +402,18 @@ def _set_selected_plugin(plugin):
 
     state, installed, latest = _plugin_state(plugin)
     name = str(plugin.get('name') or plugin.get('id'))
+    if plugin.get('core', False):
+        QtBind.setText(
+            gui,
+            lbl_selected_header,
+            '<font color="%s"><b>!* CORE PLUGIN - INSTALL</b></font>' % COLOR_WARNING
+        )
+    else:
+        QtBind.setText(
+            gui,
+            lbl_selected_header,
+            '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY
+        )
     if state == 'install':
         version_text = 'Not installed | Latest: %s' % latest
     elif state == 'update':

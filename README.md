@@ -1,13 +1,32 @@
-# FasscinaTe phBot Plugins
+# FascinaTe phBot Plugins
 
-Public plugin catalog and update source for FasscinaTe phBot plugins.
+The official home of FascinaTe phBot plugins. All plugins published in this
+repository are completely free to download and use.
+
+[![Join our Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/eB9sGSMYBg)
+
+Join our [Discord server](https://discord.gg/eB9sGSMYBg) for announcements,
+plugin updates, support, and community discussion.
 
 ## Installation
+
+You only need to install **FaaUpdater** manually. All other available plugins
+can then be installed and updated directly through FaaUpdater.
 
 1. Download `FaaUpdater.py` from the `plugins/FaaUpdater` directory.
 2. Copy it into the phBot `Plugins` directory.
 3. Reload the plugin list or restart phBot.
-4. Open **FasscinaTe Plugin Updater** to install or update available plugins.
+4. Open **FascinaTe Plugin Updater** and use it to install or update any
+   available plugin.
+
+There is no need to manually download each plugin or replace plugin files when
+an update is released; FaaUpdater handles both installation and updates.
+
+## Free plugins
+
+This repository is where FascinaTe phBot plugins will be published. Every
+plugin shared here is completely free—no purchase or paid subscription is
+required.
 
 ## Repository structure
 
@@ -33,5 +52,4 @@ download locations, and SHA-256 integrity hashes.
 
 ## Author
 
-Made by FasscinaTe.
-
+Made by FascinaTe.

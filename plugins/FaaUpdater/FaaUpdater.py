@@ -16,7 +16,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.8'
+pVersion = '1.0.9'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -32,11 +32,11 @@ MAX_PLUGIN_BYTES = 5 * 1024 * 1024
 CATALOG_CHECK_INTERVAL_SECONDS = 10 * 60
 
 COLOR_PRIMARY = '#5b57e0'
-COLOR_DARK = '#30323a'
+COLOR_TEXT_ACCENT = '#7772f0'
 COLOR_MUTED = '#9aa0ac'
-COLOR_SUCCESS = '#238636'
-COLOR_WARNING = '#d97706'
-COLOR_ERROR = '#dc2626'
+COLOR_SUCCESS = '#32a852'
+COLOR_WARNING = '#f59e0b'
+COLOR_ERROR = '#ef4444'
 
 _catalog = []
 _display_to_plugin = {}
@@ -124,7 +124,7 @@ lbl_summary = QtBind.createLabel(
 )
 QtBind.createLabel(
     gui,
-    '<font color="%s">Source:</font>' % COLOR_DARK,
+    '<font color="%s"><b>Source:</b></font>' % COLOR_TEXT_ACCENT,
     472,
     115
 )
@@ -142,7 +142,7 @@ QtBind.createLabel(
 )
 lbl_selected_name = QtBind.createLabel(
     gui,
-    _fixed_label_html('No plugin selected', COLOR_DARK, bold=True),
+    _fixed_label_html('No plugin selected', COLOR_TEXT_ACCENT, bold=True),
     472,
     183
 )
@@ -366,7 +366,7 @@ def _set_selected_plugin(plugin):
         QtBind.setText(
             gui,
             lbl_selected_name,
-            _fixed_label_html('No plugin selected', COLOR_DARK, bold=True)
+            _fixed_label_html('No plugin selected', COLOR_TEXT_ACCENT, bold=True)
         )
         QtBind.setText(
             gui,
@@ -405,7 +405,7 @@ def _set_selected_plugin(plugin):
     QtBind.setText(
         gui,
         lbl_selected_name,
-        _fixed_label_html(name, COLOR_DARK, bold=True)
+        _fixed_label_html(name, COLOR_TEXT_ACCENT, bold=True)
     )
     QtBind.setText(
         gui,

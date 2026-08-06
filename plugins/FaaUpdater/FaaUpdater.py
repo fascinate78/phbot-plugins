@@ -14,7 +14,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.5'
+pVersion = '1.0.6'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -121,31 +121,31 @@ QtBind.createLabel(
     gui,
     '<font color="%s">Source:</font>' % COLOR_DARK,
     472,
-    127
+    115
 )
 QtBind.createLabel(
     gui,
     '<font color="%s">fascinate78/phbot-plugins</font>' % COLOR_MUTED,
     472,
-    147
+    135
 )
 QtBind.createLabel(
     gui,
     '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY,
     472,
-    157
+    163
 )
 lbl_selected_name = QtBind.createLabel(
     gui,
     _fixed_label_html('No plugin selected', COLOR_DARK, bold=True),
     472,
-    179
+    183
 )
 lbl_selected_version = QtBind.createLabel(
     gui,
     _fixed_label_html('Choose a catalog item.', COLOR_MUTED),
     472,
-    201
+    203
 )
 lbl_selected_description_1 = QtBind.createLabel(
     gui,
@@ -157,13 +157,13 @@ lbl_selected_description_2 = QtBind.createLabel(
     gui,
     _fixed_label_html('Select an item from the catalog.', COLOR_MUTED),
     472,
-    241
+    239
 )
 lbl_selected_description_3 = QtBind.createLabel(
     gui,
     _fixed_label_html('', COLOR_MUTED),
     472,
-    259
+    255
 )
 
 btn_refresh = QtBind.createButton(gui, 'refresh_catalog_clicked', u'↻  Refresh Catalog', 12, 270)
@@ -385,7 +385,7 @@ def _set_selected_plugin(plugin):
         version_text = 'Installed: %s | Up to date' % installed
 
     description = str(plugin.get('description') or 'No description is available.').strip()
-    wrapped = textwrap.wrap(description, width=38)[:3]
+    wrapped = textwrap.wrap(description, width=29)[:3]
     while len(wrapped) < 3:
         wrapped.append('')
 

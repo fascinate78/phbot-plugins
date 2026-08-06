@@ -1,0 +1,3 @@
+# Local publishing tools (not part of the public plugin catalog)
+publish_plugins.bat
+publish_plugins.ps1

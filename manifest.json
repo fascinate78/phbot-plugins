@@ -59,7 +59,7 @@
                         "description":  "FascinaTe phBot plugin.",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "33c6d1f2de7a141492bab4569691f703c4c27bb7e16406c987b49fadfb865f57"
+                        "sha256":  "c85738973c8ce6be1a29718d45d3e945ab95f0136bee49df001bbfecb4cfc289"
                     },
                     {
                         "id":  "FUniqueNotifier",

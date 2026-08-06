@@ -695,6 +695,27 @@ def _selected_script_name():
     return ''
 
 
+def _read_script_text(path):
+    """Walk scriptini Windows varsayilan codec'inden bagimsiz olarak okur."""
+    with open(path, 'rb') as handle:
+        raw = handle.read()
+
+    if raw.startswith((b'\xff\xfe', b'\xfe\xff')):
+        return raw.decode('utf-16')
+
+    encodings = ('utf-8-sig', 'cp1254', 'cp1256', 'cp1251', 'latin-1')
+
+    last_error = None
+    for encoding in encodings:
+        try:
+            return raw.decode(encoding)
+        except (LookupError, UnicodeDecodeError) as ex:
+            last_error = ex
+    raise UnicodeDecodeError(
+        'unknown', raw, 0, len(raw),
+        'Desteklenen script kodlamalariyla okunamadi: %s' % last_error)
+
+
 def _profile_values():
     job = _selected_job() or {}
     return {
@@ -967,8 +988,7 @@ def _start_trade_script():
     name = _selected_script_name()
     path = os.path.join(_scripts_directory(), name)
     try:
-        with open(path, 'r') as handle:
-            script_text = handle.read()
+        script_text = _read_script_text(path)
     except Exception as ex:
         _fail('Kervan scripti okunamadi: %s' % ex)
         return

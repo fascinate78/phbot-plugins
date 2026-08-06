@@ -27,9 +27,9 @@
                         "version":  "1.6.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
-                        "install_path":  "FChamberViciousShadows_loopyedek.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows_loopyedek.py",
-                        "sha256":  "f196e0f50719e6ab176a2c4098676f0b786cddd9cdecf538e09e00eafcba9953"
+                        "install_path":  "FChamberViciousShadows.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows.py",
+                        "sha256":  "71e285b8f2113fb64c4faaf6deb53f1d5ce9f93d7c8cf5e2d9ef79f5d082483c"
                     },
                     {
                         "id":  "FControl",

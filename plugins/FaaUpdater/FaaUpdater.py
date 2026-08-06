@@ -7,13 +7,14 @@ import hashlib
 import json
 import os
 import re
+import textwrap
 import threading
 import urllib.parse
 import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.3'
+pVersion = '1.0.4'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -38,6 +39,7 @@ _catalog = []
 _display_to_plugin = {}
 _busy = [False]
 _auto_refresh_started = [False]
+_last_selected_display = ['']
 
 
 gui = QtBind.init(__name__, pName)
@@ -116,22 +118,39 @@ QtBind.createLabel(
 )
 QtBind.createLabel(
     gui,
-    '<font color="%s">Files are verified with SHA-256.</font>' % COLOR_MUTED,
+    '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY,
     512,
-    185
+    165
 )
-QtBind.createLabel(
+lbl_selected_name = QtBind.createLabel(
     gui,
-    '<font color="%s">Reload plugins or restart phBot</font>' % COLOR_MUTED,
+    '<font color="%s"><b>FCaravanNavigator V3</b></font>' % COLOR_DARK,
     512,
-    207
+    187
 )
-QtBind.createLabel(
+lbl_selected_version = QtBind.createLabel(
     gui,
-    '<font color="%s">after an install or update.</font>' % COLOR_MUTED,
+    '<font color="%s">Installed: 0.0.0 | Latest: 0.0.0</font>' % COLOR_MUTED,
     512,
-    225
+    209
 )
+lbl_selected_description_1 = QtBind.createLabel(
+    gui,
+    '<font color="%s">Plugin details will appear here.</font>' % COLOR_MUTED,
+    512,
+    231
+)
+lbl_selected_description_2 = QtBind.createLabel(
+    gui,
+    '<font color="%s">Select an item from the catalog.</font>' % COLOR_MUTED,
+    512,
+    249
+)
+
+QtBind.setText(gui, lbl_selected_name, '<font color="%s"><b>No plugin selected</b></font>' % COLOR_DARK)
+QtBind.setText(gui, lbl_selected_version, '<font color="%s">Choose a catalog item.</font>' % COLOR_MUTED)
+QtBind.setText(gui, lbl_selected_description_1, '')
+QtBind.setText(gui, lbl_selected_description_2, '')
 
 btn_refresh = QtBind.createButton(gui, 'refresh_catalog_clicked', u'↻  Refresh Catalog', 12, 270)
 btn_selected = QtBind.createButton(gui, 'install_selected_clicked', 'Install / Update Selected', 160, 270)
@@ -319,6 +338,68 @@ def _display_text(plugin):
     return '[CURRENT] %s | v%s' % (name, installed)
 
 
+def _set_selected_plugin(plugin):
+    if not plugin:
+        QtBind.setText(
+            gui,
+            lbl_selected_name,
+            '<font color="%s"><b>No plugin selected</b></font>' % COLOR_DARK
+        )
+        QtBind.setText(
+            gui,
+            lbl_selected_version,
+            '<font color="%s">Choose a catalog item.</font>' % COLOR_MUTED
+        )
+        QtBind.setText(gui, lbl_selected_description_1, '')
+        QtBind.setText(gui, lbl_selected_description_2, '')
+        return
+
+    state, installed, latest = _plugin_state(plugin)
+    name = str(plugin.get('name') or plugin.get('id'))
+    if state == 'install':
+        version_text = 'Not installed | Latest: %s' % latest
+    elif state == 'update':
+        version_text = 'Installed: %s | Latest: %s' % (installed, latest)
+    elif state == 'newer':
+        version_text = 'Local: %s | Catalog: %s' % (installed, latest)
+    else:
+        version_text = 'Installed: %s | Up to date' % installed
+
+    description = str(plugin.get('description') or 'No description is available.').strip()
+    wrapped = textwrap.wrap(description, width=31)[:2]
+    while len(wrapped) < 2:
+        wrapped.append('')
+
+    QtBind.setText(
+        gui,
+        lbl_selected_name,
+        '<font color="%s"><b>%s</b></font>' % (COLOR_DARK, _html_escape(name))
+    )
+    QtBind.setText(
+        gui,
+        lbl_selected_version,
+        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(version_text))
+    )
+    QtBind.setText(
+        gui,
+        lbl_selected_description_1,
+        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(wrapped[0]))
+    )
+    QtBind.setText(
+        gui,
+        lbl_selected_description_2,
+        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(wrapped[1]))
+    )
+
+
+def _refresh_selected_plugin():
+    selected = QtBind.text(gui, lst_plugins)
+    if selected == _last_selected_display[0]:
+        return
+    _last_selected_display[0] = selected
+    _set_selected_plugin(_display_to_plugin.get(selected))
+
+
 def _render_catalog():
     global _display_to_plugin
     mapping = {}
@@ -340,6 +421,8 @@ def _render_catalog():
             current_count += 1
 
     _display_to_plugin = mapping
+    _last_selected_display[0] = ''
+    _set_selected_plugin(None)
     _set_summary(
         '%d available | %d updates | %d not installed' %
         (len(_catalog), update_count, install_count)
@@ -465,6 +548,7 @@ def event_loop():
     if not _auto_refresh_started[0]:
         _auto_refresh_started[0] = True
         _start_refresh()
+    _refresh_selected_plugin()
 
 
 log('[%s] Loaded - ⚜ Made By FasscinaTe' % pName)

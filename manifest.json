@@ -4,17 +4,17 @@
                     {
                         "id":  "FaaUpdater",
                         "name":  "FaaUpdater",
-                        "version":  "1.0.3",
+                        "version":  "1.0.4",
                         "description":  "Installs and updates FasscinaTe phBot plugins from GitHub.",
                         "install_path":  "FaaUpdater.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
-                        "sha256":  "1e181c908a8e8bbfd861102ecb2bd99e6aace90273fbd27c8c39f2a4a6c413ec"
+                        "sha256":  "bbd6f4f37f7cfef37879b806ba9e78230fd00604fb726aa4cf40fd4ef4be8d64"
                     },
                     {
                         "id":  "FCaravanNavigator",
                         "name":  "FCaravanNavigator V3",
                         "version":  "3.0.0",
-                        "description":  "FasscinaTe phBot plugin.",
+                        "description":  "Navigates caravan routes and recovers interrupted travel.",
                         "install_path":  "FCaravanNavigatorV3.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/FCaravanNavigatorV3.py",
                         "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
@@ -23,7 +23,7 @@
                         "id":  "FUniqueNotifier",
                         "name":  "FUniqueNotifier",
                         "version":  "1.0.0",
-                        "description":  "FasscinaTe phBot plugin.",
+                        "description":  "Notifies you when configured unique monsters appear.",
                         "install_path":  "FUniqueNotifier.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FUniqueNotifier/FUniqueNotifier.py",
                         "sha256":  "561eb98bc3212ed5b6b58333b7f42ed142103339f7c741ac9870c9fca6591e04"

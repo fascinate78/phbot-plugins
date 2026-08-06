@@ -13,7 +13,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.0'
+pVersion = '1.0.1'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'

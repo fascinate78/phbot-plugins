@@ -13,7 +13,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.2'
+pVersion = '1.0.3'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -87,9 +87,14 @@ QtBind.createLabel(
 )
 lbl_status = QtBind.createLabel(
     gui,
-    '<font color="%s"><b>Ready</b></font>' % COLOR_SUCCESS,
+    '<font color="%s"><b>Waiting for catalog operation</b></font>' % COLOR_SUCCESS,
     512,
     66
+)
+QtBind.setText(
+    gui,
+    lbl_status,
+    '<font color="%s"><b>Ready</b></font>' % COLOR_SUCCESS
 )
 lbl_summary = QtBind.createLabel(
     gui,
@@ -411,7 +416,7 @@ def _install_worker(plugins):
             installed.append(_install_plugin(plugin))
         _render_catalog()
         if installed:
-            _set_status('Installed: ' + ', '.join(installed), COLOR_SUCCESS)
+            _set_status('Update completed', COLOR_SUCCESS)
             _set_summary('Reload plugins or restart phBot to apply changes.')
             log('[%s] Installed/updated: %s' % (pName, ', '.join(installed)))
         else:

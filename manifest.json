@@ -22,6 +22,16 @@
                         "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
                     },
                     {
+                        "id":  "FChamberViciousShadows",
+                        "name":  "FChamberViciousShadows",
+                        "version":  "1.6.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FChamberViciousShadows_loopyedek.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows_loopyedek.py",
+                        "sha256":  "f196e0f50719e6ab176a2c4098676f0b786cddd9cdecf538e09e00eafcba9953"
+                    },
+                    {
                         "id":  "FControl",
                         "name":  "FControl",
                         "version":  "1.2.6",
@@ -29,7 +39,7 @@
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "7ec61ff835d4eb18701c69df82f6b0abeb449b7263a760fafbf9743edfa7c239"
+                        "sha256":  "afdf66fa93dec60752c843e397c8dfcc75724003d24022b0a0fc0621d7180e4f"
                     },
                     {
                         "id":  "FScriptHelper",

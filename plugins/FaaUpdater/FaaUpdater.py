@@ -14,7 +14,7 @@ import urllib.request
 
 
 pName = 'FaaUpdater'
-pVersion = '1.0.4'
+pVersion = '1.0.5'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -42,6 +42,19 @@ _auto_refresh_started = [False]
 _last_selected_display = ['']
 
 
+def _html_escape(value):
+    return str(value).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _fixed_label_html(text, color, minimum_chars=38, bold=False):
+    value = str(text or '')
+    padding = '&nbsp;' * max(0, minimum_chars - len(value))
+    content = _html_escape(value) + padding
+    if bold:
+        content = '<b>%s</b>' % content
+    return '<font color="%s">%s</font>' % (color, content)
+
+
 gui = QtBind.init(__name__, pName)
 
 QtBind.createLabel(
@@ -59,7 +72,7 @@ QtBind.createLabel(
 )
 QtBind.createLabel(
     gui,
-    u'<font color="%s"><b>⚜ Made By FasscinaTe</b></font>' % COLOR_PRIMARY,
+    u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' % COLOR_PRIMARY,
     565,
     11
 )
@@ -78,19 +91,19 @@ QtBind.createLabel(
     62
 )
 
-lst_plugins = QtBind.createList(gui, 12, 84, 470, 170)
-QtBind.createLineEdit(gui, '', 495, 43, 1, 211)
+lst_plugins = QtBind.createList(gui, 12, 84, 430, 170)
+QtBind.createLineEdit(gui, '', 455, 43, 1, 211)
 
 QtBind.createLabel(
     gui,
     '<font color="%s"><b>LIVE STATUS</b></font>' % COLOR_PRIMARY,
-    512,
+    472,
     43
 )
 lbl_status = QtBind.createLabel(
     gui,
     '<font color="%s"><b>Waiting for catalog operation</b></font>' % COLOR_SUCCESS,
-    512,
+    472,
     66
 )
 QtBind.setText(
@@ -101,56 +114,57 @@ QtBind.setText(
 lbl_summary = QtBind.createLabel(
     gui,
     '<font color="%s">Catalog has not been checked yet.</font>' % COLOR_MUTED,
-    512,
+    472,
     91
 )
 QtBind.createLabel(
     gui,
     '<font color="%s">Source:</font>' % COLOR_DARK,
-    512,
+    472,
     127
 )
 QtBind.createLabel(
     gui,
     '<font color="%s">fascinate78/phbot-plugins</font>' % COLOR_MUTED,
-    512,
+    472,
     147
 )
 QtBind.createLabel(
     gui,
     '<font color="%s"><b>SELECTED PLUGIN</b></font>' % COLOR_PRIMARY,
-    512,
-    165
+    472,
+    157
 )
 lbl_selected_name = QtBind.createLabel(
     gui,
-    '<font color="%s"><b>FCaravanNavigator V3</b></font>' % COLOR_DARK,
-    512,
-    187
+    _fixed_label_html('No plugin selected', COLOR_DARK, bold=True),
+    472,
+    179
 )
 lbl_selected_version = QtBind.createLabel(
     gui,
-    '<font color="%s">Installed: 0.0.0 | Latest: 0.0.0</font>' % COLOR_MUTED,
-    512,
-    209
+    _fixed_label_html('Choose a catalog item.', COLOR_MUTED),
+    472,
+    201
 )
 lbl_selected_description_1 = QtBind.createLabel(
     gui,
-    '<font color="%s">Plugin details will appear here.</font>' % COLOR_MUTED,
-    512,
-    231
+    _fixed_label_html('Plugin details will appear here.', COLOR_MUTED),
+    472,
+    223
 )
 lbl_selected_description_2 = QtBind.createLabel(
     gui,
-    '<font color="%s">Select an item from the catalog.</font>' % COLOR_MUTED,
-    512,
-    249
+    _fixed_label_html('Select an item from the catalog.', COLOR_MUTED),
+    472,
+    241
 )
-
-QtBind.setText(gui, lbl_selected_name, '<font color="%s"><b>No plugin selected</b></font>' % COLOR_DARK)
-QtBind.setText(gui, lbl_selected_version, '<font color="%s">Choose a catalog item.</font>' % COLOR_MUTED)
-QtBind.setText(gui, lbl_selected_description_1, '')
-QtBind.setText(gui, lbl_selected_description_2, '')
+lbl_selected_description_3 = QtBind.createLabel(
+    gui,
+    _fixed_label_html('', COLOR_MUTED),
+    472,
+    259
+)
 
 btn_refresh = QtBind.createButton(gui, 'refresh_catalog_clicked', u'↻  Refresh Catalog', 12, 270)
 btn_selected = QtBind.createButton(gui, 'install_selected_clicked', 'Install / Update Selected', 160, 270)
@@ -186,10 +200,6 @@ def _set_summary(message):
         )
     except Exception:
         pass
-
-
-def _html_escape(value):
-    return str(value).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
 def _plugin_root():
@@ -343,15 +353,24 @@ def _set_selected_plugin(plugin):
         QtBind.setText(
             gui,
             lbl_selected_name,
-            '<font color="%s"><b>No plugin selected</b></font>' % COLOR_DARK
+            _fixed_label_html('No plugin selected', COLOR_DARK, bold=True)
         )
         QtBind.setText(
             gui,
             lbl_selected_version,
-            '<font color="%s">Choose a catalog item.</font>' % COLOR_MUTED
+            _fixed_label_html('Choose a catalog item.', COLOR_MUTED)
         )
-        QtBind.setText(gui, lbl_selected_description_1, '')
-        QtBind.setText(gui, lbl_selected_description_2, '')
+        QtBind.setText(
+            gui,
+            lbl_selected_description_1,
+            _fixed_label_html('Plugin details will appear here.', COLOR_MUTED)
+        )
+        QtBind.setText(
+            gui,
+            lbl_selected_description_2,
+            _fixed_label_html('Select an item from the catalog.', COLOR_MUTED)
+        )
+        QtBind.setText(gui, lbl_selected_description_3, _fixed_label_html('', COLOR_MUTED))
         return
 
     state, installed, latest = _plugin_state(plugin)
@@ -366,29 +385,34 @@ def _set_selected_plugin(plugin):
         version_text = 'Installed: %s | Up to date' % installed
 
     description = str(plugin.get('description') or 'No description is available.').strip()
-    wrapped = textwrap.wrap(description, width=31)[:2]
-    while len(wrapped) < 2:
+    wrapped = textwrap.wrap(description, width=38)[:3]
+    while len(wrapped) < 3:
         wrapped.append('')
 
     QtBind.setText(
         gui,
         lbl_selected_name,
-        '<font color="%s"><b>%s</b></font>' % (COLOR_DARK, _html_escape(name))
+        _fixed_label_html(name, COLOR_DARK, bold=True)
     )
     QtBind.setText(
         gui,
         lbl_selected_version,
-        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(version_text))
+        _fixed_label_html(version_text, COLOR_MUTED)
     )
     QtBind.setText(
         gui,
         lbl_selected_description_1,
-        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(wrapped[0]))
+        _fixed_label_html(wrapped[0], COLOR_MUTED)
     )
     QtBind.setText(
         gui,
         lbl_selected_description_2,
-        '<font color="%s">%s</font>' % (COLOR_MUTED, _html_escape(wrapped[1]))
+        _fixed_label_html(wrapped[1], COLOR_MUTED)
+    )
+    QtBind.setText(
+        gui,
+        lbl_selected_description_3,
+        _fixed_label_html(wrapped[2], COLOR_MUTED)
     )
 
 
@@ -551,4 +575,4 @@ def event_loop():
     _refresh_selected_plugin()
 
 
-log('[%s] Loaded - ⚜ Made By FasscinaTe' % pName)
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

@@ -76,8 +76,8 @@ QtBind.createLabel(
     62
 )
 
-lst_plugins = QtBind.createList(gui, 12, 84, 470, 250)
-QtBind.createLineEdit(gui, '', 495, 43, 1, 291)
+lst_plugins = QtBind.createList(gui, 12, 84, 470, 170)
+QtBind.createLineEdit(gui, '', 495, 43, 1, 211)
 
 QtBind.createLabel(
     gui,
@@ -128,17 +128,17 @@ QtBind.createLabel(
     225
 )
 
-btn_refresh = QtBind.createButton(gui, 'refresh_catalog_clicked', u'↻  Refresh Catalog', 12, 350)
-btn_selected = QtBind.createButton(gui, 'install_selected_clicked', 'Install / Update Selected', 160, 350)
-btn_all = QtBind.createButton(gui, 'update_all_clicked', 'Update All', 380, 350)
+btn_refresh = QtBind.createButton(gui, 'refresh_catalog_clicked', u'↻  Refresh Catalog', 12, 270)
+btn_selected = QtBind.createButton(gui, 'install_selected_clicked', 'Install / Update Selected', 160, 270)
+btn_all = QtBind.createButton(gui, 'update_all_clicked', 'Update All', 380, 270)
 
-QtBind.createLineEdit(gui, '', 12, 390, 716, 1)
+QtBind.createLineEdit(gui, '', 12, 310, 716, 1)
 QtBind.createLabel(
     gui,
     '<font color="%s">Updates replace the existing plugin only after a complete, verified download.</font>' %
     COLOR_MUTED,
     12,
-    402
+    322
 )
 
 

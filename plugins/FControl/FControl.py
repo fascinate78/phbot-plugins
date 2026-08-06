@@ -455,7 +455,7 @@ cbxIgnoreSetLeader = QtBind.createCheckBox(
     _x,
     _y + 20
 )
-QtBind.setChecked(gui, cbxIgnoreSetLeader, False)
+QtBind.setChecked(gui, cbxIgnoreSetLeader, True)
 
 _y += 40
 # Leaders section

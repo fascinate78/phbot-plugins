@@ -13,10 +13,11 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import webbrowser
 
 
 pName = 'FaaUpdater'
-pVersion = '1.1.0'
+pVersion = '1.1.1'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -30,6 +31,7 @@ NETWORK_TIMEOUT = 15
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_PLUGIN_BYTES = 5 * 1024 * 1024
 CATALOG_CHECK_INTERVAL_SECONDS = 10 * 60
+DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
 COLOR_TEXT_ACCENT = '#7772f0'
@@ -74,6 +76,13 @@ QtBind.createLabel(
     '<font color="%s">v%s</font>' % (COLOR_MUTED, pVersion),
     300,
     12
+)
+btn_discord = QtBind.createButton(
+    gui,
+    'discord_clicked',
+    u'\U0001f4ac Discord',
+    462,
+    6
 )
 QtBind.createLabel(
     gui,
@@ -578,6 +587,15 @@ def _start_refresh(silent=False, notify_updates=False):
 
 def refresh_catalog_clicked():
     _start_refresh()
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        _set_status('Opening Discord invite...', COLOR_SUCCESS)
+    except Exception as error:
+        log('[%s] Discord link error: %s' % (pName, error))
+        _set_status('Could not open Discord invite', COLOR_ERROR)
 
 
 def _install_plugin(plugin):

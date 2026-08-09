@@ -3,10 +3,13 @@ import QtBind
 import struct
 import threading
 import time
+import webbrowser
 
 
 pName = 'FShining'
-pVersion = '1.2.0'
+pVersion = '1.3.0'
+
+DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 RECIPE_ID = 29
 RECIPE_NAME = 'MK_RC_TRADE_MATERIAL_LIGHTSTONE'
@@ -77,6 +80,13 @@ QtBind.createLabel(
     '<font color="%s">v%s</font>' % (COLOR_MUTED, pVersion),
     158,
     12
+)
+discord_button = QtBind.createButton(
+    gui,
+    'discord_clicked',
+    u'\U0001f4ac Discord',
+    462,
+    6
 )
 QtBind.createLabel(
     gui,
@@ -191,6 +201,24 @@ def runtime_snapshot():
 def update_runtime(values):
     with state_lock:
         runtime.update(values)
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        update_runtime({
+            'status': 'DISCORD',
+            'status_color': COLOR_SUCCESS,
+            'detail': 'Opening Discord invite...'
+        })
+    except Exception as error:
+        log('[%s] Discord link error: %s' % (pName, error))
+        update_runtime({
+            'status': 'DISCORD ERROR',
+            'status_color': COLOR_ERROR,
+            'detail': 'Could not open Discord invite.'
+        })
+    refresh_gui()
 
 
 def refresh_gui():

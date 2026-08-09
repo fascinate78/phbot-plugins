@@ -4,11 +4,13 @@ import QtBind
 import json
 import os
 import time
+import webbrowser
 
 
 pName = "FAutoGS"
-pVersion = "1.0.0"
+pVersion = "1.1.0"
 pUrl = ""
+DISCORD_URL = "https://discord.gg/eB9sGSMYBg"
 
 CHAT_PARTY = 4
 PROTOCOL = "$FGS"
@@ -59,6 +61,9 @@ QtBind.createLabel(
     gui,
     '<font color="{0}">Guild Storage Mission Coordinator</font>'.format(C_MUTED),
     12, 31
+)
+btn_discord = QtBind.createButton(
+    gui, "discord_clicked", u'\U0001f4ac Discord', 462, 7
 )
 QtBind.createLabel(
     gui,
@@ -124,6 +129,15 @@ def set_status(text, color=C_MUTED):
         gui, lbl_status,
         fixed_text('<font color="{0}"><b>{1}</b></font>'.format(color, text))
     )
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        set_status("Opening Discord invite...", C_SUCCESS)
+    except Exception as error:
+        plugin_log("Discord link error: {0}".format(error))
+        set_status("Could not open Discord invite", C_ERROR)
 
 
 def set_current(text, color=C_TEXT):
@@ -623,4 +637,4 @@ refresh_scripts()
 set_current("—")
 update_progress()
 
-log('[{0}] Loaded v{1} - ⚜ Made By FascinaTe'.format(pName, pVersion))
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

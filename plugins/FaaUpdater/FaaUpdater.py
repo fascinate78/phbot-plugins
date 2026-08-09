@@ -17,7 +17,7 @@ import webbrowser
 
 
 pName = 'FaaUpdater'
-pVersion = '1.1.1'
+pVersion = '1.2.0'
 
 MANIFEST_URL = (
     'https://raw.githubusercontent.com/'
@@ -100,7 +100,11 @@ QtBind.createLabel(
 )
 lbl_catalog_hint = QtBind.createLabel(
     gui,
-    '<font color="%s"><b>!* CORE plugins are strongly recommended.</b></font>' % COLOR_WARNING,
+    u'<font color="%s"><b>★ Core</b></font>'
+    u'&nbsp;&nbsp; ● Installed'
+    u'&nbsp;&nbsp; ↑ Update'
+    u'&nbsp;&nbsp; ○ Not installed'
+    u'&nbsp;&nbsp; ◆ Local newer' % COLOR_WARNING,
     12,
     62
 )
@@ -369,14 +373,17 @@ def _validate_manifest(payload):
 def _display_text(plugin):
     state, installed, latest = _plugin_state(plugin)
     name = str(plugin.get('name') or plugin.get('id'))
-    core_prefix = '!* [CORE]' if plugin.get('core', False) else ''
+    marker = u'★●' if plugin.get('core', False) else u' ●'
     if state == 'install':
-        return '%s[INSTALL] %s | v%s' % (core_prefix, name, latest)
+        marker = u'★○' if plugin.get('core', False) else u' ○'
+        return u'%s %s' % (marker, name)
     if state == 'update':
-        return '%s[UPDATE] %s | %s -> %s' % (core_prefix, name, installed, latest)
+        marker = u'★↑' if plugin.get('core', False) else u' ↑'
+        return u'%s %s' % (marker, name)
     if state == 'newer':
-        return '%s[LOCAL NEWER] %s | %s' % (core_prefix, name, installed)
-    return '%s[CURRENT] %s | v%s' % (core_prefix, name, installed)
+        marker = u'★◆' if plugin.get('core', False) else u' ◆'
+        return u'%s %s' % (marker, name)
+    return u'%s %s' % (marker, name)
 
 
 def _set_selected_plugin(plugin):
@@ -415,7 +422,7 @@ def _set_selected_plugin(plugin):
         QtBind.setText(
             gui,
             lbl_selected_header,
-            '<font color="%s"><b>!* CORE PLUGIN - INSTALL</b></font>' % COLOR_WARNING
+            u'<font color="%s"><b>★ CORE PLUGIN</b></font>' % COLOR_WARNING
         )
     else:
         QtBind.setText(

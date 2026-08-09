@@ -4,12 +4,12 @@
                     {
                         "id":  "FaaUpdater",
                         "name":  "FaaUpdater",
-                        "version":  "1.1.1",
+                        "version":  "1.2.0",
                         "core":  false,
                         "description":  "Installs and updates FascinaTe phBot plugins from GitHub.",
                         "install_path":  "FaaUpdater.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
-                        "sha256":  "a209e8428ccd80a165b89856b974275c9b8a74491d0f1cde2623fd2aefe6155a"
+                        "sha256":  "fdb191c54598e52a46df8ee71f6deb6cedee34efc0e0c2025bdcc0b79ad85561"
                     },
                     {
                         "id":  "FAutoGS",

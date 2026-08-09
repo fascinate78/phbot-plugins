@@ -62,6 +62,16 @@
                         "sha256":  "7914917759a92ef0455f0bff9949dbb1cf0c1477c29a406539bb912635631fb5"
                     },
                     {
+                        "id":  "FShining",
+                        "name":  "FShining",
+                        "version":  "1.2.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FShining.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FShining/FShining.py",
+                        "sha256":  "56e92968fc2ed4bec60992e8c60559706f8bc12d35902a2fdbf52b2e09c0d9fe"
+                    },
+                    {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
                         "version":  "2.0.2",

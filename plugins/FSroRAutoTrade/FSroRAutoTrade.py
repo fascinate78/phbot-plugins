@@ -7,7 +7,7 @@ import time
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '2.0.1'
+pVersion = '2.0.2'
 pUrl = ''
 
 EVENT_TRANSPORT_DIED = 3
@@ -122,7 +122,11 @@ QtBind.createLabel(gui, '<font color="#FF0000"><b>📦 KUTU KONTROLÜ</b></font>
 chk_enabled = QtBind.createCheckBox(gui, 'chk_enabled_changed', 'Plugin aktif', 10, 58)
 
 QtBind.createLabel(gui, '<font color="#6b7280"><b>Toplam kutu:</b></font>', 10, 83)
-lbl_box_count = QtBind.createLabel(gui, '<font color="#FF0000"><b>0</b></font>', 125, 83)
+# QtBind label genisligini ilk metne gore sabitler. Genis bir ilk degerle
+# olusturup tekrar 0'a cekmek, 3+ haneli kutu sayilarinin kirpilmasini onler.
+lbl_box_count = QtBind.createLabel(
+    gui, '<font color="#FF0000"><b>000000</b></font>', 125, 83)
+QtBind.setText(gui, lbl_box_count, '<font color="#FF0000"><b>0</b></font>')
 QtBind.createLabel(gui, '<font color="#6b7280"><b>Kervan hedefi:</b></font>', 10, 111)
 txt_target = QtBind.createLineEdit(gui, '80', 125, 107, 70, 22)
 QtBind.createLabel(gui, '<font color="#6b7280"><b>Guvenlik siniri (&lt;):</b></font>', 10, 139)

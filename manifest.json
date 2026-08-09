@@ -12,6 +12,16 @@
                         "sha256":  "a209e8428ccd80a165b89856b974275c9b8a74491d0f1cde2623fd2aefe6155a"
                     },
                     {
+                        "id":  "FAutoGS",
+                        "name":  "FAutoGS",
+                        "version":  "1.0.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FAutoGS.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoGS/FAutoGS.py",
+                        "sha256":  "030e6d35d9fba07f26bd328626018f75b707c5383b63cd7effdc5d16b8341d95"
+                    },
+                    {
                         "id":  "FCaravanNavigator",
                         "name":  "FCaravanNavigator V3",
                         "version":  "3.0.0",
@@ -54,12 +64,12 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "2.0.1",
+                        "version":  "2.0.2",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "d9fa1f4e724bbf5e3674aef9ef72baadb37e24175f43aa820f17d4308d5aacb9"
+                        "sha256":  "56b3ad5c4ab9775b1bc73353a0aee5184f32c354277c6101d00841f0940f5fde"
                     },
                     {
                         "id":  "FUniqueNotifier",

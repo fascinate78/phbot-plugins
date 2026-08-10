@@ -52,6 +52,16 @@
                         "sha256":  "16940fc567b9a41b6281638d9af969e2ab5defa9b742a60b2f2a5813f0ce44d4"
                     },
                     {
+                        "id":  "FPvpHelperV2",
+                        "name":  "FPvpHelperV2",
+                        "version":  "1.2.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FPvpHelperV2.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FPvpHelperV2/FPvpHelperV2.py",
+                        "sha256":  "beb775d0501f218abe7f07bd4309ace7e4ca5eeaa0df9dcd34fada99a230c2e9"
+                    },
+                    {
                         "id":  "FScriptHelper",
                         "name":  "FScriptHelper",
                         "version":  "1.0.0",

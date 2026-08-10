@@ -72,6 +72,16 @@
                         "sha256":  "7914917759a92ef0455f0bff9949dbb1cf0c1477c29a406539bb912635631fb5"
                     },
                     {
+                        "id":  "FSereness",
+                        "name":  "FSereness",
+                        "version":  "2.6.2",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "install_path":  "FSereness.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSereness/FSereness.py",
+                        "sha256":  "406f8b42d16a3b6b3652c80121cd65cb11300f8f55585568fd8f2fc84d35af9b"
+                    },
+                    {
                         "id":  "FShining",
                         "name":  "FShining",
                         "version":  "1.3.0",
@@ -84,12 +94,12 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "2.0.2",
+                        "version":  "3.1.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "56b3ad5c4ab9775b1bc73353a0aee5184f32c354277c6101d00841f0940f5fde"
+                        "sha256":  "4064b315991df1ec932cb273251fd342620afefa409f8289bff3ffe12d1412f1"
                     },
                     {
                         "id":  "FUniqueNotifier",

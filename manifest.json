@@ -60,16 +60,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.4.0",
+                        "version":  "1.4.2",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Added leader-only `PA` and `SPA` commands to start and stop collecting nearby drops allowed by the phBot pick filter."
+                                        "Removed the obsolete `DH` packet command and all related hidden GUI, timer, and command-hook code."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "780a457175a9743b5cff87acefb2a806b22ec566ce0e5743a935e0f17e7525d6"
+                        "sha256":  "166b9b60a0a0a0b0d8d536a030f4f0b38be2e84f71312a30286d7369f2b9d7e9"
                     },
                     {
                         "id":  "FPvpHelperV2",

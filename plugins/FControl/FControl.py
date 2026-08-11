@@ -9,7 +9,7 @@ import random
 import time
 
 pName = 'FControl'
-pVersion = '1.4.0'
+pVersion = '1.4.2'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -127,61 +127,55 @@ lblCommands = QtBind.createLabel(gui, '<font color="#ffd86b"><b>𝙰𝚟𝚊𝚒
 _y_cmd += 18
 lstCommands = QtBind.createList(gui, _x_cmd, _y_cmd, 500, 200)
 commands_list = [
-
-    "- (T)   : Start Trace",
-    "- (T) Player           : Start Trace to specific player",
-    "- (N)   : Stop Trace",
-    "- (S)   : Start Bot",
-    "- (SS)  : Stop Bot",
-    "- (D)   : Dismount",
-    "- (M)   : Mount",
-    "- (RE)  : Return Scroll",
-    "- (COME): Reverse Return Scroll to Leader",
-    "- (Q1)  : Teleport",
-    "- (Q2)  : Teleport",
-    "- (Q3)  : Teleport",
-    "- (SIT) : Sit/Stand",
-    "- (ZK)  : Berserker Mode",
-    "- (DC)  : Disconnect",
-    "- (LP)  : Leave Party",
-    "- (SORT) : Sort inventory",
-    "- (REPAIR) : Use one Repair Hammer",
-    "- (PA)  : Pick all nearby filtered drops",
-    "- (SPA) : Stop Pick All",
-    "- (ALeader) CharNick   : Add an authorized leader",
-    "- (RLeader) CharNick   : Remove an authorized leader",
-    "- (TIS) : Check Item Storage and claim all items",
-    "- (TP) Source Dest     : Teleport Follower to Dest via Source",
-    "- (TPR) Source          : Teleport through a runtime portal",
-    "- (REVERSE return|death|player Name|zone Name) : Use reverse return scroll",
-    "- (RC) Town            : Recall to Town Portal",
-    "- (SP) X? Y? Region? Z? : Set Training Position (current pos if empty)",
-    "- (SR) Radius?          : Set Training Radius (default 35 if empty)",
-    "- (FL) Player? Distance? : Follow a party player",
-    "- (NF)                  : Stop Following",
-    "- (EQ) ItemName         : Equip Item",
-    "- (UQ) ItemName         : Unequip Item",
-    "- (USE) ItemName        : Use Item from Inventory",
-    "- (MOVEATTACK) X Y     : Move Attack Example MOVE 154 49",
-    "- (MOVE) X Y           : Move No Attack MOVE 154 49",
-    "- (GETPOS)             : Get Position",
+    "- S : Start the bot",
+    "- SS : Stop the bot",
+    "- T [Player] : Trace the leader or a player",
+    "- N : Stop tracing",
+    "- FL [Player] [Distance] : Follow a party member",
+    "- NF : Stop following",
+    "- M : Mount a transport pet",
+    "- D / DS : Dismount the current pet",
+    "- SIT : Toggle sit or stand",
+    "- ZK : Activate Berserker mode",
+    "- RE : Use a return scroll or revive in town",
+    "- COME : Reverse-return to the leader",
+    "- REVERSE Type [Name] : Reverse to return, death, player, or zone",
+    "- Q1 / Q2 / Q3 : Use a predefined teleport route",
+    "- TP Source DestinationID : Use a standard teleporter",
+    "- TPR Source : Use a runtime portal",
+    "- RC Town : Set recall at a nearby town portal",
+    "- LP : Leave the party",
+    "- DC : Disconnect from the server",
+    "- SP [X Y Region Z] : Set the training position",
+    "- SR [Radius] : Set the training radius",
+    "- !C AreaName/ID : Select a training area and start the bot",
+    "- SETSCRIPT [Path] : Set or clear the training script",
+    "- MOVE X Y [Z] : Move without attacking",
+    "- MOVEATTACK X Y [Z] : Move, set the area, and start botting",
+    "- MOVEON [Radius] : Move to a random nearby point",
+    "- GETPOS : Send the current position by private message",
+    "- EQ ItemName : Equip an inventory item",
+    "- UQ ItemName : Unequip an equipped item",
+    "- USE ItemName : Use an inventory item",
+    "- SORT : Sort the inventory",
+    "- REPAIR : Use one Repair Hammer",
+    "- PA : Pick all nearby drops allowed by the pick filter",
+    "- SPA : Stop Pick All",
+    "- TIS : Claim all available Item Storage items",
+    "- CHAT Type Message : Send a chat message",
+    "- INJECT Opcode [Encrypted] [Data] : Inject a packet",
+    "- FSH [true|false] Name : Play an FScriptHelper recording",
+    "- SETPROFILE [Name] : Load a phBot profile",
+    "- PROFILE [Name] : Alias for SETPROFILE",
+    "- ALEADER CharNick : Add an authorized leader",
+    "- RLEADER CharNick : Remove an authorized leader",
+    "- SETFCONTROLLEADER : Request leader access (normally disabled)",
 ]
 for cmd in commands_list:
     QtBind.append(gui, lstCommands, cmd)
 
 # Leaders section data
 lstLeadersData = []
-
-# Command-based injection data
-injection_sets = {
-    # Custom Command
-    "DH": {
-        "injections": [
-            {"opcode": 0x7045, "data": bytearray([0x00, 0x00, 0x00, 0x00]), "delay": 0}
-        ]
-    }
-}
-
 
 # ______________________________ Methods ______________________________ #
 
@@ -477,25 +471,6 @@ def loadLeadersConfigs():
 def isLeader(player_name):
     return lstLeaders_exist(player_name)
 
-# ______________________________ Custom Command DH ______________________________ #
-# GUI paneli gizlendi (satırlar yorum satırına alındı; fonksiyonlar korunuyor)
-# _x_dh = 6
-# _y_dh = 260
-#
-# QtBind.createLabel(gui, '<font color="#ff4b5c"><b>(◣ _ ◢)</b></font>', _x_dh, _y_dh)
-# txtOpcodeDH = QtBind.createLineEdit(gui, "", _x_dh + 45, _y_dh - 3, 32, 20)
-# lblDataDH = QtBind.createLabel(gui, 'DH☠️', _x_dh + 45 + 32 + 6, _y_dh)
-# txtDataDH = QtBind.createLineEdit(gui, "", _x_dh + 45 + 32 + 6 + 32, _y_dh - 3, 385, 20)
-# _y_dh += 25
-# btnInjectDH = QtBind.createButton(gui, 'btnInjectDH_clicked', "  Inject To Server  ", _x_dh + 404, _y_dh)
-# _y_dh += 1
-# cbxAutoDH = QtBind.createCheckBox(gui, 'cbxAutoDH_clicked', '🍁𝙰𝚞𝚝𝚘 𝙸𝚗𝚓𝚎𝚌𝚝 𝙴𝚟𝚎𝚛𝚢 𝟹𝟶𝚂𝚎𝚌🍁', _x_dh + 1, _y_dh)
-txtOpcodeDH = None
-txtDataDH = None
-autoInjectEnabledDH = False
-autoInjectTimerDH = None
-
-
 # Filter section
 _x = 720 - 176
 _y = 12
@@ -763,8 +738,8 @@ def cbxIgnoreSetLeader_clicked(checked):
 
 
 def get_announce_channel():
-    """Combobox'ta seçili kanalı okur (All/Party/Guild/Union). QtBind'te combobox için
-    onChange callback'i olmadığından, değeri her ihtiyaç anında canlı okuyoruz."""
+    """Read the selected announce channel directly because QtBind has no documented
+    combobox change callback."""
     try:
         value = QtBind.text(gui, cbxAnnounceChannel)
         return value if value in ANNOUNCE_CHANNELS else 'All'
@@ -885,34 +860,6 @@ def CanShowPacket(opcode):
         return True
     return False
 
-# Inject packet using command-based system
-def inject_packet(cmd_name):
-    if cmd_name not in injection_sets:
-        return
-
-    set_data = injection_sets[cmd_name]
-
-    log("Plugin: Executing command " + cmd_name)
-
-    if "injections" in set_data:
-        total_delay = 0
-        for idx, inj in enumerate(set_data["injections"]):
-            def do_inject(injection_data=inj, part_num=idx+1, cmd=cmd_name):
-                opcode = injection_data.get("opcode", 0x7045)
-                data = injection_data["data"]
-                log("Plugin: Injecting packet (Command: " + cmd + ", Part " + str(part_num) + ") :")
-                log("(Opcode) 0x" + '{:04X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
-                    '{:02X}'.format(x) for x in data)))
-                inject_joymax(opcode, data, False)
-            delay = inj.get("delay", 0)
-            total_delay += delay
-            if total_delay > 0:
-                Timer(total_delay, do_inject).start()
-            else:
-                do_inject()
-    return False
-
-
 def inject(args):
     argCount = len(args)
     if argCount < 2:
@@ -936,39 +883,6 @@ def inject(args):
     return 0
 
 
-def btnInjectDH_clicked():
-    strOpcode = QtBind.text(gui, txtOpcodeDH).strip()
-    strData = QtBind.text(gui, txtDataDH).strip().replace(' ', '')
-    if strOpcode and strData:
-        data = bytearray()
-        try:
-            opcode = int(strOpcode, 16)
-        except ValueError:
-            log("Plugin: Error, opcode must be a valid hex string")
-            return
-        strDataLen = len(strData)
-        if strDataLen == 0 or not strDataLen % 2 == 0:
-            log("Plugin: Error, data needs to be a raw of bytes")
-            return
-        for i in range(0, int(strDataLen), 2):
-            data.append(int(strData[i:i + 2], 16))
-        log("Plugin: Injecting DH packet :")
-        log("(Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join('{:02X}'.format(x) for x in data)))
-        inject_joymax(opcode, data, False)
-
-def cbxAutoDH_clicked(checked):
-    global autoInjectEnabledDH
-    autoInjectEnabledDH = checked
-    if checked:
-        auto_inject_dh()
-
-def auto_inject_dh():
-    global autoInjectEnabledDH, autoInjectTimerDH
-    if autoInjectEnabledDH:
-        btnInjectDH_clicked()
-        autoInjectTimerDH = Timer(30.0, auto_inject_dh)
-        autoInjectTimerDH.start()
-
 def handle_training_area_command(player, text):
     parts = text.split()
     if len(parts) < 2:
@@ -985,10 +899,6 @@ def handle_training_area_command(player, text):
     else:
         log(f"Plugin: Failed to change training area to '{area_name}' requested by {player}")
     return success
-
-def handle_game_command(command_text):
-    handle_command(command_text)
-    return True
 
 def GetItemByExpression(_lambda, start=0, end=0):
     """Search an item by name or servername through lambda expression and return its information"""
@@ -1263,9 +1173,7 @@ def move_and_attack(x, y, z=0):
 
 
 def handle_tp_command(player, text):
-    """'TP <kaynak NPC adı> <ham hedef ID>' formatını işler - RSBot portundaki HandleTp ile
-    aynı mantık: önce takipçinin kaynak NPC'ye gerçekten yakın olup olmadığı kontrol edilir,
-    sadece o zaman ışınlanma isteği gönderilir."""
+    """Handle 'TP SourceNPC DestinationID' after confirming that the source NPC is nearby."""
     rest = text[2:].strip()
     if not rest:
         log("Plugin: Invalid TP command format; command skipped.")
@@ -1363,9 +1271,7 @@ def handle_runtime_tp_command(player, text):
 
 
 def handle_reverse_command(player, text):
-    """'REVERSE return|death|player <isim>|zone <isim>' formatını işler - xControl.py'deki
-    REVERSE komutuyla aynı mantık, inventory.md'deki reverse_return(type, name) üzerine kurulu:
-    0=son dönüş noktası, 1=son ölüm noktası, 2=parti üyesi, 3=belirli bir konum/bölge."""
+    """Handle reverse return commands for return, death, player, and zone targets."""
     rest = text[8:].strip()
     if not rest:
         log("Plugin: Invalid REVERSE command format; command skipped.")
@@ -1407,8 +1313,7 @@ def handle_reverse_command(player, text):
 
 
 def handle_setpos_command(player, text):
-    """'SP' ya da 'SP X Y Region? Z?' - xControl.py'deki SETPOS ile aynı mantık: argümansız
-    çağrılırsa training konumu karakterin o anki konumuna ayarlanır."""
+    """Set the training position from arguments or use the character's current position."""
     rest = text[2:].strip()
     if not rest:
         p = get_position()
@@ -1428,8 +1333,7 @@ def handle_setpos_command(player, text):
 
 
 def handle_setradius_command(player, text):
-    """'SR' ya da 'SR Radius' - xControl.py'deki SETRADIUS ile aynı mantık: argümansız
-    çağrılırsa yarıçap varsayılan olarak 35 metreye ayarlanır."""
+    """Set the training radius, using 35 meters when no value is supplied."""
     rest = text[2:].strip()
     if not rest:
         radius = 35
@@ -1445,8 +1349,7 @@ def handle_setradius_command(player, text):
 
 
 def handle_follow_command(player, text):
-    """'FL' ya da 'FL Player Distance?' - xControl.py'deki FOLLOW ile aynı mantık: argümansız
-    çağrılırsa lideri 10m mesafeden takip eder. Gerçek hareket event_loop() içinde yapılır."""
+    """Follow a party member at the requested distance; movement runs in event_loop()."""
     rest = text[2:].strip()
     char_name = player
     distance = 10
@@ -1465,8 +1368,7 @@ def handle_follow_command(player, text):
 
 
 def handle_trace_command(player, text):
-    """'T Player' - bare 'T' zaten leader_commands setinde lideri izliyor; bu, xControl.py'deki
-    TRACE #Player? argümanının karşılığı (başka bir oyuncuyu izlemek için)."""
+    """Trace a specified player; the bare T command traces the authorized leader."""
     target = text[2:].strip()
     if not target:
         target = player
@@ -1475,8 +1377,7 @@ def handle_trace_command(player, text):
 
 
 def handle_equip_command(player, text):
-    """'EQ ItemName' - xControl.py'deki EQUIP ile aynı mantık: envanterden (slot 13+) ismi
-    eşleşen ilk item bulunup kuşanılır."""
+    """Equip the first matching item found in inventory slots 13 and above."""
     item_name = text[3:].strip()
     if not item_name:
         log(f"Plugin: EQ command requires an item name (Leader: {player}).")
@@ -1489,8 +1390,7 @@ def handle_equip_command(player, text):
 
 
 def handle_unequip_command(player, text):
-    """'UQ ItemName' - xControl.py'deki UNEQUIP ile aynı mantık: kuşanılmış eşyalar arasında
-    (slot 0-12) ismi eşleşen ilk item bulunup çıkarılır."""
+    """Unequip the first matching item found in equipment slots 0 through 12."""
     item_name = text[3:].strip()
     if not item_name:
         log(f"Plugin: UQ command requires an item name (Leader: {player}).")
@@ -1503,8 +1403,7 @@ def handle_unequip_command(player, text):
 
 
 def handle_use_command(player, text):
-    """'USE ItemName' - xControl.py'deki USE ile aynı mantık: envanterden (slot 13+) ismi
-    eşleşen ilk item bulunup kullanılır."""
+    """Use the first matching item found in inventory slots 13 and above."""
     item_name = text[4:].strip()
     if not item_name:
         log(f"Plugin: USE command requires an item name (Leader: {player}).")
@@ -1561,8 +1460,7 @@ def handle_repair_command(player):
 
 
 def handle_recall_command(player, text):
-    """'RC Town' - xControl.py'deki RECALL ile aynı mantık: yakındaki şehir portalı NPC'sine
-    recall işareti koyar."""
+    """Set recall at the named nearby town portal NPC."""
     town = text[3:].strip()
     if not town:
         log(f"Plugin: RC command requires a town name (Leader: {player}).")
@@ -1578,8 +1476,7 @@ def handle_recall_command(player, text):
 # ______________________________ xControl.py'den Port Edilen Ek Komutlar ______________________________ #
 
 def handle_chat_send_command(player, text):
-    """'CHAT Type Message' - xControl.py'deki handleChatCommand() ile aynı mantık: All/Private/
-    Party/Guild/Union/Note/Stall/Global kanallarından birine serbest mesaj gönderir."""
+    """Send a message through an All, Private, Party, Guild, Union, Note, Stall, or Global channel."""
     rest = text[4:].strip()
     args = rest.split(' ', 1)
     if len(args) != 2 or not args[0] or not args[1]:
@@ -1624,8 +1521,7 @@ def handle_chat_send_command(player, text):
 
 
 def handle_inject_command(player, text):
-    """'INJECT Opcode Encrypted? Data?' - xControl.py'deki INJECT komutuyla aynı mantık,
-    zaten mevcut olan inject() fonksiyonunu chat üzerinden (leader-only) tetikler."""
+    """Run the existing packet injector from an authorized leader chat command."""
     rest = text[7:].strip()
     if not rest:
         log(f"Plugin: Invalid INJECT command format; command skipped (Leader: {player}).")
@@ -1638,8 +1534,7 @@ def handle_inject_command(player, text):
 
 
 def handle_moveon_command(player, text):
-    """'MOVEON Radius?' - xControl.py'deki randomMovement() ile aynı mantık: mevcut konumdan
-    rastgele bir yönde/mesafede (varsayılan 10m yarıçap) hareket eder."""
+    """Move to a random point within the supplied radius, defaulting to 10 meters."""
     rest = text[6:].strip()
     radius = 10
     if rest:
@@ -1658,8 +1553,7 @@ def handle_moveon_command(player, text):
 
 
 def handle_setscript_command(player, text):
-    """'SETSCRIPT Path?' - xControl.py'deki SETSCRIPT ile aynı mantık: training area script
-    yolunu değiştirir, argümansız çağrılırsa sıfırlar."""
+    """Set the training script path, or clear it when no path is supplied."""
     rest = text[9:].strip()
     if not rest:
         set_training_script('')
@@ -2253,15 +2147,6 @@ def refresh_display_fields():
     pass
 
 
-# Monitor game commands
-def handle_command(command_text):
-    command_text = command_text.strip().upper()
-    if command_text in injection_sets:
-        log("Plugin: Executing command " + command_text + "...")
-        inject_packet(command_text)
-    return True
-
-
 # Called every 500ms
 def event_loop():
     global attackMode, targetX, targetY, targetZ, _last_seen_announce_channel
@@ -2358,8 +2243,7 @@ def joined_game():
 
 
 def teleported():
-    """phBot'un resmi event'i: karakter ışınlandığında (ve joined_game()'den hemen sonra) çağrılır.
-    Bekleyen bir duyuru varsa burada gönderilir - RSBot portunda "OnTeleportComplete" ile aynı rol."""
+    """Send any pending teleport announcement after phBot reports a completed teleport."""
     global _pending_tp_source, _pending_tp_destination_id, _pending_tp_armed_at
     global _pending_tp_is_runtime, _runtime_tp_command_until, _suppress_runtime_announce_until
 

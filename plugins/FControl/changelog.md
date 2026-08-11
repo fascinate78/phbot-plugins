@@ -1,5 +1,13 @@
 # FControl Changelog
 
+## v1.4.2
+
+- Removed the obsolete `DH` packet command and all related hidden GUI, timer, and command-hook code.
+
+## v1.4.1
+
+- Updated the in-plugin command list to document every available command with concise English descriptions.
+
 ## v1.4.0
 
 - Added leader-only `PA` and `SPA` commands to start and stop collecting nearby drops allowed by the phBot pick filter.

@@ -9,7 +9,7 @@ import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.1.0'
+pVersion = '3.2.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -26,6 +26,7 @@ STATE_UNEQUIPPING = 'UNEQUIPPING'
 STATE_WAITING_ACTION = 'WAITING_ACTION'
 STATE_SETTLING_POUCH = 'SETTLING_POUCH'
 STATE_DEATH_RECOVERY = 'DEATH_RECOVERY'
+STATE_ERROR_RECOVERY = 'ERROR_RECOVERY'
 STATE_ERROR = 'ERROR'
 
 POLL_SECONDS = 1.0
@@ -35,6 +36,7 @@ EQUIP_TIMEOUT = 20.0
 TRADE_TIMEOUT = 1800.0
 CITY_CONFIRM_TIMEOUT = 90.0
 DEATH_RECOVERY_TIMEOUT = 60.0
+ERROR_RECOVERY_TIMEOUT = 90.0
 RESPAWN_RETRY_SECONDS = 5.0
 RESPAWN_MAX_ATTEMPTS = 3
 RESPAWN_FINAL_WAIT_SECONDS = 10.0
@@ -203,6 +205,8 @@ chk_sync_enabled = QtBind.createCheckBox(
     gui, 'chk_sync_enabled_changed', 'Party synchronized trade', STATUS_OFFSCREEN_X, 45)
 chk_sync_coordinator = QtBind.createCheckBox(
     gui, 'chk_sync_coordinator_changed', 'This character is coordinator', STATUS_OFFSCREEN_X, 45)
+chk_error_recovery = QtBind.createCheckBox(
+    gui, 'chk_error_recovery_changed', 'Recover bot after trade errors', STATUS_OFFSCREEN_X, 45)
 lbl_sync_coordinator = QtBind.createLabel(gui, '<b>Coordinator:</b>', STATUS_OFFSCREEN_X, 77)
 txt_sync_coordinator = QtBind.createLineEdit(gui, '', STATUS_OFFSCREEN_X, 72, 180, 22)
 lbl_sync_members = QtBind.createLabel(gui, '<b>Required members:</b>', STATUS_OFFSCREEN_X, 77)
@@ -222,6 +226,7 @@ sync_panel_positions = (
     (lst_sync_background, 12, 38),
     (chk_sync_enabled, 20, 45),
     (chk_sync_coordinator, 245, 45),
+    (chk_error_recovery, 500, 45),
     (lbl_sync_coordinator, 20, 77),
     (txt_sync_coordinator, 125, 72),
     (lbl_sync_members, 325, 77),
@@ -273,6 +278,7 @@ TRANSLATIONS = {
         'state': '<font color="#6b7280"><b>State:</b></font>',
         'training': '<font color="#6b7280"><b>Training Area:</b></font>',
         'sync_enabled': 'Party synchronized trade', 'is_coordinator': 'This character is coordinator',
+        'error_recovery': 'Recover bot after trade errors',
         'coordinator': '<b>Coordinator:</b>', 'members': '<b>Required members:</b>',
         'farm': '<b>Farm Profile:</b>', 'trade': '<b>Trade Profile:</b>', 'profiles': '↻ Profiles'
     },
@@ -295,6 +301,7 @@ TRANSLATIONS = {
         'state': '<font color="#6b7280"><b>Durum:</b></font>',
         'training': '<font color="#6b7280"><b>Training Area:</b></font>',
         'sync_enabled': 'Parti senkronlu kervan', 'is_coordinator': 'Bu karakter koordinatör',
+        'error_recovery': 'Kervan hatasından sonra botu kurtar',
         'coordinator': '<b>Koordinatör:</b>', 'members': '<b>Zorunlu üyeler:</b>',
         'farm': '<b>Farm Profili:</b>', 'trade': '<b>Trade Profili:</b>', 'profiles': '↻ Profiller'
     }
@@ -318,6 +325,7 @@ def _apply_language():
         (btn_manual, 'manual'), (btn_abort, 'abort'), (lbl_live_section, 'live'),
         (lbl_state_title, 'state'), (lbl_training_title, 'training'),
         (chk_sync_enabled, 'sync_enabled'), (chk_sync_coordinator, 'is_coordinator'),
+        (chk_error_recovery, 'error_recovery'),
         (lbl_sync_coordinator, 'coordinator'), (lbl_sync_members, 'members'),
         (lbl_farm_profile, 'farm'), (lbl_trade_profile, 'trade'),
         (btn_refresh_profiles, 'profiles')
@@ -378,9 +386,16 @@ def _schedule_action(action, message):
         message, int(_action_delay_seconds() * 1000)))
 
 
-def _fail(message):
-    global cycle_active, pending_action, pending_transport_death_time
-    cycle_active = False
+def _fail(message, allow_recovery=True):
+    global cycle_active, cycle_armed, pending_action, pending_transport_death_time
+    recovery_enabled = False
+    try:
+        recovery_enabled = bool(
+            allow_recovery and cycle_active and
+            QtBind.isChecked(gui, chk_error_recovery) and
+            state not in (STATE_DEATH_RECOVERY, STATE_ERROR_RECOVERY))
+    except Exception:
+        recovery_enabled = False
     pending_action = None
     pending_transport_death_time = 0.0
     try:
@@ -391,7 +406,14 @@ def _fail(message):
         stop_bot()
     except Exception:
         pass
-    _set_state(STATE_ERROR, message)
+    if recovery_enabled:
+        cycle_active = True
+        cycle_armed = True
+        _set_state(STATE_ERROR_RECOVERY,
+                   '%s Otomatik hata kurtarma icin sehir dogrulaniyor.' % message)
+    else:
+        cycle_active = False
+        _set_state(STATE_ERROR, message)
 
 
 def _recover_error_at_training():
@@ -541,8 +563,8 @@ def _refresh_status_panel():
     blockers = []
     if not QtBind.isChecked(gui, chk_enabled):
         blockers.append('Plugin pasif' if tr else 'Plugin disabled')
-    if state == STATE_ERROR:
-        blockers.append('ERROR durumu' if tr else 'ERROR state')
+    if state in (STATE_ERROR, STATE_ERROR_RECOVERY):
+        blockers.append('Hata/kurtarma durumu' if tr else 'Error/recovery state')
     if cycle_active:
         blockers.append('Aktif döngü var' if tr else 'Cycle already active')
     if training_inside_streak < 3:
@@ -594,6 +616,7 @@ def _refresh_status_panel():
             job.get('name') or job.get('servername') or '-'),
         '%-21s: %s' % (labels['script'], script_name),
         'Sync enabled         : %s' % QtBind.isChecked(gui, chk_sync_enabled),
+        'Error auto-recovery  : %s' % QtBind.isChecked(gui, chk_error_recovery),
         'Sync coordinator     : %s' % _coordinator_name(),
         'Sync phase / run     : %s / %s' % (sync_phase, sync_run_id or '-'),
         'READY / expected     : %d / %d' % (
@@ -835,7 +858,7 @@ def _confirm_pending_transport_death(now):
 
     if snapshot_fresh and last_transport_box_count is not None and last_transport_box_count > 0:
         _fail('Transport olumu dogrulandi; son gorulen yuk %d kutu.' %
-              last_transport_box_count)
+              last_transport_box_count, False)
         return
 
     # Pet yuk snapshot'i yoksa despawn ile gercek olumu guvenilir bicimde
@@ -997,6 +1020,7 @@ def _profile_values():
         'script': _selected_script_name(),
         'sync_enabled': bool(QtBind.isChecked(gui, chk_sync_enabled)),
         'sync_coordinator': bool(QtBind.isChecked(gui, chk_sync_coordinator)),
+        'error_recovery': bool(QtBind.isChecked(gui, chk_error_recovery)),
         'coordinator_name': str(QtBind.text(gui, txt_sync_coordinator) or '').strip(),
         'required_members': str(QtBind.text(gui, txt_sync_members) or '').strip(),
         'farm_profile': _selected_phbot_profile(cmb_farm_profile),
@@ -1134,6 +1158,8 @@ def _load_profile():
     QtBind.setChecked(gui, chk_sync_enabled, bool(data.get('sync_enabled', False)))
     QtBind.setChecked(gui, chk_sync_coordinator,
                       bool(data.get('sync_coordinator', False)))
+    QtBind.setChecked(gui, chk_error_recovery,
+                      bool(data.get('error_recovery', False)))
     QtBind.setText(gui, txt_sync_coordinator,
                    str(data.get('coordinator_name', '')))
     QtBind.setText(gui, txt_sync_members,
@@ -1173,7 +1199,8 @@ def _empty_inventory_slot():
         items = inventory.get('items') or []
         size = int(inventory.get('size', len(items)))
         for slot in range(13, min(size, len(items))):
-            if items[slot] is None:
+            # phBot surumune gore bos slot None veya bos dict ({}) olabilir.
+            if not items[slot]:
                 return slot
     except Exception:
         pass
@@ -1565,7 +1592,7 @@ def _poll_pouch_settle(now):
     count = _read_box_count(False)
     safety = _number(txt_safety, 1, 'Guvenlik siniri')
     if safety is None:
-        _fail('Kutu guvenlik siniri gecersiz.')
+        _fail('Kutu guvenlik siniri gecersiz.', False)
         return
 
     if count is not None:
@@ -1590,24 +1617,31 @@ def _poll_pouch_settle(now):
 
     if now - pouch_settle_started >= POUCH_SETTLE_TIMEOUT:
         if pouch_last_count is None:
-            _fail('Teslim sonrasi job pouch %d saniyede okunamadi.' % POUCH_SETTLE_TIMEOUT)
+            _fail('Teslim sonrasi job pouch %d saniyede okunamadi.' %
+                  POUCH_SETTLE_TIMEOUT, False)
         else:
             _fail('Teslim sonrasi %d kutu kaldi; guvenli kosul <%d saglanmadi.' % (
-                pouch_last_count, safety))
+                pouch_last_count, safety), False)
 
 
 def _begin_unequip():
+    global last_action
     identity = _job_identity()
     item = _find_job(identity)
     if not item or int(item.get('slot', -1)) != 8:
         _start_grinding()
         return
+    _set_state(STATE_UNEQUIPPING,
+               'Job itemi icin bos envanter slotu kontrol ediliyor.')
     destination = _empty_inventory_slot()
     if destination < 0:
-        _fail('Job itemi cikarilamadi: envanterde bos slot yok.')
+        last_action = time.time()
+        _set_message('Bos envanter slotunun API\'de gorunmesi bekleniyor.')
         return
     _move_item(8, destination)
-    _set_state(STATE_UNEQUIPPING, 'Job itemi cikariliyor.')
+    last_action = time.time()
+    _set_message('Job itemi envanter slotu %d konumuna cikariliyor.' %
+                 destination)
 
 
 def _start_grinding():
@@ -1615,16 +1649,16 @@ def _start_grinding():
     if trade_profile_active:
         farm_profile = _selected_phbot_profile(cmb_farm_profile)
         if not _apply_phbot_profile(farm_profile, 'Farm'):
-            _fail('Farm profiline donulemedi; bot guvenlik icin baslatilmadi.')
+            _fail('Farm profiline donulemedi; bot guvenlik icin baslatilmadi.', False)
             return
         trade_profile_active = False
     try:
         result = start_bot()
     except Exception as ex:
-        _fail('Bot baslatilamadi: %s' % ex)
+        _fail('Bot baslatilamadi: %s' % ex, False)
         return
     if result is False:
-        _fail('phBot botu baslatmayi reddetti.')
+        _fail('phBot botu baslatmayi reddetti.', False)
         return
     cycle_active = False
     _set_state(STATE_IDLE, 'Kervan tamamlandi; bot bir kez baslatildi.')
@@ -1641,7 +1675,7 @@ def _send_respawn_request(now=None):
     try:
         inject_joymax(0x3053, b'\x01', False)
     except Exception as ex:
-        _fail('Sehirde yeniden dogma istegi gonderilemedi: %s' % ex)
+        _fail('Sehirde yeniden dogma istegi gonderilemedi: %s' % ex, False)
         return False
     respawn_attempts += 1
     last_respawn_request = now
@@ -1823,7 +1857,8 @@ def handle_event(event_type, data):
 def disconnected():
     global trade_profile_active
     if cycle_active:
-        _fail('Kervan dongusu sirasinda baglanti kesildi; otomatik devam iptal edildi.')
+        _fail('Kervan dongusu sirasinda baglanti kesildi; otomatik devam iptal edildi.',
+              False)
     trade_profile_active = False
     _sync_reset('Disconnected; sync reset.')
 
@@ -1971,6 +2006,11 @@ def chk_sync_coordinator_changed(checked):
     _save_settings(True)
 
 
+def chk_error_recovery_changed(checked):
+    if not settings_loading:
+        _save_settings(True)
+
+
 def _poll_state(now):
     global last_action, pending_action
     global respawn_attempts, last_respawn_request
@@ -2014,10 +2054,30 @@ def _poll_state(now):
             _fail('Kervan scripti zaman asimina ugradi.')
     elif state == STATE_SETTLING_POUCH:
         _poll_pouch_settle(now)
+    elif state == STATE_ERROR_RECOVERY:
+        if elapsed > ERROR_RECOVERY_TIMEOUT:
+            _fail('Hata kurtarma: karakter %d saniyede canli ve sehirde dogrulanamadi.' %
+                  ERROR_RECOVERY_TIMEOUT, False)
+            return
+        try:
+            character = get_character_data()
+        except Exception:
+            character = None
+        if not character or character.get('dead') or not _is_in_town():
+            return
+        _set_message('Kurtarilabilir hata: karakter sehirde ve canli dogrulandi.', True)
+        if QtBind.isChecked(gui, chk_grind_with_job):
+            _schedule_action(
+                _start_grinding,
+                'Hata kurtarma tamamlandi; farm profili ve bot hazirlaniyor.')
+        else:
+            _schedule_action(
+                _begin_unequip,
+                'Hata kurtarma tamamlandi; job itemi kontrol ediliyor.')
     elif state == STATE_DEATH_RECOVERY:
         if elapsed > DEATH_RECOVERY_TIMEOUT:
             _fail('Olum sonrasi sehre donus %d saniyede tamamlanmadi.' %
-                  DEATH_RECOVERY_TIMEOUT)
+                  DEATH_RECOVERY_TIMEOUT, False)
             return
         try:
             character = get_character_data()
@@ -2033,7 +2093,7 @@ def _poll_state(now):
             if (respawn_attempts >= RESPAWN_MAX_ATTEMPTS and
                     now - last_respawn_request >= RESPAWN_FINAL_WAIT_SECONDS):
                 _fail('Sehirde yeniden dogma basarisiz: %d deneme cevapsiz kaldi.' %
-                      RESPAWN_MAX_ATTEMPTS)
+                      RESPAWN_MAX_ATTEMPTS, False)
             return
         if not death_teleport_received or not _is_in_town():
             return
@@ -2050,7 +2110,19 @@ def _poll_state(now):
             _schedule_action(_start_grinding,
                              'Job itemi cikarildi; bot hazirlaniyor.')
         elif elapsed > EQUIP_TIMEOUT:
-            _fail('Job itemi cikarma zaman asimina ugradi.')
+            _fail('Job itemi %d saniyede cikarilamadi; API bos envanter '
+                  'slotu gostermedi veya tasima istegi cevapsiz kaldi.' %
+                  EQUIP_TIMEOUT, False)
+        elif now - last_action >= max(ACTION_RETRY_SECONDS,
+                                      _action_delay_seconds()):
+            last_action = now
+            destination = _empty_inventory_slot()
+            if destination < 0:
+                _set_message('Bos envanter slotunun API\'de gorunmesi bekleniyor.')
+            else:
+                _move_item(8, destination)
+                _set_message('Job itemi envanter slotu %d konumuna cikariliyor.' %
+                             destination)
 
 
 def event_loop():

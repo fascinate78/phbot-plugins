@@ -6,10 +6,120 @@ import json
 import os
 import struct
 import time
+import webbrowser
 
 
 pName = 'FScriptHelper'
-pVersion = '1.0.0'
+pVersion = '1.1.1'
+DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
+
+DEFAULT_LANGUAGE = 'en'
+language = DEFAULT_LANGUAGE
+
+TEXT = {
+    'en': {
+        'subtitle': 'v%s · NPC recorder',
+        'switch_language': '🇹🇷 Türkçe',
+        'nearby_npcs': '◆ NEARBY NPCS',
+        'refresh_npcs': '↻ Refresh NPC List',
+        'nearby_help': 'Nearby NPC list for reference',
+        'record': '◆ RECORD',
+        'record_name': 'Record name',
+        'start_recording': '● Start Recording',
+        'finish_recording': '■ Save & Finish',
+        'raw_packets': 'Record all C→S packets (advanced)',
+        'record_help': 'Start recording and click the target NPC.<br>Then perform the actions in game.',
+        'saved_commands': '▣ SAVED NPC COMMANDS',
+        'record_count': '%d records',
+        'packet_count': '%d packets',
+        'play_selected': '▶ Play Selected',
+        'show_packets': '≡ Show Packets',
+        'delete_record': '✕ Delete Record',
+        'cancel_action': '■ Cancel Action',
+        'stop_bot': 'Pause bot during playback',
+        'packet_preview': 'PACKET PREVIEW',
+        'ready': 'READY',
+        'ready_detail': 'NPC list can be refreshed',
+        'npc_list': 'NPC LIST',
+        'nearby_found': '%d nearby NPCs found',
+        'error': 'ERROR',
+        'enter_name': 'Enter a record name',
+        'waiting_npc': 'WAITING FOR NPC',
+        'click_npc': '%s · click the NPC in game',
+        'warning': 'WARNING',
+        'npc_not_selected': 'No NPC has been selected in game yet',
+        'no_action': 'No action was captured after NPC selection',
+        'saved': '%s saved',
+        'cancelled': 'CANCELLED',
+        'action_stopped': 'Active action stopped',
+        'select_delete': 'Select a record to delete',
+        'deleted': '%s deleted',
+        'record_not_found': 'Record not found',
+        'record_invalid': 'Record not found or invalid',
+        'npc_not_nearby': 'Recorded NPC is not nearby',
+        'playing': 'PLAYING',
+        'playing_detail': '%s · %d packets',
+        'completed': 'COMPLETED',
+        'play_completed': 'NPC command played successfully',
+        'select_play': 'Select a record to play',
+        'recording': 'RECORDING',
+        'recording_npc': '%s · %s',
+        'recording_packets': '%s · %d packets',
+        'discord_opening': 'Opening Discord invite...',
+        'discord_error': 'Could not open Discord invite'
+    },
+    'tr': {
+        'subtitle': 'v%s · NPC kaydedici',
+        'switch_language': '🇬🇧 English',
+        'nearby_npcs': '◆ YAKINDAKİ NPC’LER',
+        'refresh_npcs': '↻ NPC Listesini Yenile',
+        'nearby_help': 'Bilgi amaçlı yakındaki NPC listesi',
+        'record': '◆ KAYIT',
+        'record_name': 'Kayıt adı',
+        'start_recording': '● Kaydı Başlat',
+        'finish_recording': '■ Kaydet & Bitir',
+        'raw_packets': 'Tüm C→S paketlerini kaydet (gelişmiş)',
+        'record_help': 'Kaydı başlatıp hedef NPC’ye tıklayın.<br>Ardından oyun içindeki işlemleri yapın.',
+        'saved_commands': '▣ KAYITLI NPC KOMUTLARI',
+        'record_count': '%d kayıt',
+        'packet_count': '%d paket',
+        'play_selected': '▶ Seçileni Oynat',
+        'show_packets': '≡ Paketleri Göster',
+        'delete_record': '✕ Kaydı Sil',
+        'cancel_action': '■ İşlemi İptal Et',
+        'stop_bot': 'Oynatma sırasında botu duraklat',
+        'packet_preview': 'PAKET ÖNİZLEME',
+        'ready': 'HAZIR',
+        'ready_detail': 'NPC listesi yenilenebilir',
+        'npc_list': 'NPC LİSTESİ',
+        'nearby_found': '%d yakındaki NPC bulundu',
+        'error': 'HATA',
+        'enter_name': 'Kayıt adı girin',
+        'waiting_npc': 'NPC BEKLENİYOR',
+        'click_npc': '%s · oyun içinde NPC’ye tıklayın',
+        'warning': 'UYARI',
+        'npc_not_selected': 'Henüz oyun içinde bir NPC seçilmedi',
+        'no_action': 'NPC seçimi dışında işlem yakalanmadı',
+        'saved': '%s kaydedildi',
+        'cancelled': 'İPTAL',
+        'action_stopped': 'Aktif işlem durduruldu',
+        'select_delete': 'Silmek için bir kayıt seçin',
+        'deleted': '%s silindi',
+        'record_not_found': 'Kayıt bulunamadı',
+        'record_invalid': 'Kayıt bulunamadı veya geçersiz',
+        'npc_not_nearby': 'Kayıtlı NPC yakında değil',
+        'playing': 'OYNATILIYOR',
+        'playing_detail': '%s · %d paket',
+        'completed': 'TAMAMLANDI',
+        'play_completed': 'NPC komutu başarıyla oynatıldı',
+        'select_play': 'Oynatmak için kayıt seçin',
+        'recording': 'KAYIT',
+        'recording_npc': '%s · %s',
+        'recording_packets': '%s · %d paket',
+        'discord_opening': 'Opening Discord invite...',
+        'discord_error': 'Could not open Discord invite'
+    }
+}
 
 COLOR_PRIMARY = '#5B57E0'
 COLOR_INFO = '#3498DB'
@@ -60,6 +170,24 @@ play_recorded_uid = 0
 play_command_name = ''
 play_started_from_script = False
 resume_skip_name = ''
+status_key = 'ready'
+status_detail_key = 'ready_detail'
+status_args = ()
+status_color = COLOR_INFO
+
+
+def tr(key):
+    return TEXT.get(language, TEXT['en']).get(key, TEXT['en'].get(key, key))
+
+
+def fmt(key, *args):
+    value = tr(key)
+    return value % args if args else value
+
+
+def fixed_width_text(content, width):
+    return ('<table width="%d" cellspacing="0" cellpadding="0">'
+            '<tr><td>%s</td></tr></table>') % (width, content)
 
 
 def _log(message):
@@ -96,7 +224,14 @@ def _from_hex(value):
     return binascii.unhexlify(str(value).replace(' ', '').encode('ascii'))
 
 
-def _set_status(title, detail='', color=COLOR_INFO):
+def _set_status(title_key, detail_key='', args=(), color=COLOR_INFO):
+    global status_key, status_detail_key, status_args, status_color
+    status_key = title_key
+    status_detail_key = detail_key
+    status_args = args
+    status_color = color
+    title = tr(title_key)
+    detail = fmt(detail_key, *args) if detail_key else ''
     QtBind.setText(
         gui, lblStatus,
         '<table width="310" cellspacing="0" cellpadding="0"><tr><td>'
@@ -180,7 +315,7 @@ def _resolve_command_name(name):
 
 
 def load_commands():
-    global commands
+    global commands, language
     commands = {}
     try:
         _ensure_dir()
@@ -188,6 +323,8 @@ def load_commands():
             with open(_data_file(), 'r', encoding='utf-8') as handle:
                 raw = json.load(handle)
             source = raw.get('commands', {}) if isinstance(raw, dict) else {}
+            saved_language = raw.get('language', DEFAULT_LANGUAGE) if isinstance(raw, dict) else DEFAULT_LANGUAGE
+            language = saved_language if saved_language in ('en', 'tr') else DEFAULT_LANGUAGE
             for command_name, command in source.items():
                 if _validate_command(command_name, command):
                     commands[command_name] = command
@@ -200,7 +337,7 @@ def load_commands():
 
 def save_commands():
     _ensure_dir()
-    payload = {'schema_version': 1, 'commands': commands}
+    payload = {'schema_version': 1, 'language': language, 'commands': commands}
     target = _data_file()
     temporary = target + '.tmp'
     try:
@@ -223,9 +360,11 @@ def refresh_command_list():
     for command_name in sorted(commands.keys(), key=lambda value: value.lower()):
         command = commands[command_name]
         npc_name = command.get('npc', {}).get('name', '?')
-        QtBind.append(gui, lstCommands, '%s  ·  %s paket  ·  %s' %
-                      (command_name, len(command.get('packets', [])), npc_name))
-    QtBind.setText(gui, lblCount, '%d kayıt' % len(commands))
+        QtBind.append(gui, lstCommands, '%s  ·  %s  ·  %s' %
+                      (command_name, fmt('packet_count', len(command.get('packets', []))), npc_name))
+    QtBind.setText(gui, lblCount, fixed_width_text(
+        '<font color="%s">%s</font>' %
+        (COLOR_MUTED, fmt('record_count', len(commands))), 120))
 
 
 def refresh_npcs():
@@ -237,9 +376,9 @@ def refresh_npcs():
     for uid, npc in ordered:
         item = _npc_identity(uid, npc)
         nearby_rows.append(item)
-        QtBind.append(gui, lstNpcs, '%s  ·  %s  ·  UID %s' %
-                      (item['name'], item['servername'], item['uid']))
-    _set_status('NPC LISTESİ', '%d yakındaki NPC bulundu' % len(nearby_rows), COLOR_INFO)
+        QtBind.append(gui, lstNpcs, '%s  ·  UID %s' %
+                      (item['name'], item['uid']))
+    _set_status('npc_list', 'nearby_found', (len(nearby_rows),), COLOR_INFO)
 
 
 def start_recording():
@@ -249,14 +388,14 @@ def start_recording():
         return
     name = QtBind.text(gui, tbxName).strip()
     if not name:
-        _set_status('HATA', 'Kayıt adı girin', COLOR_DANGER)
+        _set_status('error', 'enter_name', color=COLOR_DANGER)
         return
     record_name = name
     record_npc = None
     recorded_packets = []
     record_last_time = time.time()
     state = STATE_RECORDING
-    _set_status('NPC BEKLENİYOR', '%s · oyun içinde NPC’ye tıklayın' % name, COLOR_WARNING)
+    _set_status('waiting_npc', 'click_npc', (name,), COLOR_WARNING)
     _log('Kayıt hazır: %s · oyun içinde hedef NPC’ye tıklayın.' % name)
 
 
@@ -267,10 +406,10 @@ def finish_recording():
         return
     name = record_name
     if record_npc is None:
-        _set_status('UYARI', 'Henüz oyun içinde bir NPC seçilmedi', COLOR_WARNING)
+        _set_status('warning', 'npc_not_selected', color=COLOR_WARNING)
         return
     if len(recorded_packets) <= 1:
-        _set_status('UYARI', 'NPC seçimi dışında işlem yakalanmadı', COLOR_WARNING)
+        _set_status('warning', 'no_action', color=COLOR_WARNING)
         return
     commands[name] = {
         'npc': dict(record_npc),
@@ -279,7 +418,7 @@ def finish_recording():
     }
     if save_commands():
         _log('Kayıt kaydedildi: %s (%d paket)' % (name, len(recorded_packets)))
-        _set_status('HAZIR', '%s kaydedildi' % name, COLOR_SUCCESS)
+        _set_status('ready', 'saved', (name,), COLOR_SUCCESS)
     state = STATE_IDLE
     record_name = ''
     record_npc = None
@@ -300,18 +439,18 @@ def cancel_action():
     play_next_at = 0.0
     if was_playing and play_stop_bot and play_bot_was_running:
         start_bot()
-    _set_status('İPTAL', 'Aktif işlem durduruldu', COLOR_WARNING)
+    _set_status('cancelled', 'action_stopped', color=COLOR_WARNING)
 
 
 def delete_command():
     name = _selected_command_name()
     if not name or name not in commands:
-        _set_status('HATA', 'Silmek için bir kayıt seçin', COLOR_DANGER)
+        _set_status('error', 'select_delete', color=COLOR_DANGER)
         return
     del commands[name]
     if save_commands():
         _log('Kayıt silindi: %s' % name)
-        _set_status('HAZIR', '%s silindi' % name, COLOR_SUCCESS)
+        _set_status('ready', 'deleted', (name,), COLOR_SUCCESS)
     refresh_command_list()
 
 
@@ -332,17 +471,17 @@ def play_command(name, stop_during=True, from_script=False):
     requested_name = name
     name = _resolve_command_name(requested_name)
     if name is None:
-        _set_status('HATA', 'Kayıt bulunamadı', COLOR_DANGER)
+        _set_status('error', 'record_not_found', color=COLOR_DANGER)
         _log('Kayıt bulunamadı: %s' % requested_name)
         return False
     command = commands.get(name)
     if not _validate_command(name, command):
-        _set_status('HATA', 'Kayıt bulunamadı veya geçersiz', COLOR_DANGER)
+        _set_status('error', 'record_invalid', color=COLOR_DANGER)
         _log('Kayıt geçersiz, çalıştırılamadı: %s' % name)
         return False
     found = _find_live_npc(command['npc'])
     if not found:
-        _set_status('HATA', 'Kayıtlı NPC yakında değil', COLOR_DANGER)
+        _set_status('error', 'npc_not_nearby', color=COLOR_DANGER)
         _log('NPC bulunamadı: %s' % command['npc'].get('name', '?'))
         return False
     play_live_uid = found[0]
@@ -357,7 +496,7 @@ def play_command(name, stop_during=True, from_script=False):
     if play_stop_bot and play_bot_was_running:
         stop_bot()
     state = STATE_PLAYING
-    _set_status('OYNATILIYOR', '%s · %d paket' % (name, len(play_packets)), COLOR_WARNING)
+    _set_status('playing', 'playing_detail', (name, len(play_packets)), COLOR_WARNING)
     _log('Komut başladı: %s [%s]' % (name, found[1].get('name', '?')))
     return True
 
@@ -383,14 +522,14 @@ def _finish_playback():
         resume_skip_name = play_command_name
     if play_stop_bot and play_bot_was_running:
         start_bot()
-    _set_status('TAMAMLANDI', 'NPC komutu başarıyla oynatıldı', COLOR_SUCCESS)
+    _set_status('completed', 'play_completed', color=COLOR_SUCCESS)
     _log('NPC komutu tamamlandı.')
 
 
 def execute_selected():
     name = _selected_command_name()
     if not name:
-        _set_status('HATA', 'Oynatmak için kayıt seçin', COLOR_DANGER)
+        _set_status('error', 'select_play', color=COLOR_DANGER)
         return
     play_command(name, QtBind.isChecked(gui, cbxStopBot))
 
@@ -429,7 +568,7 @@ def handle_silkroad(opcode, data):
                 'delay_ms': 0
             })
             record_last_time = time.time()
-            _set_status('KAYIT', '%s · %s' % (record_name, record_npc['name']), COLOR_WARNING)
+            _set_status('recording', 'recording_npc', (record_name, record_npc['name']), COLOR_WARNING)
             _log('Hedef NPC yakalandı: %s [%s]' %
                  (record_npc['name'], record_npc['servername']))
             return True
@@ -452,7 +591,7 @@ def handle_silkroad(opcode, data):
             'delay_ms': delay
         })
         record_last_time = now
-        _set_status('KAYIT', '%s · %d paket' % (record_name, len(recorded_packets)), COLOR_WARNING)
+        _set_status('recording', 'recording_packets', (record_name, len(recorded_packets)), COLOR_WARNING)
     except Exception as ex:
         _log('Paket kaydedilemedi: %s' % ex)
     return True
@@ -536,62 +675,105 @@ def noop_checked(checked):
     pass
 
 
+def apply_gui_language():
+    QtBind.setText(gui, lblSubtitle, '<font color="%s">%s</font>' %
+                   (COLOR_MUTED, fmt('subtitle', pVersion)))
+    QtBind.setText(gui, btnLanguage, tr('switch_language'))
+    QtBind.setText(gui, lblNearby, '<font color="%s"><b>%s</b></font>' %
+                   (COLOR_PRIMARY, tr('nearby_npcs')))
+    QtBind.setText(gui, btnRefresh, tr('refresh_npcs'))
+    QtBind.setText(gui, lblNearbyHelp, '<font color="%s">%s</font>' %
+                   (COLOR_MUTED, tr('nearby_help')))
+    QtBind.setText(gui, lblRecord, '<font color="%s"><b>%s</b></font>' %
+                   (COLOR_PRIMARY, tr('record')))
+    QtBind.setText(gui, lblRecordName, '<font color="%s">%s</font>' %
+                   (COLOR_MUTED, tr('record_name')))
+    QtBind.setText(gui, btnStart, tr('start_recording'))
+    QtBind.setText(gui, btnFinish, tr('finish_recording'))
+    QtBind.setText(gui, cbxRawPackets, tr('raw_packets'))
+    QtBind.setText(gui, lblRecordHelp,
+                   '<table width="270"><tr><td><font color="%s">%s</font></td></tr></table>' %
+                   (COLOR_MUTED, tr('record_help')))
+    QtBind.setText(gui, lblSaved, '<font color="%s"><b>%s</b></font>' %
+                   (COLOR_PRIMARY, tr('saved_commands')))
+    QtBind.setText(gui, btnPlay, tr('play_selected'))
+    QtBind.setText(gui, btnPackets, tr('show_packets'))
+    QtBind.setText(gui, btnDelete, tr('delete_record'))
+    QtBind.setText(gui, btnCancel, tr('cancel_action'))
+    QtBind.setText(gui, cbxStopBot, tr('stop_bot'))
+    QtBind.setText(gui, lblPacketPreview, '<font color="%s"><b>%s</b></font>' %
+                   (COLOR_PRIMARY, tr('packet_preview')))
+    refresh_command_list()
+    _set_status(status_key, status_detail_key, status_args, status_color)
+
+
+def language_clicked():
+    global language
+    language = 'tr' if language == 'en' else 'en'
+    save_commands()
+    apply_gui_language()
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        _set_status('ready', 'discord_opening', color=COLOR_SUCCESS)
+    except Exception as error:
+        _log('Discord link error: %s' % error)
+        _set_status('error', 'discord_error', color=COLOR_DANGER)
+
+
 gui = QtBind.init(__name__, pName)
 
 QtBind.createLabel(gui,
     '<font color="%s" size="4"><b>⚙ FSCRIPT HELPER</b></font>' % COLOR_PRIMARY, 12, 6)
-QtBind.createLabel(gui, '<font color="%s">v%s · NPC command recorder</font>' %
-    (COLOR_MUTED, pVersion), 195, 12)
+lblSubtitle = QtBind.createLabel(gui, '', 220, 12)
+btnDiscord = QtBind.createButton(gui, 'discord_clicked', u'💬 Discord', 452, 6)
 QtBind.createLabel(gui,
-    '<font color="%s"><b>⚜ Made By FascinaTe</b></font>' % COLOR_PRIMARY, 555, 11)
+    u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' % COLOR_PRIMARY, 555, 11)
+btnLanguage = QtBind.createButton(gui, 'language_clicked', '', 355, 6)
 QtBind.createLineEdit(gui, '', 12, 31, 716, 1)
 
-QtBind.createLabel(gui,
-    '<font color="%s"><b>◆ NEARBY NPCS</b></font>' % COLOR_PRIMARY, 12, 40)
-QtBind.createButton(gui, 'refresh_npcs', '↻ NPC Listesini Yenile', 12, 60)
-QtBind.createLabel(gui, '<font color="%s">Bilgi amaçlı yakındaki NPC listesi</font>' % COLOR_MUTED, 175, 65)
+lblNearby = QtBind.createLabel(gui, '', 12, 40)
+btnRefresh = QtBind.createButton(gui, 'refresh_npcs', '', 12, 60)
+lblNearbyHelp = QtBind.createLabel(gui, '', 175, 65)
 lstNpcs = QtBind.createList(gui, 12, 88, 420, 91)
 
-QtBind.createLabel(gui,
-    '<font color="%s"><b>● RECORD</b></font>' % COLOR_PRIMARY, 452, 40)
-QtBind.createLabel(gui, '<font color="%s">Kayıt adı</font>' % COLOR_MUTED, 452, 65)
-tbxName = QtBind.createLineEdit(gui, '', 515, 60, 208, 22)
-QtBind.createButton(gui, 'start_recording', '● Kaydı Başlat', 452, 88)
-QtBind.createButton(gui, 'finish_recording', '■ Kaydet & Bitir', 568, 88)
-cbxRawPackets = QtBind.createCheckBox(gui, 'noop_checked', 'Gelişmiş: tüm C→S paketlerini kaydet', 452, 119)
+lblRecord = QtBind.createLabel(gui, '', 452, 40)
+lblRecordName = QtBind.createLabel(gui, '', 452, 65)
+tbxName = QtBind.createLineEdit(gui, '', 535, 60, 188, 22)
+btnStart = QtBind.createButton(gui, 'start_recording', '', 452, 88)
+btnFinish = QtBind.createButton(gui, 'finish_recording', '', 590, 88)
+cbxRawPackets = QtBind.createCheckBox(gui, 'noop_checked', '', 452, 119)
 QtBind.setChecked(gui, cbxRawPackets, False)
-QtBind.createLabel(gui,
-    '<table width="270"><tr><td><font color="%s">Kaydı başlatın, ardından oyun içinde '
-    'hedef NPC’ye tıklayıp işlemleri yapın.</font></td></tr></table>' % COLOR_MUTED,
-    452, 143)
+lblRecordHelp = QtBind.createLabel(gui, '', 452, 143)
 
 QtBind.createLineEdit(gui, '', 12, 188, 716, 1)
-QtBind.createLabel(gui,
-    '<font color="%s"><b>▣ SAVED NPC COMMANDS</b></font>' % COLOR_PRIMARY, 12, 197)
-lblCount = QtBind.createLabel(gui, '<font color="%s">0 kayıt</font>' % COLOR_MUTED, 195, 199)
+lblSaved = QtBind.createLabel(gui, '', 12, 197)
+lblCount = QtBind.createLabel(gui, '<table width="120"><tr><td>0 records</td></tr></table>', 250, 199)
 lstCommands = QtBind.createList(gui, 12, 220, 420, 100)
-QtBind.createButton(gui, 'execute_selected', '▶ Seçileni Oynat', 452, 220)
-QtBind.createButton(gui, 'show_packets', '≡ Paketleri Göster', 575, 220)
-QtBind.createButton(gui, 'delete_command', '🗑 Kaydı Sil', 452, 249)
-QtBind.createButton(gui, 'cancel_action', '■ İşlemi İptal Et', 555, 249)
-cbxStopBot = QtBind.createCheckBox(gui, 'noop_checked', 'Oynatırken botu geçici durdur', 452, 281)
+btnPlay = QtBind.createButton(gui, 'execute_selected', '', 452, 220)
+btnPackets = QtBind.createButton(gui, 'show_packets', '', 590, 220)
+btnDelete = QtBind.createButton(gui, 'delete_command', '', 452, 249)
+btnCancel = QtBind.createButton(gui, 'cancel_action', '', 590, 249)
+cbxStopBot = QtBind.createCheckBox(gui, 'noop_checked', '', 452, 281)
 QtBind.setChecked(gui, cbxStopBot, True)
 
 QtBind.createLineEdit(gui, '', 12, 329, 716, 1)
-QtBind.createLabel(gui,
-    '<font color="%s"><b>PACKET PREVIEW</b></font>' % COLOR_PRIMARY, 12, 338)
+lblPacketPreview = QtBind.createLabel(gui, '', 12, 338)
 lstPackets = QtBind.createList(gui, 12, 359, 716, 88)
 lblStatus = QtBind.createLabel(gui,
-    '<table width="700"><tr><td><b><font color="%s">● HAZIR</font></b>'
-    '<font color="%s"> · NPC listesi yenilenebilir</font></td></tr></table>' %
+    '<table width="700"><tr><td><b><font color="%s">● READY</font></b>'
+    '<font color="%s"> · NPC list can be refreshed</font></td></tr></table>' %
     (COLOR_INFO, COLOR_TEXT), 12, 458)
 
 
 try:
     _ensure_dir()
     load_commands()
+    apply_gui_language()
     refresh_npcs()
 except Exception as ex:
     _log('Başlatma hatası: %s' % ex)
 
-_log('v%s yüklendi · ⚜ Made By FascinaTe' % pVersion)
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

@@ -88,16 +88,18 @@
                     {
                         "id":  "FScriptHelper",
                         "name":  "FScriptHelper",
-                        "version":  "1.0.0",
+                        "version":  "1.1.1",
                         "core":  true,
                         "description":  "Records and replays NPC interactions as reusable script commands.",
                         "changes":  [
-                                        "Changelog tracking started for the current version."
+                                        "Improved header spacing and shortened translated text to prevent clipping.",
+                                        "Aligned the record and command action buttons into consistent columns.",
+                                        "Wrapped the recording instructions and simplified nearby NPC rows for readability."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/changelog.md",
                         "install_path":  "FScriptHelper.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/FScriptHelper.py",
-                        "sha256":  "7914917759a92ef0455f0bff9949dbb1cf0c1477c29a406539bb912635631fb5"
+                        "sha256":  "0466341ea2b05f69664b24901a8a440f6ee8adb4287c4e11e26417788ae46d1c"
                     },
                     {
                         "id":  "FSereness",

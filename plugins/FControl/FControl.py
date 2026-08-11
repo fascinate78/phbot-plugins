@@ -1205,12 +1205,12 @@ def handle_tp_command(player, text):
     sadece o zaman ışınlanma isteği gönderilir."""
     rest = text[2:].strip()
     if not rest:
-        log("Plugin: TP komutu hatalı biçimde, atlandı.")
+        log("Plugin: Invalid TP command format; command skipped.")
         return
 
     last_space = rest.rfind(' ')
     if last_space <= 0:
-        log("Plugin: TP komutu hatalı biçimde, atlandı.")
+        log("Plugin: Invalid TP command format; command skipped.")
         return
 
     source_name = rest[:last_space].strip()
@@ -1219,7 +1219,7 @@ def handle_tp_command(player, text):
     try:
         destination_id = int(dest_text)
     except ValueError:
-        log(f"Plugin: TP komutu hedef kodu geçersiz: '{dest_text}'")
+        log(f"Plugin: TP command has an invalid destination ID: '{dest_text}'")
         return
 
     npcs = get_npcs() or {}
@@ -1235,17 +1235,17 @@ def handle_tp_command(player, text):
                 nearest_uid = uid
 
     if nearest_uid is None:
-        log(f"Plugin: TP: '{source_name}' isimli teleporter yakınlarda bulunamadı, komut atlandı (Leader: {player}).")
+        log(f"Plugin: TP: Teleporter '{source_name}' was not found nearby; command skipped (Leader: {player}).")
         return
 
     if nearest_distance > TELEPORT_PROXIMITY_METERS:
-        log(f"Plugin: TP: teleporter'a yakın değilim ({nearest_distance:.1f}m > {TELEPORT_PROXIMITY_METERS}m), komut atlandı.")
+        log(f"Plugin: TP: Teleporter is too far away ({nearest_distance:.1f}m > {TELEPORT_PROXIMITY_METERS}m); command skipped.")
         return
 
     log(f"Plugin: TP: Selecting teleporter [{source_name}] (Leader: {player})")
     inject_joymax(0x7045, struct.pack('<I', nearest_uid), False)
     Timer(2.0, inject_joymax, (0x705A, struct.pack('<IBI', nearest_uid, 2, destination_id), False)).start()
-    Timer(2.0, log, (f"Plugin: TP: Işınlanıyor -> {source_name}",)).start()
+    Timer(2.0, log, (f"Plugin: TP: Teleporting -> {source_name}",)).start()
 
 
 def handle_runtime_tp_command(player, text):
@@ -1305,7 +1305,7 @@ def handle_reverse_command(player, text):
     0=son dönüş noktası, 1=son ölüm noktası, 2=parti üyesi, 3=belirli bir konum/bölge."""
     rest = text[8:].strip()
     if not rest:
-        log("Plugin: REVERSE komutu hatalı biçimde, atlandı.")
+        log("Plugin: Invalid REVERSE command format; command skipped.")
         return
 
     parts = rest.split(' ', 1)
@@ -1323,7 +1323,7 @@ def handle_reverse_command(player, text):
             log(f"Plugin: REVERSE: No reverse death scroll available (Leader: {player})")
     elif sub_type == 'player':
         if len(parts) < 2 or not parts[1].strip():
-            log(f"Plugin: REVERSE player komutu için isim gerekli (Leader: {player}).")
+            log(f"Plugin: REVERSE player command requires a player name (Leader: {player}).")
             return
         target_name = parts[1].strip()
         if reverse_return(2, target_name):
@@ -1332,7 +1332,7 @@ def handle_reverse_command(player, text):
             log(f"Plugin: REVERSE: No reverse scroll available for player \"{target_name}\" (Leader: {player})")
     elif sub_type == 'zone':
         if len(parts) < 2 or not parts[1].strip():
-            log(f"Plugin: REVERSE zone komutu için bölge adı gerekli (Leader: {player}).")
+            log(f"Plugin: REVERSE zone command requires a zone name (Leader: {player}).")
             return
         zone_name = parts[1].strip()
         if reverse_return(3, zone_name):
@@ -1340,7 +1340,7 @@ def handle_reverse_command(player, text):
         else:
             log(f"Plugin: REVERSE: No reverse scroll available for zone \"{zone_name}\" (Leader: {player})")
     else:
-        log(f"Plugin: REVERSE komutu bilinmeyen tip: '{sub_type}' (return/death/player/zone bekleniyor) (Leader: {player}).")
+        log(f"Plugin: REVERSE command has an unknown type: '{sub_type}' (expected return/death/player/zone) (Leader: {player}).")
 
 
 def handle_setpos_command(player, text):
@@ -1416,13 +1416,13 @@ def handle_equip_command(player, text):
     eşleşen ilk item bulunup kuşanılır."""
     item_name = text[3:].strip()
     if not item_name:
-        log(f"Plugin: EQ komutu için item adı gerekli (Leader: {player}).")
+        log(f"Plugin: EQ command requires an item name (Leader: {player}).")
         return
     item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
     if item:
         EquipItem(item)
     else:
-        log(f"Plugin: EQ: '{item_name}' isimli item envanterde bulunamadı (Leader: {player}).")
+        log(f"Plugin: EQ: Item '{item_name}' was not found in the inventory (Leader: {player}).")
 
 
 def handle_unequip_command(player, text):
@@ -1430,13 +1430,13 @@ def handle_unequip_command(player, text):
     (slot 0-12) ismi eşleşen ilk item bulunup çıkarılır."""
     item_name = text[3:].strip()
     if not item_name:
-        log(f"Plugin: UQ komutu için item adı gerekli (Leader: {player}).")
+        log(f"Plugin: UQ command requires an item name (Leader: {player}).")
         return
     item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 0, 12)
     if item:
         UnequipItem(item)
     else:
-        log(f"Plugin: UQ: '{item_name}' isimli kuşanılmış item bulunamadı (Leader: {player}).")
+        log(f"Plugin: UQ: Equipped item '{item_name}' was not found (Leader: {player}).")
 
 
 def handle_use_command(player, text):
@@ -1444,13 +1444,13 @@ def handle_use_command(player, text):
     eşleşen ilk item bulunup kullanılır."""
     item_name = text[4:].strip()
     if not item_name:
-        log(f"Plugin: USE komutu için item adı gerekli (Leader: {player}).")
+        log(f"Plugin: USE command requires an item name (Leader: {player}).")
         return
     item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
     if item:
         UseItem(item)
     else:
-        log(f"Plugin: USE: '{item_name}' isimli item envanterde bulunamadı (Leader: {player}).")
+        log(f"Plugin: USE: Item '{item_name}' was not found in the inventory (Leader: {player}).")
 
 
 def handle_recall_command(player, text):
@@ -1458,14 +1458,14 @@ def handle_recall_command(player, text):
     recall işareti koyar."""
     town = text[3:].strip()
     if not town:
-        log(f"Plugin: RC komutu için şehir adı gerekli (Leader: {player}).")
+        log(f"Plugin: RC command requires a town name (Leader: {player}).")
         return
     npc_uid = GetNPCUniqueID(town)
     if npc_uid > 0:
         log(f"Plugin: RC: Designating recall to \"{town.title()}\"... (Leader: {player})")
         inject_joymax(0x7059, struct.pack('I', npc_uid), False)
     else:
-        log(f"Plugin: RC: '{town}' isimli NPC yakınlarda bulunamadı (Leader: {player}).")
+        log(f"Plugin: RC: NPC '{town}' was not found nearby (Leader: {player}).")
 
 
 # ______________________________ xControl.py'den Port Edilen Ek Komutlar ______________________________ #
@@ -1476,7 +1476,7 @@ def handle_chat_send_command(player, text):
     rest = text[4:].strip()
     args = rest.split(' ', 1)
     if len(args) != 2 or not args[0] or not args[1]:
-        log(f"Plugin: CHAT komutu hatalı biçimde, atlandı (Leader: {player}).")
+        log(f"Plugin: Invalid CHAT command format; command skipped (Leader: {player}).")
         return
 
     t = args[0].lower()
@@ -1485,7 +1485,7 @@ def handle_chat_send_command(player, text):
     if t in ('private', 'note'):
         args_extra = message.split(' ', 1)
         if len(args_extra) != 2 or not args_extra[0] or not args_extra[1]:
-            log(f"Plugin: CHAT {t} komutu için hedef ve mesaj gerekli (Leader: {player}).")
+            log(f"Plugin: CHAT {t} command requires a target and message (Leader: {player}).")
             return
         target, message = args_extra[0], args_extra[1]
 
@@ -1507,13 +1507,13 @@ def handle_chat_send_command(player, text):
     elif t == 'global':
         sent = phBotChat.Global(message)
     else:
-        log(f"Plugin: CHAT bilinmeyen kanal tipi: '{t}' (Leader: {player}).")
+        log(f"Plugin: CHAT command has an unknown channel type: '{t}' (Leader: {player}).")
         return
 
     if sent:
-        log(f"Plugin: CHAT: Mesaj gönderildi ({t}) (Leader: {player})")
+        log(f"Plugin: CHAT: Message sent ({t}) (Leader: {player})")
     else:
-        log(f"Plugin: CHAT: Mesaj gönderilemedi ({t}) (Leader: {player})")
+        log(f"Plugin: CHAT: Failed to send message ({t}) (Leader: {player})")
 
 
 def handle_inject_command(player, text):
@@ -1521,13 +1521,13 @@ def handle_inject_command(player, text):
     zaten mevcut olan inject() fonksiyonunu chat üzerinden (leader-only) tetikler."""
     rest = text[7:].strip()
     if not rest:
-        log(f"Plugin: INJECT komutu hatalı biçimde, atlandı (Leader: {player}).")
+        log(f"Plugin: Invalid INJECT command format; command skipped (Leader: {player}).")
         return
     args = ['INJECT'] + rest.split()
     try:
         inject(args)
     except (ValueError, IndexError) as e:
-        log(f"Plugin: INJECT komutu hatalı: {e} (Leader: {player}).")
+        log(f"Plugin: Invalid INJECT command: {e} (Leader: {player}).")
 
 
 def handle_moveon_command(player, text):
@@ -1539,7 +1539,7 @@ def handle_moveon_command(player, text):
         try:
             radius = abs(int(float(rest.split()[0])))
         except (IndexError, ValueError):
-            log(f"Plugin: MOVEON yarıçap değeri hatalı (Leader: {player}).")
+            log(f"Plugin: MOVEON radius value is invalid (Leader: {player}).")
             return
     p_x = random.uniform(-radius, radius)
     p_y = random.uniform(-radius, radius)
@@ -1547,7 +1547,7 @@ def handle_moveon_command(player, text):
     dest_x = p_x + p['x']
     dest_y = p_y + p['y']
     move_to(dest_x, dest_y, p['z'])
-    log(f"Plugin: MOVEON: Rastgele hareket (X:{dest_x:.1f},Y:{dest_y:.1f}) (Leader: {player})")
+    log(f"Plugin: MOVEON: Moving to a random position (X:{dest_x:.1f},Y:{dest_y:.1f}) (Leader: {player})")
 
 
 def handle_setscript_command(player, text):
@@ -1556,17 +1556,17 @@ def handle_setscript_command(player, text):
     rest = text[9:].strip()
     if not rest:
         set_training_script('')
-        log(f"Plugin: SETSCRIPT: Training script sıfırlandı (Leader: {player})")
+        log(f"Plugin: SETSCRIPT: Training script reset (Leader: {player})")
         return
     set_training_script(rest)
-    log(f"Plugin: SETSCRIPT: Training script '{rest}' olarak ayarlandı (Leader: {player})")
+    log(f"Plugin: SETSCRIPT: Training script set to '{rest}' (Leader: {player})")
 
 
 def handle_fsh_command(player, text):
     """Run an FScriptHelper recording through phBot's walk-script command bridge."""
     rest = text[3:].strip()
     if not rest:
-        log("Plugin: FSH: Kullanım: FSH [true|false] kayıt_adı")
+        log("Plugin: FSH: Usage: FSH [true|false] command_name")
         return
 
     stop_during = True
@@ -1574,7 +1574,7 @@ def handle_fsh_command(player, text):
     first = parts[0].lower()
     if first in ('true', 'false'):
         if len(parts) < 2 or not parts[1].strip():
-            log("Plugin: FSH: Kayıt adı gerekli. Kullanım: FSH [true|false] kayıt_adı")
+            log("Plugin: FSH: Command name is required. Usage: FSH [true|false] command_name")
             return
         stop_during = first == 'true'
         command_name = parts[1].strip()
@@ -1582,7 +1582,7 @@ def handle_fsh_command(player, text):
         command_name = rest
 
     if ',' in command_name or '\r' in command_name or '\n' in command_name:
-        log(f"Plugin: FSH: Geçersiz kayıt adı '{command_name}'; virgül veya satır sonu kullanılamaz.")
+        log(f"Plugin: FSH: Invalid command name '{command_name}'; commas and line breaks are not allowed.")
         return
 
     stop_text = 'true' if stop_during else 'false'
@@ -1599,9 +1599,9 @@ def handle_profile_command(player, text):
         rest = text[7:].strip()
     profile_name = rest if rest else 'Default'
     if set_profile(profile_name):
-        log(f"Plugin: SETPROFILE: '{profile_name}' profiline geçildi (Leader: {player})")
+        log(f"Plugin: SETPROFILE: Switched to profile '{profile_name}' (Leader: {player})")
     else:
-        log(f"Plugin: SETPROFILE: '{profile_name}' profiline geçilemedi (Leader: {player}).")
+        log(f"Plugin: SETPROFILE: Failed to switch to profile '{profile_name}' (Leader: {player}).")
 
 
 def start_item_storage_claim(player):
@@ -1782,7 +1782,7 @@ def handle_chat(t, player, msg):
             if stop_follow():
                 log(f"Plugin: NF: Following stopped (Leader: {player})")
             else:
-                log(f"Plugin: NF: Zaten takip edilmiyordu (Leader: {player})")
+                log(f"Plugin: NF: Following was not active (Leader: {player})")
         elif msg_upper == "ZK":
             log(f"Plugin: ZK: Using Berserker mode (Leader: {player})")
             inject_joymax(0x70A7, b'\x01', False)
@@ -1925,13 +1925,13 @@ def handle_silkroad(opcode, data):
         try:
             _capture_selected_teleporter(data)
         except Exception as e:
-            log(f"Plugin: TP kaynak önbelleği hatası: {e}")
+            log(f"Plugin: TP source cache error: {e}")
 
     if opcode == 0x705A and announce_own_teleports:
         try:
             _capture_own_teleport_request(data)
         except Exception as e:
-            log(f"Plugin: TP duyuru yakalama hatası: {e}")
+            log(f"Plugin: TP announcement capture error: {e}")
 
     return True
 
@@ -1997,7 +1997,7 @@ def _capture_own_teleport_request(data):
         source_name = _last_selected_tp_source
 
     if not source_name:
-        log(f"Plugin: TP duyurusu atlandı; UID [{teleporter_uid}] için kaynak adı bulunamadı")
+        log(f"Plugin: TP announcement skipped; no source name found for UID [{teleporter_uid}]")
         return
 
     _pending_tp_source = source_name
@@ -2006,11 +2006,11 @@ def _capture_own_teleport_request(data):
     _pending_tp_is_runtime = is_runtime
 
     if is_runtime:
-        log(f"Plugin: Runtime portal yakalandı -> Kaynak: '{source_name}'. "
-            f"Duyuru, ışınlanma onaylandığında ({get_announce_channel()}) gönderilecek.")
+        log(f"Plugin: Runtime portal captured -> Source: '{source_name}'. "
+            f"The announcement will be sent via {get_announce_channel()} after teleportation is confirmed.")
     else:
-        log(f"Plugin: Işınlanma yakalandı -> Kaynak: '{source_name}' | Hedef kod: {destination_id}. "
-            f"Duyuru, ışınlanma onaylandığında ({get_announce_channel()}) gönderilecek.")
+        log(f"Plugin: Teleport captured -> Source: '{source_name}' | Destination ID: {destination_id}. "
+            f"The announcement will be sent via {get_announce_channel()} after teleportation is confirmed.")
 
 
 def handle_joymax(opcode, data):
@@ -2173,10 +2173,10 @@ def _send_tp_announcement(source, destination_id):
     sent = ANNOUNCE_CHANNELS.get(channel, phBotChat.All)(message)
 
     if sent:
-        log(f"Plugin: TP duyurusu gönderildi ({channel}): {message}")
+        log(f"Plugin: TP announcement sent ({channel}): {message}")
         save_announce_settings()
     else:
-        log("Plugin: TP duyurusu gönderilemedi (phBotChat mesaj gönderimi başarısız döndü).")
+        log("Plugin: Failed to send TP announcement (phBotChat reported a message send failure).")
 
 
 def _send_runtime_tp_announcement(source):
@@ -2185,10 +2185,10 @@ def _send_runtime_tp_announcement(source):
     sent = ANNOUNCE_CHANNELS.get(channel, phBotChat.All)(message)
 
     if sent:
-        log(f"Plugin: TPR duyurusu gönderildi ({channel}): {message}")
+        log(f"Plugin: TPR announcement sent ({channel}): {message}")
         save_announce_settings()
     else:
-        log("Plugin: TPR duyurusu gönderilemedi (phBotChat mesaj gönderimi başarısız döndü).")
+        log("Plugin: Failed to send TPR announcement (phBotChat reported a message send failure).")
 
 # Plugin loaded
 log('[' + pName + ' V2] v' + pVersion + ' loaded — ⚜ Made By FascinaTe')

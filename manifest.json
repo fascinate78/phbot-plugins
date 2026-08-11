@@ -49,7 +49,7 @@
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "16940fc567b9a41b6281638d9af969e2ab5defa9b742a60b2f2a5813f0ce44d4"
+                        "sha256":  "18440d0ccc09cedc9ee23c8ae067980d17391679e7fd754cc3a41c24b39e5d08"
                     },
                     {
                         "id":  "FPvpHelperV2",

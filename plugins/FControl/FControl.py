@@ -9,7 +9,7 @@ import random
 import time
 
 pName = 'FControl'
-pVersion = '1.3.1'
+pVersion = '1.4.0'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,6 +62,14 @@ tis_active = False
 tis_claim_pending = False
 tis_item_count = 0
 tis_deadline = 0.0
+
+# Pick All (PA/SPA) command state
+pick_all_active = False
+pick_all_target_id = None
+pick_all_last_request_at = 0.0
+
+PICK_ALL_RANGE_METERS = 4.0
+PICK_ALL_REQUEST_INTERVAL = 1.0
 
 TELEPORT_PROXIMITY_METERS = 45  # FControl portunda aynı sabit 45m olarak tutuldu
 TP_ANNOUNCE_TIMEOUT = 60  # saniye; ışınlanma başarısız olursa eski duyuru gönderilmesin diye
@@ -138,6 +146,8 @@ commands_list = [
     "- (LP)  : Leave Party",
     "- (SORT) : Sort inventory",
     "- (REPAIR) : Use one Repair Hammer",
+    "- (PA)  : Pick all nearby filtered drops",
+    "- (SPA) : Stop Pick All",
     "- (ALeader) CharNick   : Add an authorized leader",
     "- (RLeader) CharNick   : Remove an authorized leader",
     "- (TIS) : Check Item Storage and claim all items",
@@ -1701,6 +1711,87 @@ def handle_profile_command(player, text):
         log(f"Plugin: SETPROFILE: Failed to switch to profile '{profile_name}' (Leader: {player}).")
 
 
+def start_pick_all(player):
+    global pick_all_active, pick_all_target_id, pick_all_last_request_at
+
+    if pick_all_active:
+        log(f"Plugin: PA: Pick All is already active (Leader: {player})")
+        return
+
+    drops = get_drops() or {}
+    if not drops:
+        log(f"Plugin: PA: No nearby drops match the phBot pick filter (Leader: {player})")
+        return
+
+    pick_all_active = True
+    pick_all_target_id = None
+    pick_all_last_request_at = 0.0
+    log(f"Plugin: PA: Pick All started for [{len(drops)}] nearby drop(s) (Leader: {player})")
+
+
+def stop_pick_all(player=None, reason=None):
+    global pick_all_active, pick_all_target_id, pick_all_last_request_at
+
+    was_active = pick_all_active
+    pick_all_active = False
+    pick_all_target_id = None
+    pick_all_last_request_at = 0.0
+
+    if reason and was_active:
+        log("Plugin: PA: Pick All stopped - " + reason)
+    elif was_active:
+        log(f"Plugin: SPA: Pick All stopped (Leader: {player})")
+    elif not reason:
+        log(f"Plugin: SPA: Pick All was not active (Leader: {player})")
+
+
+def process_pick_all():
+    global pick_all_target_id, pick_all_last_request_at
+
+    if not pick_all_active:
+        return
+
+    character = get_character_data()
+    if not character or character.get('hp', 0) <= 0:
+        stop_pick_all(reason="character is unavailable or dead")
+        return
+
+    drops = get_drops() or {}
+    eligible = []
+    position = get_position()
+    for drop_id, drop in drops.items():
+        if not isinstance(drop, dict) or drop.get('can_pick') is False:
+            continue
+        try:
+            distance = GetDistance(position['x'], position['y'], float(drop['x']), float(drop['y']))
+            eligible.append((distance, drop_id, drop))
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    if not eligible:
+        stop_pick_all(reason="no nearby drops remain")
+        return
+
+    distance, drop_id, drop = min(eligible, key=lambda entry: entry[0])
+    if pick_all_target_id != drop_id:
+        pick_all_target_id = drop_id
+        pick_all_last_request_at = 0.0
+        log(f"Plugin: PA: Moving to [{drop.get('name', 'Unknown drop')}]")
+
+    if distance > PICK_ALL_RANGE_METERS:
+        move_to(float(drop['x']), float(drop['y']), float(drop.get('z') or 0.0))
+        return
+
+    now = time.time()
+    if now - pick_all_last_request_at < PICK_ALL_REQUEST_INTERVAL:
+        return
+
+    packet = b'\x01\x02\x01' + struct.pack('<I', int(drop_id))
+    inject_joymax(0x7074, packet, False)
+    pick_all_last_request_at = now
+    log(f"Plugin: PA: Pickup requested for [{drop.get('name', 'Unknown drop')}]")
+
+
 def start_item_storage_claim(player):
     """Start the asynchronous Item Storage list -> claim-all flow."""
     global tis_active, tis_claim_pending, tis_item_count, tis_deadline
@@ -1834,7 +1925,7 @@ def handle_chat(t, player, msg):
         return handle_training_area_command(player, text)
 
     # Handle other leader commands
-    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS", "SORT", "REPAIR"}
+    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS", "SORT", "REPAIR", "PA", "SPA"}
     if msg_upper in leader_commands:
         if not is_leader:
             return True
@@ -1923,6 +2014,10 @@ def handle_chat(t, player, msg):
             handle_sort_command(player)
         elif msg_upper == "REPAIR":
             handle_repair_command(player)
+        elif msg_upper == "PA":
+            start_pick_all(player)
+        elif msg_upper == "SPA":
+            stop_pick_all(player=player)
         return True
 
     if is_leader and msg_upper.startswith("TP "):
@@ -2175,6 +2270,8 @@ def event_loop():
     global _announce_settings_loaded_for
     global _leaders_loaded_for
 
+    process_pick_all()
+
     if (tis_active or tis_claim_pending) and tis_deadline and time.time() > tis_deadline:
         tis_active = False
         tis_claim_pending = False
@@ -2246,6 +2343,7 @@ def connected():
     inGame = None
     _announce_settings_loaded_for = None
     _leaders_loaded_for = None
+    stop_pick_all(reason="connection changed")
 
 # Called when the character enters the game world
 def joined_game():

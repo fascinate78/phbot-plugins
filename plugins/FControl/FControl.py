@@ -9,7 +9,7 @@ import random
 import time
 
 pName = 'FControl'
-pVersion = '1.2.6'
+pVersion = '1.3.1'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -136,6 +136,10 @@ commands_list = [
     "- (ZK)  : Berserker Mode",
     "- (DC)  : Disconnect",
     "- (LP)  : Leave Party",
+    "- (SORT) : Sort inventory",
+    "- (REPAIR) : Use one Repair Hammer",
+    "- (ALeader) CharNick   : Add an authorized leader",
+    "- (RLeader) CharNick   : Remove an authorized leader",
     "- (TIS) : Check Item Storage and claim all items",
     "- (TP) Source Dest     : Teleport Follower to Dest via Source",
     "- (TPR) Source          : Teleport through a runtime portal",
@@ -305,6 +309,50 @@ def add_chat_leader(nickname):
     if not any(name.lower() == nickname.lower() for name in lstLeadersData):
         lstLeadersData.append(nickname)
     log('Plugin: Leader added via chat [' + nickname + ']')
+    return True
+
+
+def remove_chat_leader(nickname):
+    """Remove and persist a leader requested by an authorized leader."""
+    if not nickname:
+        return False
+
+    config_path = getConfig()
+    if not os.path.exists(config_path):
+        return False
+
+    try:
+        with open(config_path, 'r') as f:
+            data = json.load(f)
+    except Exception as e:
+        log('Plugin: Error loading config while removing chat leader - ' + str(e))
+        return False
+
+    leaders = data.get('Leaders', [])
+    stored_name = next(
+        (name for name in leaders if name.lower() == nickname.lower()),
+        None
+    )
+    if stored_name is None:
+        return False
+
+    data['Leaders'] = [
+        name for name in leaders if name.lower() != nickname.lower()
+    ]
+    try:
+        with open(config_path, 'w') as f:
+            f.write(json.dumps(data, indent=4, sort_keys=True))
+    except Exception as e:
+        log('Plugin: Error saving chat leader removal - ' + str(e))
+        return False
+
+    for gui_name in QtBind.getItems(gui, lstLeaders):
+        if gui_name.lower() == nickname.lower():
+            QtBind.remove(gui, lstLeaders, gui_name)
+    lstLeadersData[:] = [
+        name for name in lstLeadersData if name.lower() != nickname.lower()
+    ]
+    log('Plugin: Leader removed via chat [' + stored_name + ']')
     return True
 
 
@@ -1045,19 +1093,24 @@ def GetTIDFromItem(itemId):
 
 # Try to use the item specified
 def UseItem(item):
-    tid = GetTIDFromItem(item['model'])
-    if tid is None:
-        log('Plugin: Item data not found for "' + item['name'] + '"')
-        return
-    p = struct.pack('<B', item['slot'])
-    loc = get_locale()
-    if loc == 22:  # vsro
-        p += struct.pack('<H', tid)
-    else:
-        p += struct.pack('<I', tid)
-    log('Plugin: Using item "' + item['name'] + '"...')
-    # CLIENT_INVENTORY_ITEM_USE
-    inject_joymax(0x704C, p, True)
+    try:
+        tid = GetTIDFromItem(item['model'])
+        if tid is None:
+            log('Plugin: Item data not found for "' + item.get('name', 'Unknown') + '"')
+            return False
+        p = struct.pack('<B', item['slot'])
+        loc = get_locale()
+        if loc == 22:  # vsro
+            p += struct.pack('<H', tid)
+        else:
+            p += struct.pack('<I', tid)
+        log('Plugin: Using item "' + item['name'] + '"...')
+        # CLIENT_INVENTORY_ITEM_USE
+        inject_joymax(0x704C, p, True)
+        return True
+    except Exception as e:
+        log('Plugin: Failed to use item "' + item.get('name', 'Unknown') + '" - ' + str(e))
+        return False
 
 def DismountPet():
     """Try to dismount any mounted pet, return success"""
@@ -1453,6 +1506,50 @@ def handle_use_command(player, text):
         log(f"Plugin: USE: Item '{item_name}' was not found in the inventory (Leader: {player}).")
 
 
+def handle_sort_command(player):
+    """Request phBot's documented asynchronous inventory sort operation."""
+    try:
+        if sort_inventory():
+            log(f"Plugin: SORT: Inventory sorting requested (Leader: {player})")
+        else:
+            log(f"Plugin: SORT: Inventory sorting request was rejected (Leader: {player})")
+    except Exception as e:
+        log(f"Plugin: SORT: Inventory sorting failed (Leader: {player}) - {e}")
+
+
+def handle_repair_command(player):
+    """Use one Repair Hammer through the existing locale-aware item-use path."""
+    try:
+        inventory = get_inventory() or {}
+    except Exception as e:
+        log(f"Plugin: REPAIR: Inventory could not be read (Leader: {player}) - {e}")
+        return
+    items = inventory.get('items')
+    if not isinstance(items, list):
+        log(f"Plugin: REPAIR: Inventory is not ready (Leader: {player})")
+        return
+
+    repair_hammer = None
+    for slot, item in enumerate(items):
+        if slot < 13 or not item:
+            continue
+        display_name = (item.get('name') or '').strip().lower()
+        servername = (item.get('servername') or '').upper()
+        if display_name == 'repair hammer' or ('REPAIR' in servername and 'HAMMER' in servername):
+            repair_hammer = dict(item)
+            repair_hammer['slot'] = slot
+            break
+
+    if not repair_hammer:
+        log(f"Plugin: REPAIR: Repair Hammer was not found in the inventory (Leader: {player})")
+        return
+
+    if UseItem(repair_hammer):
+        log(f"Plugin: REPAIR: Repair Hammer use requested from slot {repair_hammer['slot']} (Leader: {player})")
+    else:
+        log(f"Plugin: REPAIR: Repair Hammer could not be used (Leader: {player})")
+
+
 def handle_recall_command(player, text):
     """'RC Town' - xControl.py'deki RECALL ile aynı mantık: yakındaki şehir portalı NPC'sine
     recall işareti koyar."""
@@ -1700,7 +1797,32 @@ def handle_chat(t, player, msg):
                 log(f"Plugin: SETFControlLeader ignored; [{player}] is already a leader or could not be saved")
         return True
 
-    is_leader = lstLeadersData and isLeader(player)
+    is_leader = bool(lstLeadersData and player and isLeader(player))
+
+    # Only an already-authorized leader can grant or revoke leader access.
+    command_parts = text.split()
+    if command_parts and command_parts[0].upper() in ('ALEADER', 'RLEADER'):
+        leader_command = command_parts[0].upper()
+        if not is_leader:
+            log(f"Plugin: {leader_command} ignored; sender [{player}] is not an authorized leader")
+            return True
+        if len(command_parts) != 2:
+            log(f"Plugin: Usage: {command_parts[0]} CharNick (Leader: {player})")
+            return True
+
+        target_name = command_parts[1]
+        if leader_command == 'ALEADER':
+            if is_own_character(target_name):
+                log(f"Plugin: ALEADER ignored; [{target_name}] is this character (Leader: {player})")
+            elif add_chat_leader(target_name):
+                log(f"Plugin: ALEADER accepted for [{target_name}] (Leader: {player})")
+            else:
+                log(f"Plugin: ALEADER ignored; [{target_name}] already exists or could not be saved (Leader: {player})")
+        elif remove_chat_leader(target_name):
+            log(f"Plugin: RLEADER accepted for [{target_name}] (Leader: {player})")
+        else:
+            log(f"Plugin: RLEADER ignored; [{target_name}] was not found or could not be saved (Leader: {player})")
+        return True
 
     if msg_upper.startswith("TPR"):
         log(f"Plugin: TPR chat received | channel={t} | sender={player} | authorized={bool(is_leader)} | message={text}")
@@ -1712,7 +1834,7 @@ def handle_chat(t, player, msg):
         return handle_training_area_command(player, text)
 
     # Handle other leader commands
-    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS"}
+    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS", "SORT", "REPAIR"}
     if msg_upper in leader_commands:
         if not is_leader:
             return True
@@ -1797,6 +1919,10 @@ def handle_chat(t, player, msg):
                 log(f"Plugin: LP: Not in a party (Leader: {player})")
         elif msg_upper == "TIS":
             start_item_storage_claim(player)
+        elif msg_upper == "SORT":
+            handle_sort_command(player)
+        elif msg_upper == "REPAIR":
+            handle_repair_command(player)
         return True
 
     if is_leader and msg_upper.startswith("TP "):
@@ -2191,7 +2317,7 @@ def _send_runtime_tp_announcement(source):
         log("Plugin: Failed to send TPR announcement (phBotChat reported a message send failure).")
 
 # Plugin loaded
-log('[' + pName + ' V2] v' + pVersion + ' loaded — ⚜ Made By FascinaTe')
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)
 if os.path.exists(getPath()):
     loadLeadersConfigs()
     loadOpcodeConfigs()

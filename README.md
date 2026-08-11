@@ -16,7 +16,7 @@ can then be installed and updated directly through FaaUpdater.
 1. Download [`FaaUpdater.py`](https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py).
 2. Copy it into the phBot `Plugins` directory.
 3. Reload the plugin list or restart phBot.
-4. Open **FascinaTe Plugin Updater** and use it to install or update any
+4. Open **F Plugin Manager** and use it to install or update any
    available plugin.
 
 There is no need to manually download each plugin or replace plugin files when
@@ -36,16 +36,20 @@ phbot-plugins/
 |-- README.md
 `-- plugins/
     `-- FaaUpdater/
-        `-- FaaUpdater.py
+        |-- FaaUpdater.py
+        `-- changelog.md
 ```
 
 The updater reads `manifest.json` to discover available plugins, versions,
-download locations, and SHA-256 integrity hashes.
+download locations, SHA-256 integrity hashes, and the release notes matching
+each published version.
 
 ## Update policy
 
 - Plugin files are downloaded over HTTPS from this repository.
 - Downloads are verified using the SHA-256 value in `manifest.json`.
+- Every published plugin includes `changelog.md`; its latest matching version
+  notes are also recorded in `manifest.json`.
 - Existing plugin files are replaced only after a complete and valid download.
 - No backup copy is created during an update.
 - A phBot plugin reload or restart may be required after installation.

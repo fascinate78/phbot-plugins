@@ -7,6 +7,10 @@
                         "version":  "1.2.0",
                         "core":  false,
                         "description":  "Installs and updates FascinaTe phBot plugins from GitHub.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/changelog.md",
                         "install_path":  "FaaUpdater.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FaaUpdater/FaaUpdater.py",
                         "sha256":  "fdb191c54598e52a46df8ee71f6deb6cedee34efc0e0c2025bdcc0b79ad85561"
@@ -17,6 +21,10 @@
                         "version":  "1.1.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoGS/changelog.md",
                         "install_path":  "FAutoGS.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoGS/FAutoGS.py",
                         "sha256":  "63aa17f4047a2497be68dc9052031baed71a669e5c34897adb825ee2329ffe98"
@@ -27,6 +35,10 @@
                         "version":  "3.0.0",
                         "core":  false,
                         "description":  "Navigates caravan routes and recovers interrupted travel.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/changelog.md",
                         "install_path":  "FCaravanNavigatorV3.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/FCaravanNavigatorV3.py",
                         "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
@@ -37,6 +49,10 @@
                         "version":  "1.6.1",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/changelog.md",
                         "install_path":  "FChamberViciousShadows.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows.py",
                         "sha256":  "f52fe8995228d7ea0d36c3d6a2c96c3b24f251255d56b9a14e441c2101fc0fca"
@@ -44,12 +60,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.2.6",
+                        "version":  "1.3.1",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
+                        "changes":  [
+                                        "Added leader-only `SORT` and safe, locale-aware `REPAIR` inventory commands."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "18440d0ccc09cedc9ee23c8ae067980d17391679e7fd754cc3a41c24b39e5d08"
+                        "sha256":  "bf7d61c7472f73a1d4cbdcece74139a7f39b55883d126927c467b72f518e11c9"
                     },
                     {
                         "id":  "FPvpHelperV2",
@@ -57,6 +77,10 @@
                         "version":  "1.2.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FPvpHelperV2/changelog.md",
                         "install_path":  "FPvpHelperV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FPvpHelperV2/FPvpHelperV2.py",
                         "sha256":  "beb775d0501f218abe7f07bd4309ace7e4ca5eeaa0df9dcd34fada99a230c2e9"
@@ -67,6 +91,10 @@
                         "version":  "1.0.0",
                         "core":  true,
                         "description":  "Records and replays NPC interactions as reusable script commands.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/changelog.md",
                         "install_path":  "FScriptHelper.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/FScriptHelper.py",
                         "sha256":  "7914917759a92ef0455f0bff9949dbb1cf0c1477c29a406539bb912635631fb5"
@@ -77,6 +105,10 @@
                         "version":  "2.6.2",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSereness/changelog.md",
                         "install_path":  "FSereness.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSereness/FSereness.py",
                         "sha256":  "406f8b42d16a3b6b3652c80121cd65cb11300f8f55585568fd8f2fc84d35af9b"
@@ -87,6 +119,10 @@
                         "version":  "1.3.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FShining/changelog.md",
                         "install_path":  "FShining.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FShining/FShining.py",
                         "sha256":  "2e0b034c5a71ec73faae037c633721bac78eb82024b2f83c301d1b5de02d4b71"
@@ -97,6 +133,11 @@
                         "version":  "3.2.2",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Fixed empty inventory slot detection for phBot versions that return empty slots as `{}` instead of `None`.",
+                                        "Kept the timed inventory refresh and job-item unequip retry behavior introduced in v3.2.1."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
                         "sha256":  "fd5a381cae3a52ea3304cc36881e05a4b2d514948f0327f6a9901e9440eaae8f"
@@ -107,6 +148,10 @@
                         "version":  "1.0.0",
                         "core":  false,
                         "description":  "Notifies you when configured unique monsters appear.",
+                        "changes":  [
+                                        "Changelog tracking started for the current version."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FUniqueNotifier/changelog.md",
                         "install_path":  "FUniqueNotifier.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FUniqueNotifier/FUniqueNotifier.py",
                         "sha256":  "8e5d6be09be21341ba8d29f3161d3880323b58e42e712ebb8655c6476182f0f4"

@@ -60,16 +60,18 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.4.2",
+                        "version":  "1.6.0",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Removed the obsolete `DH` packet command and all related hidden GUI, timer, and command-hook code."
+                                        "Added the leader-only `DEVILEXT` command to use exactly one Extension Gear on a Devil, Angel, or Hero Spirit.",
+                                        "Added response-driven unequip, extension, and conditional re-equip handling using the verified `0x7034`, `0x704C`, `0xB034`, and `0xB04C` packet flows.",
+                                        "Added support for event, premium, rental, and daily-login Extension Gear variants through the shared `NASRUN_EXTENSION` servername family."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "166b9b60a0a0a0b0d8d536a030f4f0b38be2e84f71312a30286d7369f2b9d7e9"
+                        "sha256":  "cfc4f562b77f93fff9c5ac3e43d70f672f82ed0bf7e934421d1013ced583ef54"
                     },
                     {
                         "id":  "FPvpHelperV2",

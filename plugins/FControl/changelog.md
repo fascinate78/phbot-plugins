@@ -1,5 +1,16 @@
 # FControl Changelog
 
+## v1.6.0
+
+- Added the leader-only `DEVILEXT` command to use exactly one Extension Gear on a Devil, Angel, or Hero Spirit.
+- Added response-driven unequip, extension, and conditional re-equip handling using the verified `0x7034`, `0x704C`, `0xB034`, and `0xB04C` packet flows.
+- Added support for event, premium, rental, and daily-login Extension Gear variants through the shared `NASRUN_EXTENSION` servername family.
+
+## v1.5.0
+
+- Added the leader-only `CLOCK` command, which safely uses exactly one recognized Clock of Reincarnation on the active pick pet or the sole inactive pick-pet scroll.
+- Added pending-operation protection and `0xB04C` server-response handling for Clock requests.
+
 ## v1.4.2
 
 - Removed the obsolete `DH` packet command and all related hidden GUI, timer, and command-hook code.

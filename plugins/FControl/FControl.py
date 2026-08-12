@@ -9,7 +9,7 @@ import random
 import time
 
 pName = 'FControl'
-pVersion = '1.4.2'
+pVersion = '1.6.0'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,6 +62,20 @@ tis_active = False
 tis_claim_pending = False
 tis_item_count = 0
 tis_deadline = 0.0
+
+# Pick-pet Clock command state
+clock_pending = False
+clock_pending_slot = None
+clock_pending_pet_slot = None
+clock_previous_remaining = None
+clock_deadline = 0.0
+
+# Devil/Nasrun Extension Gear command state
+devilext_state = None
+devilext_gear_slot = None
+devilext_devil_slot = None
+devilext_was_equipped = False
+devilext_deadline = 0.0
 
 # Pick All (PA/SPA) command state
 pick_all_active = False
@@ -162,6 +176,8 @@ commands_list = [
     "- PA : Pick all nearby drops allowed by the pick filter",
     "- SPA : Stop Pick All",
     "- TIS : Claim all available Item Storage items",
+    "- CLOCK : Use exactly one Clock of Reincarnation on the pick pet",
+    "- DEVILEXT : Extend one Devil/Nasrun and restore it if it was equipped",
     "- CHAT Type Message : Send a chat message",
     "- INJECT Opcode [Encrypted] [Data] : Inject a packet",
     "- FSH [true|false] Name : Play an FScriptHelper recording",
@@ -1459,6 +1475,207 @@ def handle_repair_command(player):
         log(f"Plugin: REPAIR: Repair Hammer could not be used (Leader: {player})")
 
 
+def _is_pick_pet_scroll(item):
+    """Identify a pick-pet summon scroll without relying on its display name."""
+    servername = str(item.get('servername') or '').upper()
+    return ('COS_P_' in servername and 'SCROLL' in servername
+            and 'COS_P_EXTENSION' not in servername)
+
+
+def _clock_priority(item):
+    """Prefer the shortest explicitly named Clock duration, then the base Clock."""
+    servername = str(item.get('servername') or '').upper()
+    for days in (1, 3, 7, 15, 30):
+        if '_%dD' % days in servername:
+            return days
+    return 9999
+
+
+def handle_clock_command(player):
+    """Use exactly one Clock of Reincarnation on the active or sole pick-pet scroll."""
+    global clock_pending, clock_pending_slot, clock_pending_pet_slot
+    global clock_previous_remaining, clock_deadline
+
+    now = time.time()
+    if clock_pending and now <= clock_deadline:
+        log(f"Plugin: CLOCK: A Clock operation is already pending (Leader: {player})")
+        return
+
+    inventory = get_inventory() or {}
+    items = inventory.get('items') or []
+    clocks = []
+    pick_scrolls = []
+
+    for slot, item in enumerate(items):
+        if slot < 13 or not item:
+            continue
+        servername = str(item.get('servername') or '').upper()
+        entry = dict(item)
+        entry['slot'] = slot
+        if 'COS_P_EXTENSION' in servername:
+            clocks.append(entry)
+        elif _is_pick_pet_scroll(item):
+            pick_scrolls.append(entry)
+
+    if not clocks:
+        log(f"Plugin: CLOCK: No Clock of Reincarnation was found (Leader: {player})")
+        return
+
+    active_pick_pets = [
+        pet for pet in (get_pets() or {}).values()
+        if pet and pet.get('type') == 'pick'
+    ]
+    target = None
+    previous_remaining = None
+
+    if active_pick_pets:
+        active_pet = active_pick_pets[0]
+        pet_servername = str(active_pet.get('servername') or '').upper()
+        matches = [item for item in pick_scrolls
+                   if pet_servername and pet_servername in
+                   str(item.get('servername') or '').upper()]
+        if len(matches) == 1:
+            target = matches[0]
+            previous_remaining = active_pet.get('remaining')
+        else:
+            log("Plugin: CLOCK: The active pick pet could not be matched uniquely "
+                f"to its summon scroll (matches: {len(matches)}); command cancelled")
+            return
+    elif len(pick_scrolls) == 1:
+        target = pick_scrolls[0]
+        previous_remaining = target.get('expiration')
+    else:
+        log("Plugin: CLOCK: No active pick pet and the inventory does not contain "
+            f"exactly one pick-pet scroll (found: {len(pick_scrolls)}); command cancelled")
+        return
+
+    # One command deliberately selects and injects one Clock only.
+    clock = sorted(clocks, key=lambda item: (_clock_priority(item), item['slot']))[0]
+    clock_slot = int(clock['slot'])
+    pet_slot = int(target['slot'])
+    if clock_slot > 255 or pet_slot > 255:
+        log("Plugin: CLOCK: Inventory slot is outside the one-byte packet range; command cancelled")
+        return
+
+    packet = bytes([clock_slot]) + b'\x31\x0C\x0D\x0C' + bytes([pet_slot])
+    clock_pending = True
+    clock_pending_slot = clock_slot
+    clock_pending_pet_slot = pet_slot
+    clock_previous_remaining = previous_remaining
+    clock_deadline = now + 10.0
+    inject_joymax(0x704C, packet, True)
+    log("Plugin: CLOCK: Requested one [%s] from slot %d for pet scroll slot %d "
+        "(Leader: %s)" % (clock.get('name') or clock.get('servername'),
+                           clock_slot, pet_slot, player))
+
+
+def _is_devil_item(item):
+    """Identify Devil, Angel, and Hero Spirit avatar items by stable servername families."""
+    servername = str(item.get('servername') or '').upper()
+    if 'AVATAR' not in servername:
+        return False
+    return any(marker in servername for marker in
+               ('NASRUN', 'AMALRUN', 'LEGIONNASRUN', '_DEVIL'))
+
+
+def _devilext_priority(item):
+    """Prefer the shortest explicitly named Extension Gear duration."""
+    servername = str(item.get('servername') or '').upper()
+    for days in (3, 7, 15, 28, 30):
+        if ('_%dD' % days) in servername or ('_%dDAY' % days) in servername:
+            return days
+    return 9999
+
+
+def _reset_devilext_state():
+    global devilext_state, devilext_gear_slot, devilext_devil_slot
+    global devilext_was_equipped, devilext_deadline
+    devilext_state = None
+    devilext_gear_slot = None
+    devilext_devil_slot = None
+    devilext_was_equipped = False
+    devilext_deadline = 0.0
+
+
+def _use_devilext_gear():
+    """Send one verified Extension Gear use request for the selected Devil slot."""
+    global devilext_state, devilext_deadline
+    if devilext_gear_slot is None or devilext_devil_slot is None:
+        log("Plugin: DEVILEXT: Required inventory slots are unavailable; operation cancelled")
+        _reset_devilext_state()
+        return
+    packet = (bytes([devilext_gear_slot]) + b'\x31\x0C\x0D\x10'
+              + bytes([devilext_devil_slot]))
+    devilext_state = 'using'
+    devilext_deadline = time.time() + 10.0
+    inject_joymax(0x704C, packet, True)
+    log("Plugin: DEVILEXT: Requested exactly one Extension Gear from slot %d "
+        "for Devil slot %d" % (devilext_gear_slot, devilext_devil_slot))
+
+
+def _reequip_devilext_devil():
+    """Restore a Devil that this command removed from equipment slot 4."""
+    global devilext_state, devilext_deadline
+    if devilext_devil_slot is None:
+        log("Plugin: DEVILEXT: Devil slot is unknown; automatic re-equip is not possible")
+        _reset_devilext_state()
+        return
+    devilext_state = 'equipping'
+    devilext_deadline = time.time() + 10.0
+    inject_joymax(0x7034, bytes([0x24, devilext_devil_slot, 0x04]), False)
+    log("Plugin: DEVILEXT: Restoring Devil from slot %d" % devilext_devil_slot)
+
+
+def handle_devilext_command(player):
+    """Use one Extension Gear and preserve the Devil's initial equipped state."""
+    global devilext_state, devilext_gear_slot, devilext_devil_slot
+    global devilext_was_equipped, devilext_deadline
+
+    if devilext_state:
+        log(f"Plugin: DEVILEXT: An operation is already running (Leader: {player})")
+        return
+
+    items = (get_inventory() or {}).get('items') or []
+    gears = []
+    devils = []
+    for slot, item in enumerate(items):
+        if slot < 13 or not item:
+            continue
+        servername = str(item.get('servername') or '').upper()
+        entry = dict(item)
+        entry['slot'] = slot
+        if 'NASRUN_EXTENSION' in servername:
+            gears.append(entry)
+        elif _is_devil_item(item):
+            devils.append(entry)
+
+    if not gears:
+        log(f"Plugin: DEVILEXT: No Extension Gear was found (Leader: {player})")
+        return
+    if len(devils) > 1:
+        log("Plugin: DEVILEXT: Multiple Devil/Nasrun items were found in inventory; "
+            "target is ambiguous and the command was cancelled")
+        return
+
+    gear = sorted(gears, key=lambda item: (_devilext_priority(item), item['slot']))[0]
+    devilext_gear_slot = int(gear['slot'])
+    devilext_deadline = time.time() + 10.0
+
+    if len(devils) == 1:
+        devilext_devil_slot = int(devils[0]['slot'])
+        devilext_was_equipped = False
+        log("Plugin: DEVILEXT: Using the sole inventory Devil/Nasrun; it will remain unequipped")
+        _use_devilext_gear()
+        return
+
+    # No Devil item is present in normal inventory. Ask the server to remove
+    # the equipped Devil; its assigned inventory slot comes from 0xB034.
+    devilext_was_equipped = True
+    devilext_state = 'unequipping'
+    inject_joymax(0x7034, bytes([0x23, 0x04, 0x23]), False)
+    log(f"Plugin: DEVILEXT: Removing the equipped Devil (Leader: {player})")
+
+
 def handle_recall_command(player, text):
     """Set recall at the named nearby town portal NPC."""
     town = text[3:].strip()
@@ -1819,7 +2036,7 @@ def handle_chat(t, player, msg):
         return handle_training_area_command(player, text)
 
     # Handle other leader commands
-    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS", "SORT", "REPAIR", "PA", "SPA"}
+    leader_commands = {"DS", "T", "SIT", "N", "S", "SS", "Q1", "Q2", "Q3", "RE", "D", "M", "COME", "NF", "ZK", "DC", "LP", "TIS", "SORT", "REPAIR", "CLOCK", "DEVILEXT", "PA", "SPA"}
     if msg_upper in leader_commands:
         if not is_leader:
             return True
@@ -1908,6 +2125,10 @@ def handle_chat(t, player, msg):
             handle_sort_command(player)
         elif msg_upper == "REPAIR":
             handle_repair_command(player)
+        elif msg_upper == "CLOCK":
+            handle_clock_command(player)
+        elif msg_upper == "DEVILEXT":
+            handle_devilext_command(player)
         elif msg_upper == "PA":
             start_pick_all(player)
         elif msg_upper == "SPA":
@@ -2129,7 +2350,58 @@ def _capture_own_teleport_request(data):
 
 
 def handle_joymax(opcode, data):
+    global clock_pending, clock_pending_slot, clock_pending_pet_slot
+    global clock_previous_remaining, clock_deadline
+    global devilext_state, devilext_devil_slot, devilext_deadline
+
     handle_item_storage_packet(opcode, data)
+    if opcode == 0xB04C and clock_pending and data:
+        if len(data) >= 2 and data[1] == clock_pending_slot:
+            if data[0] == 1:
+                log("Plugin: CLOCK: Server accepted the Clock use request; "
+                    "pet duration update is expected")
+            else:
+                log("Plugin: CLOCK: Server rejected the Clock use request "
+                    "(status: %d)" % data[0])
+            clock_pending = False
+            clock_pending_slot = None
+            clock_pending_pet_slot = None
+            clock_previous_remaining = None
+            clock_deadline = 0.0
+
+    if opcode == 0xB034 and devilext_state == 'unequipping' and data:
+        if len(data) >= 4 and data[1] == 0x23:
+            if data[0] == 1:
+                devilext_devil_slot = data[3]
+                log("Plugin: DEVILEXT: Devil moved to inventory slot %d" % devilext_devil_slot)
+                devilext_state = 'use_pending'
+                Timer(0.5, _use_devilext_gear).start()
+            else:
+                log("Plugin: DEVILEXT: Could not remove an equipped Devil (status: %d)" % data[0])
+                _reset_devilext_state()
+
+    elif opcode == 0xB04C and devilext_state == 'using' and data:
+        if len(data) >= 2 and data[1] == devilext_gear_slot:
+            if data[0] == 1:
+                log("Plugin: DEVILEXT: Server accepted the Extension Gear use request")
+            else:
+                log("Plugin: DEVILEXT: Server rejected the Extension Gear request "
+                    "(status: %d)" % data[0])
+            if devilext_was_equipped:
+                devilext_state = 'restore_pending'
+                Timer(0.5, _reequip_devilext_devil).start()
+            else:
+                _reset_devilext_state()
+
+    elif opcode == 0xB034 and devilext_state == 'equipping' and data:
+        if len(data) >= 4 and data[1] == 0x24 and data[2] == devilext_devil_slot:
+            if data[0] == 1:
+                log("Plugin: DEVILEXT: Devil restored successfully; operation complete")
+            else:
+                log("Plugin: DEVILEXT: Extension finished, but Devil could not be restored "
+                    "(status: %d, inventory slot: %d)" %
+                    (data[0], devilext_devil_slot))
+            _reset_devilext_state()
     if cbxShowServer:
         if CanShowPacket(opcode):
             log("Server: (Opcode) 0x" + '{:02X}'.format(opcode) + " (Data) " + ("None" if not data else ' '.join(
@@ -2151,6 +2423,9 @@ def refresh_display_fields():
 def event_loop():
     global attackMode, targetX, targetY, targetZ, _last_seen_announce_channel
     global tis_active, tis_claim_pending, tis_deadline
+    global clock_pending, clock_pending_slot, clock_pending_pet_slot
+    global clock_previous_remaining, clock_deadline
+    global devilext_state, devilext_deadline
     global _runtime_tp_command_until, _suppress_runtime_announce_until
     global _announce_settings_loaded_for
     global _leaders_loaded_for
@@ -2162,6 +2437,23 @@ def event_loop():
         tis_claim_pending = False
         tis_deadline = 0.0
         log("Plugin: TIS: Timed out waiting for the Item Storage server response")
+
+    if clock_pending and clock_deadline and time.time() > clock_deadline:
+        clock_pending = False
+        clock_pending_slot = None
+        clock_pending_pet_slot = None
+        clock_previous_remaining = None
+        clock_deadline = 0.0
+        log("Plugin: CLOCK: Timed out waiting for the server response")
+
+    if devilext_state and devilext_deadline and time.time() > devilext_deadline:
+        timed_out_state = devilext_state
+        if timed_out_state == 'using' and devilext_was_equipped and devilext_devil_slot is not None:
+            log("Plugin: DEVILEXT: Extension response timed out; attempting to restore Devil")
+            _reequip_devilext_devil()
+        else:
+            log("Plugin: DEVILEXT: Timed out during [%s]; operation stopped" % timed_out_state)
+            _reset_devilext_state()
 
     now = time.time()
     if _runtime_tp_command_until and now > _runtime_tp_command_until:

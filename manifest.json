@@ -134,17 +134,17 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "3.2.2",
+                        "version":  "3.2.4",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "changes":  [
-                                        "Fixed empty inventory slot detection for phBot versions that return empty slots as `{}` instead of `None`.",
-                                        "Kept the timed inventory refresh and job-item unequip retry behavior introduced in v3.2.1."
+                                        "Aligned empty inventory slot selection with FControl\u0027s proven implementation.",
+                                        "Kept the existing 20-second job-item unequip retry and verification flow."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "fd5a381cae3a52ea3304cc36881e05a4b2d514948f0327f6a9901e9440eaae8f"
+                        "sha256":  "23fc419c2912b103aaf1a49f3e15dec4caac39049dd66515eeed77f79bd74ff0"
                     },
                     {
                         "id":  "FUniqueNotifier",

@@ -9,7 +9,7 @@ import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.2.2'
+pVersion = '3.2.4'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -529,12 +529,9 @@ def _training_debug_snapshot():
         dx = float(position.get('x', 0.0)) - float(area.get('x', 0.0))
         dy = float(position.get('y', 0.0)) - float(area.get('y', 0.0))
         distance = (dx * dx + dy * dy) ** 0.5
-        same_region = not (area_region and position_region and
-                           area_region != position_region)
-        inside = same_region and distance <= radius
+        inside = distance <= radius
         result.update({
-            'status': 'Iceride' if inside else
-                      ('Farkli region' if not same_region else 'Disarida'),
+            'status': 'Iceride' if inside else 'Disarida',
             'position_region': position_region,
             'training_region': area_region,
             'distance': '%.1f' % distance,
@@ -662,13 +659,6 @@ def _update_training_status():
         return False
 
     try:
-        area_region = int(area.get('region', 0) or 0)
-        position_region = int(position.get('region', 0) or 0)
-        if area_region and position_region and area_region != position_region:
-            training_inside_streak = 0
-            _set_training_text('Disarida (farkli region).')
-            return False
-
         radius = float(area.get('radius', 50.0) or 50.0)
         dx = float(position.get('x', 0.0)) - float(area.get('x', 0.0))
         dy = float(position.get('y', 0.0)) - float(area.get('y', 0.0))
@@ -1195,12 +1185,9 @@ def _find_job(identity):
 
 def _empty_inventory_slot():
     try:
-        inventory = get_inventory()
-        items = inventory.get('items') or []
-        size = int(inventory.get('size', len(items)))
-        for slot in range(13, min(size, len(items))):
-            # phBot surumune gore bos slot None veya bos dict ({}) olabilir.
-            if not items[slot]:
+        items = get_inventory()['items']
+        for slot, item in enumerate(items):
+            if slot >= 13 and not item:
                 return slot
     except Exception:
         pass

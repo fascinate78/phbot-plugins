@@ -60,16 +60,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.6.1",
+                        "version":  "1.6.2",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Added a Discord invite button beside the existing GUI signature."
+                                        "Fixed teleport announcements being silently dropped by waiting for stable destination character and region data before sending from phBot\u0027s event loop."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "fa3bb9838c925e6c5d51a7d2e93bdd0be6ce9f6701f44fb485b99684c73bb3ac"
+                        "sha256":  "e9b81976d15137ef7738c010e296f732e37740eb5cd4adefe4a522042d67d8e6"
                     },
                     {
                         "id":  "FPvpHelperV2",

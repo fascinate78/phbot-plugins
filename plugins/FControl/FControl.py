@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.1'
+pVersion = '1.6.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -59,6 +59,7 @@ _pending_tp_source = None
 _pending_tp_destination_id = None
 _pending_tp_armed_at = None
 _pending_tp_is_runtime = False
+_pending_tp_origin_region = None
 _runtime_tp_command_until = 0.0
 _suppress_runtime_announce_until = 0.0
 _last_seen_announce_channel = None
@@ -67,6 +68,7 @@ _leaders_loaded_for = None
 _last_selected_tp_uid = None
 _last_selected_tp_source = None
 _last_selected_tp_at = 0.0
+_queued_tp_announcement = None
 
 # Item Storage (TIS) command state
 tis_active = False
@@ -98,7 +100,9 @@ PICK_ALL_REQUEST_INTERVAL = 1.0
 
 TELEPORT_PROXIMITY_METERS = 45  # FControl portunda aynı sabit 45m olarak tutuldu
 TP_ANNOUNCE_TIMEOUT = 60  # saniye; ışınlanma başarısız olursa eski duyuru gönderilmesin diye
-TP_ANNOUNCE_DELAY = 2.0  # saniye; sahne geçişi bitmeden gönderilen chat paketleri sunucu tarafından sessizce yutulabiliyor
+TP_SCENE_STABLE_CHECKS = 3
+TP_SCENE_SAFETY_DELAY = 1.0
+TP_SCENE_FALLBACK_DELAY = 8.0
 
 # Karakterin dinlediği (hedef gerektirmeyen, broadcast) chat kanalları - chat-api.md'de belgelenen
 # phBotChat fonksiyonlarıyla birebir eşleşiyor
@@ -1996,6 +2000,14 @@ def handle_chat(t, player, msg):
     text = msg.strip()
     msg_upper = text.upper()
 
+    # Some phBot builds echo the character's own party message through this
+    # callback. Treat that as delivery evidence, without relying on it for retry.
+    if (_queued_tp_announcement and
+            t == CHAT_PARTY and
+            text == _queued_tp_announcement.get('message') and
+            (not player or is_own_character(player))):
+        _queued_tp_announcement['confirmed'] = True
+
     # Allow party/guild members to register themselves as an FControl leader.
     if t in (CHAT_PARTY, CHAT_GUILD) and msg_upper == "SETFCONTROLLEADER":
         if ignore_setfcontrolleader:
@@ -2307,7 +2319,8 @@ def _capture_selected_teleporter(data):
 def _capture_own_teleport_request(data):
     """Capture standard type-2 and six-byte runtime-portal type-3 teleport requests."""
     global _pending_tp_source, _pending_tp_destination_id, _pending_tp_armed_at
-    global _pending_tp_is_runtime, _suppress_runtime_announce_until
+    global _pending_tp_is_runtime, _pending_tp_origin_region
+    global _suppress_runtime_announce_until
 
     if len(data) < 5:
         return
@@ -2351,6 +2364,8 @@ def _capture_own_teleport_request(data):
     _pending_tp_destination_id = destination_id
     _pending_tp_armed_at = time.time()
     _pending_tp_is_runtime = is_runtime
+    position = get_position() or {}
+    _pending_tp_origin_region = position.get('region')
 
     if is_runtime:
         log(f"Plugin: Runtime portal captured -> Source: '{source_name}'. "
@@ -2430,6 +2445,87 @@ def refresh_display_fields():
     pass
 
 
+def _process_queued_tp_announcement():
+    """Wait for stable post-teleport character data before sending chat."""
+    global _queued_tp_announcement
+
+    pending = _queued_tp_announcement
+    if not pending:
+        return
+
+    now = time.time()
+    if pending.get('sent'):
+        if pending.get('confirmed'):
+            log("Plugin: TP announcement observed in Party chat.")
+            _queued_tp_announcement = None
+        elif now - pending.get('sent_at', now) >= 5.0:
+            # Own-message echoes are not guaranteed by every phBot build.
+            _queued_tp_announcement = None
+        return
+
+    if now > pending['deadline']:
+        log("Plugin: TP announcement canceled; the destination scene did not become ready in time.")
+        _queued_tp_announcement = None
+        return
+
+    character = get_character_data() or {}
+    position = get_position() or {}
+    region = position.get('region')
+    data_ready = bool(
+        character.get('name') and
+        region is not None and
+        position.get('x') is not None and
+        position.get('y') is not None
+    )
+
+    if not data_ready:
+        pending['saw_unready'] = True
+        pending['stable_region'] = None
+        pending['stable_checks'] = 0
+        pending['ready_at'] = None
+        return
+
+    origin_region = pending.get('origin_region')
+    transition_observed = (
+        pending['saw_unready'] or
+        origin_region is None or
+        region != origin_region or
+        now >= pending['fallback_at']
+    )
+    if not transition_observed:
+        return
+
+    if region == pending.get('stable_region'):
+        pending['stable_checks'] += 1
+    else:
+        pending['stable_region'] = region
+        pending['stable_checks'] = 1
+        pending['ready_at'] = None
+
+    if pending['stable_checks'] < TP_SCENE_STABLE_CHECKS:
+        return
+
+    if pending['ready_at'] is None:
+        pending['ready_at'] = now + TP_SCENE_SAFETY_DELAY
+        return
+    if now < pending['ready_at']:
+        return
+
+    if pending['is_runtime']:
+        sent = _send_runtime_tp_announcement(pending['source'])
+    else:
+        sent = _send_tp_announcement(pending['source'], pending['destination_id'])
+    if not sent:
+        pending['attempts'] += 1
+        if pending['attempts'] >= 3:
+            _queued_tp_announcement = None
+        else:
+            pending['ready_at'] = now + 2.0
+        return
+    pending['sent'] = True
+    pending['sent_at'] = now
+
+
 # Called every 500ms
 def event_loop():
     global attackMode, targetX, targetY, targetZ, _last_seen_announce_channel
@@ -2439,7 +2535,9 @@ def event_loop():
     global devilext_state, devilext_deadline
     global _runtime_tp_command_until, _suppress_runtime_announce_until
     global _announce_settings_loaded_for
-    global _leaders_loaded_for
+    global _leaders_loaded_for, _queued_tp_announcement
+
+    _process_queued_tp_announcement()
 
     process_pick_all()
 
@@ -2528,9 +2626,11 @@ def event_loop():
 # Called when the bot successfully connects to the game server
 def connected():
     global inGame, _announce_settings_loaded_for, _leaders_loaded_for
+    global _queued_tp_announcement
     inGame = None
     _announce_settings_loaded_for = None
     _leaders_loaded_for = None
+    _queued_tp_announcement = None
     stop_pick_all(reason="connection changed")
 
 # Called when the character enters the game world
@@ -2548,17 +2648,21 @@ def joined_game():
 def teleported():
     """Send any pending teleport announcement after phBot reports a completed teleport."""
     global _pending_tp_source, _pending_tp_destination_id, _pending_tp_armed_at
-    global _pending_tp_is_runtime, _runtime_tp_command_until, _suppress_runtime_announce_until
+    global _pending_tp_is_runtime, _pending_tp_origin_region
+    global _runtime_tp_command_until, _suppress_runtime_announce_until
+    global _queued_tp_announcement
 
     source = _pending_tp_source
     destination_id = _pending_tp_destination_id
     armed_at = _pending_tp_armed_at
     is_runtime = _pending_tp_is_runtime
+    origin_region = _pending_tp_origin_region
 
     _pending_tp_source = None
     _pending_tp_destination_id = None
     _pending_tp_armed_at = None
     _pending_tp_is_runtime = False
+    _pending_tp_origin_region = None
     _runtime_tp_command_until = 0.0
     _suppress_runtime_announce_until = 0.0
 
@@ -2571,10 +2675,29 @@ def teleported():
     # Sahne geçişi tam oturmadan gönderilen chat paketleri sunucu tarafından sessizce
     # yutulabiliyor (phBotChat True dönse bile mesaj partiye ulaşmıyor) - inject_teleport()
     # akışındaki 2 saniyelik bekleme ile aynı sebeple burada da kısa bir gecikme kullanıyoruz.
-    if is_runtime:
-        Timer(TP_ANNOUNCE_DELAY, _send_runtime_tp_announcement, (source,)).start()
-    elif destination_id is not None:
-        Timer(TP_ANNOUNCE_DELAY, _send_tp_announcement, (source, destination_id)).start()
+    # Wait for post-teleport character/position data to become stable. The
+    # fallback covers same-region teleports where no region change is visible.
+    if is_runtime or destination_id is not None:
+        now = time.time()
+        message = "TPR %s" % source if is_runtime else "TP %s %s" % (source, destination_id)
+        _queued_tp_announcement = {
+            'source': source,
+            'destination_id': destination_id,
+            'is_runtime': is_runtime,
+            'origin_region': origin_region,
+            'created_at': now,
+            'deadline': now + TP_ANNOUNCE_TIMEOUT,
+            'fallback_at': now + TP_SCENE_FALLBACK_DELAY,
+            'saw_unready': False,
+            'stable_region': None,
+            'stable_checks': 0,
+            'ready_at': None,
+            'message': message,
+            'attempts': 0,
+            'sent': False,
+            'sent_at': None,
+            'confirmed': False,
+        }
 
 
 def _send_tp_announcement(source, destination_id):
@@ -2588,6 +2711,7 @@ def _send_tp_announcement(source, destination_id):
         save_announce_settings()
     else:
         log("Plugin: Failed to send TP announcement (phBotChat reported a message send failure).")
+    return sent
 
 
 def _send_runtime_tp_announcement(source):
@@ -2600,6 +2724,7 @@ def _send_runtime_tp_announcement(source):
         save_announce_settings()
     else:
         log("Plugin: Failed to send TPR announcement (phBotChat reported a message send failure).")
+    return sent
 
 # Plugin loaded
 log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

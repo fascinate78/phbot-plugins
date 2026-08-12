@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.6.2
+
+### Fixed
+- Fixed teleport announcements being silently dropped by waiting for stable destination character and region data before sending from phBot's event loop.
+
 ## v1.6.1
 
 ### Added

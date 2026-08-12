@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.6.1
+
+### Added
+- Added a Discord invite button beside the existing GUI signature.
+
 ## v1.6.0
 
 - Added the leader-only `DEVILEXT` command to use exactly one Extension Gear on a Devil, Angel, or Hero Spirit.

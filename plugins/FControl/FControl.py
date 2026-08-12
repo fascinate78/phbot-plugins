@@ -7,15 +7,18 @@ import struct
 import phBotChat
 import random
 import time
+import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.0'
+pVersion = '1.6.1'
+DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
 # ______________________________ Initializing ______________________________ #
 gui = QtBind.init(__name__, pName)
 lblInject = QtBind.createLabel(gui, '<font color="#00d2ff"><b>⚜ Made By FascinaTe</b></font>', 4, 9)
+btnDiscord = QtBind.createButton(gui, 'discord_clicked', u'\U0001f4ac Discord', 185, 5)
 
 # QtBind does not expose native child tabs. As in FCaravanNavigator, pages are
 # implemented by moving each page's widgets on/off screen.
@@ -26,6 +29,14 @@ buttons_widgets = []
 
 btnControlPage = QtBind.createButton(gui, 'show_control_page', 'Control', 300, 5)
 btnButtonsPage = QtBind.createButton(gui, 'show_buttons_page', 'Buttons', 370, 5)
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        log('[%s] Opening Discord invite...' % pName)
+    except Exception as error:
+        log('[%s] Discord link error: %s' % (pName, error))
 
 # Globals
 inGame = None

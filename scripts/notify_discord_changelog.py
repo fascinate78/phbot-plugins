@@ -11,10 +11,24 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
-EMBED_COLOR = 0x5865F2  # Discord blurple
 DISCORD_EMBED_LIMIT = 10
 DESCRIPTION_MAX = 4000
+
+CATEGORY_EMOJI = {
+    "Added": "\N{SPARKLES}",
+    "Improved": "\N{WRENCH}",
+    "Fixed": "\N{LADY BEETLE}",
+    "Removed": "\N{WASTEBASKET}\N{VARIATION SELECTOR-16}",
+}
+CATEGORY_COLOR = {
+    "Fixed": 0xED4245,  # red
+    "Added": 0x57F287,  # green
+    "Improved": 0x5865F2,  # blurple
+    "Removed": 0x99AAB5,  # gray
+}
+DEFAULT_COLOR = 0x5865F2
 
 
 def parse_changelog(path):
@@ -35,10 +49,25 @@ def parse_changelog(path):
         return None
     version = lines[0].strip()
     body = "\n".join(lines[1:]).strip() or "_(bos changelog girisi)_"
-    body = re.sub(r"^###\s+(.+)$", r"**\1**", body, flags=re.MULTILINE)
+
+    categories_found = re.findall(r"^###\s+(\w+)\s*$", body, flags=re.MULTILINE)
+
+    def format_heading(match):
+        name = match.group(1).strip()
+        emoji = CATEGORY_EMOJI.get(name)
+        return f"{emoji} **{name}**" if emoji else f"**{name}**"
+
+    body = re.sub(r"^###\s+(.+)$", format_heading, body, flags=re.MULTILINE)
     if len(body) > DESCRIPTION_MAX:
         body = body[: DESCRIPTION_MAX - 20] + "\n... (kirpildi)"
-    return plugin_name, version, body
+
+    color = DEFAULT_COLOR
+    for category in ("Fixed", "Added", "Improved", "Removed"):
+        if category in categories_found:
+            color = CATEGORY_COLOR[category]
+            break
+
+    return plugin_name, version, body, color
 
 
 def build_embeds(changed_files, repo, sha):
@@ -50,14 +79,15 @@ def build_embeds(changed_files, repo, sha):
         parsed = parse_changelog(path)
         if not parsed:
             continue
-        plugin_name, version, body = parsed
+        plugin_name, version, body, color = parsed
         embeds.append(
             {
-                "title": f"{plugin_name} - {version}",
+                "title": f"\N{PACKAGE} {plugin_name} \N{EM DASH} {version}",
                 "url": f"https://github.com/{repo}/blob/{sha}/{path}",
                 "description": body,
-                "color": EMBED_COLOR,
+                "color": color,
                 "footer": {"text": "phBot Plugins Changelog"},
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         )
     return embeds

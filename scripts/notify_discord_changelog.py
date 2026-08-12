@@ -35,6 +35,7 @@ def parse_changelog(path):
         return None
     version = lines[0].strip()
     body = "\n".join(lines[1:]).strip() or "_(bos changelog girisi)_"
+    body = re.sub(r"^###\s+(.+)$", r"**\1**", body, flags=re.MULTILINE)
     if len(body) > DESCRIPTION_MAX:
         body = body[: DESCRIPTION_MAX - 20] + "\n... (kirpildi)"
     return plugin_name, version, body

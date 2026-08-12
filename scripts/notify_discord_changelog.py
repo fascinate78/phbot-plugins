@@ -67,7 +67,13 @@ def send_webhook(webhook_url, embeds):
         chunk = embeds[i : i + DISCORD_EMBED_LIMIT]
         payload = json.dumps({"username": "Plugin Changelog", "embeds": chunk}).encode("utf-8")
         req = urllib.request.Request(
-            webhook_url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+            webhook_url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (compatible; phbot-plugins-changelog-bot/1.0)",
+            },
+            method="POST",
         )
         try:
             with urllib.request.urlopen(req) as resp:

@@ -9,7 +9,7 @@ import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.2.4'
+pVersion = '3.6.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -47,7 +47,7 @@ ACTION_RETRY_SECONDS = 3.0
 TRANSPORT_DEATH_CONFIRM_SECONDS = 5.0
 TRANSPORT_TELEPORT_GRACE_SECONDS = 5.0
 TRANSPORT_SNAPSHOT_MAX_AGE = 10.0
-SYNC_CHECK_INTERVAL = 10.0
+DEFAULT_SYNC_CHECK_INTERVAL = 10.0
 SYNC_RESPONSE_TIMEOUT = 30.0
 SYNC_PREPARE_TIMEOUT = 30.0
 
@@ -91,6 +91,7 @@ sync_phase = 'IDLE'
 sync_expected_members = set()
 sync_ready_members = {}
 sync_ack_members = set()
+sync_member_aliases = {}
 sync_last_check = 0.0
 sync_phase_since = 0.0
 sync_wait_details = {}
@@ -186,7 +187,8 @@ btn_refresh_scripts = QtBind.createButton(gui, 'btn_refresh_scripts_clicked', '�
 
 btn_save = QtBind.createButton(gui, 'btn_save_clicked', '💾  Ayarlari Kaydet', 10, 280)
 btn_manual = QtBind.createButton(gui, 'btn_manual_clicked', '▶  Kervani Manuel Baslat', 145, 280)
-btn_abort = QtBind.createButton(gui, 'btn_abort_clicked', '■  Islemi Iptal Et', 330, 280)
+btn_abort = QtBind.createButton(gui, 'btn_abort_clicked', '■  Abort Local', 330, 280)
+btn_rearm = QtBind.createButton(gui, 'btn_rearm_clicked', '↻  Re-arm This Client', 465, 280)
 
 lbl_live_section = QtBind.createLabel(gui, '<font color="#FF0000"><b>● LIVE STATUS</b></font>', 10, 320)
 lbl_state_title = QtBind.createLabel(gui, '<font color="#6b7280"><b>State:</b></font>', 10, 345)
@@ -219,8 +221,14 @@ btn_refresh_profiles = QtBind.createButton(
     gui, 'btn_refresh_profiles_clicked', '↻ Profiles', STATUS_OFFSCREEN_X, 106)
 lbl_sync_state = QtBind.createLabel(
     gui, _fixed_width_text('<font color="#9aa0ac">Sync idle.</font>', 700),
-    STATUS_OFFSCREEN_X, 145)
-lst_status_panel = QtBind.createList(gui, STATUS_OFFSCREEN_X, 175, 716, 235)
+    STATUS_OFFSCREEN_X, 180)
+lbl_sync_check_interval = QtBind.createLabel(
+    gui, '<b>CHECK interval:</b>', STATUS_OFFSCREEN_X, 147)
+txt_sync_check_interval = QtBind.createLineEdit(
+    gui, '10', STATUS_OFFSCREEN_X, 142, 55, 22)
+lbl_sync_check_interval_unit = QtBind.createLabel(
+    gui, 'sec', STATUS_OFFSCREEN_X, 147)
+lst_status_panel = QtBind.createList(gui, STATUS_OFFSCREEN_X, 210, 716, 200)
 
 sync_panel_positions = (
     (lst_sync_background, 12, 38),
@@ -236,8 +244,11 @@ sync_panel_positions = (
     (lbl_trade_profile, 325, 112),
     (cmb_trade_profile, 430, 107),
     (btn_refresh_profiles, 625, 106),
-    (lbl_sync_state, 20, 145),
-    (lst_status_panel, 12, 175)
+    (lbl_sync_check_interval, 20, 147),
+    (txt_sync_check_interval, 135, 142),
+    (lbl_sync_check_interval_unit, 195, 147),
+    (lbl_sync_state, 20, 180),
+    (lst_status_panel, 12, 210)
 )
 
 main_panel_positions = (
@@ -253,6 +264,7 @@ main_panel_positions = (
     (lbl_complete_command, 240, 195), (lbl_script_section, 10, 220),
     (cmb_script, 10, 237), (btn_refresh_scripts, 425, 236),
     (btn_save, 10, 280), (btn_manual, 145, 280), (btn_abort, 330, 280),
+    (btn_rearm, 465, 280),
     (lbl_live_section, 10, 320), (lbl_state_title, 10, 345),
     (lbl_state, 70, 345), (lbl_message, 10, 372),
     (lbl_training_title, 10, 400), (lbl_training, 105, 400)
@@ -273,14 +285,16 @@ TRANSLATIONS = {
         'complete': '<font color="#FF0000"><b>Script end: FSroRAutoTrade_complete</b></font>',
         'script': '<font color="#FF0000"><b>📜 TRADE SCRIPT</b></font> <font color="#9aa0ac">Config/FSroRAutoTrade/scripts</font>',
         'refresh_scripts': '↻  Refresh Scripts', 'save': '💾  Save Settings',
-        'manual': '▶  Start Trade Manually', 'abort': '■  Abort Operation',
+        'manual': '▶  Start Trade Manually', 'abort': '■  Abort Local',
+        'rearm': '↻  Re-arm This Client',
         'live': '<font color="#FF0000"><b>● LIVE STATUS</b></font>',
         'state': '<font color="#6b7280"><b>State:</b></font>',
         'training': '<font color="#6b7280"><b>Training Area:</b></font>',
         'sync_enabled': 'Party synchronized trade', 'is_coordinator': 'This character is coordinator',
         'error_recovery': 'Recover bot after trade errors',
         'coordinator': '<b>Coordinator:</b>', 'members': '<b>Required members:</b>',
-        'farm': '<b>Farm Profile:</b>', 'trade': '<b>Trade Profile:</b>', 'profiles': '↻ Profiles'
+        'farm': '<b>Farm Profile:</b>', 'trade': '<b>Trade Profile:</b>', 'profiles': '↻ Profiles',
+        'sync_interval': '<b>CHECK interval:</b>', 'seconds': 'sec'
     },
     'tr': {
         'status': '📊  Senkron Durum', 'back': '←  Ana Ekran',
@@ -296,14 +310,16 @@ TRANSLATIONS = {
         'complete': '<font color="#FF0000"><b>Script sonunda: FSroRAutoTrade_complete</b></font>',
         'script': '<font color="#FF0000"><b>📜 KERVAN SCRIPTİ</b></font> <font color="#9aa0ac">Config/FSroRAutoTrade/scripts</font>',
         'refresh_scripts': '↻  Scriptleri Yenile', 'save': '💾  Ayarları Kaydet',
-        'manual': '▶  Kervanı Manuel Başlat', 'abort': '■  İşlemi İptal Et',
+        'manual': '▶  Kervanı Manuel Başlat', 'abort': '■  Yerel İşlemi Durdur',
+        'rearm': '↻  Bu Clientı Hazırla',
         'live': '<font color="#FF0000"><b>● CANLI DURUM</b></font>',
         'state': '<font color="#6b7280"><b>Durum:</b></font>',
         'training': '<font color="#6b7280"><b>Training Area:</b></font>',
         'sync_enabled': 'Parti senkronlu kervan', 'is_coordinator': 'Bu karakter koordinatör',
         'error_recovery': 'Kervan hatasından sonra botu kurtar',
         'coordinator': '<b>Koordinatör:</b>', 'members': '<b>Zorunlu üyeler:</b>',
-        'farm': '<b>Farm Profili:</b>', 'trade': '<b>Trade Profili:</b>', 'profiles': '↻ Profiller'
+        'farm': '<b>Farm Profili:</b>', 'trade': '<b>Trade Profili:</b>', 'profiles': '↻ Profiller',
+        'sync_interval': '<b>CHECK aralığı:</b>', 'seconds': 'sn'
     }
 }
 
@@ -322,13 +338,16 @@ def _apply_language():
         (lbl_required_commands, 'required'), (lbl_settled_command, 'settled'),
         (lbl_complete_command, 'complete'), (lbl_script_section, 'script'),
         (btn_refresh_scripts, 'refresh_scripts'), (btn_save, 'save'),
-        (btn_manual, 'manual'), (btn_abort, 'abort'), (lbl_live_section, 'live'),
+        (btn_manual, 'manual'), (btn_abort, 'abort'), (btn_rearm, 'rearm'),
+        (lbl_live_section, 'live'),
         (lbl_state_title, 'state'), (lbl_training_title, 'training'),
         (chk_sync_enabled, 'sync_enabled'), (chk_sync_coordinator, 'is_coordinator'),
         (chk_error_recovery, 'error_recovery'),
         (lbl_sync_coordinator, 'coordinator'), (lbl_sync_members, 'members'),
         (lbl_farm_profile, 'farm'), (lbl_trade_profile, 'trade'),
-        (btn_refresh_profiles, 'profiles')
+        (btn_refresh_profiles, 'profiles'),
+        (lbl_sync_check_interval, 'sync_interval'),
+        (lbl_sync_check_interval_unit, 'seconds')
     )
     for widget, key in pairs:
         QtBind.setText(gui, widget, _ui(key))
@@ -613,6 +632,8 @@ def _refresh_status_panel():
             job.get('name') or job.get('servername') or '-'),
         '%-21s: %s' % (labels['script'], script_name),
         'Sync enabled         : %s' % QtBind.isChecked(gui, chk_sync_enabled),
+        'CHECK interval       : %s sec' % (
+            QtBind.text(gui, txt_sync_check_interval) or '-'),
         'Error auto-recovery  : %s' % QtBind.isChecked(gui, chk_error_recovery),
         'Sync coordinator     : %s' % _coordinator_name(),
         'Sync phase / run     : %s / %s' % (sync_phase, sync_run_id or '-'),
@@ -869,6 +890,13 @@ def _number(widget, minimum, label):
     return value
 
 
+def _sync_check_interval():
+    try:
+        return max(2.0, float(QtBind.text(gui, txt_sync_check_interval)))
+    except Exception:
+        return DEFAULT_SYNC_CHECK_INTERVAL
+
+
 def _character_name():
     try:
         data = get_character_data()
@@ -1004,6 +1032,8 @@ def _profile_values():
         'target': _number(txt_target, 1, 'Kervan hedefi'),
         'safety': _number(txt_safety, 1, 'Guvenlik siniri'),
         'action_delay_ms': _number(txt_action_delay, 0, 'Komut gecikmesi'),
+        'sync_check_interval': _number(
+            txt_sync_check_interval, 2, 'Sync CHECK araligi'),
         'grind_with_job': bool(QtBind.isChecked(gui, chk_grind_with_job)),
         'job_model': int(job.get('model', 0) or 0),
         'job_servername': str(job.get('servername') or ''),
@@ -1022,7 +1052,8 @@ def _profile_values():
 def _save_settings(silent=False, validate_sync=True):
     values = _profile_values()
     if (values['target'] is None or values['safety'] is None or
-            values['action_delay_ms'] is None):
+            values['action_delay_ms'] is None or
+            values['sync_check_interval'] is None):
         return False
     if validate_sync and values['sync_enabled']:
         valid, reason = _validate_sync_setup()
@@ -1122,11 +1153,19 @@ def _refresh_scripts(wanted=''):
         names.sort(key=lambda value: value.lower())
     except Exception:
         names = []
-    if wanted in names:
-        names.remove(wanted)
-        names.insert(0, wanted)
+    selected_name = ''
+    if wanted:
+        for name in names:
+            if name.lower() == str(wanted).lower():
+                selected_name = name
+                break
+    if selected_name:
+        names.remove(selected_name)
+        names.insert(0, selected_name)
     script_candidates = names
     _fill_combobox(cmb_script, script_candidates)
+    if selected_name:
+        QtBind.setText(gui, cmb_script, selected_name)
     return bool(script_candidates)
 
 
@@ -1141,6 +1180,8 @@ def _load_profile():
     QtBind.setText(gui, txt_target, str(data.get('target', 80)))
     QtBind.setText(gui, txt_safety, str(data.get('safety', 5)))
     QtBind.setText(gui, txt_action_delay, str(data.get('action_delay_ms', 2000)))
+    QtBind.setText(gui, txt_sync_check_interval,
+                   str(data.get('sync_check_interval', 10)))
     QtBind.setChecked(gui, chk_grind_with_job, bool(data.get('grind_with_job', False)))
     _refresh_jobs(data.get('job_servername', ''), data.get('job_model', 0))
     _refresh_scripts(data.get('script', ''))
@@ -1224,7 +1265,8 @@ def _party_names():
 def _send_sync(command, argument=''):
     if not sync_run_id:
         return False
-    message = '%s|%s|%s' % (SYNC_PROTOCOL, sync_run_id, command)
+    message = '%s|%s|%s|%s' % (
+        SYNC_PROTOCOL, sync_run_id, command, _own_name())
     if argument:
         message += '|' + str(argument)
     try:
@@ -1272,7 +1314,7 @@ def _validate_sync_setup():
     return True, ''
 
 
-def _local_sync_readiness(target):
+def _local_sync_readiness():
     if not QtBind.isChecked(gui, chk_enabled):
         return False, 'PLUGIN_DISABLED', 0
     if cycle_active or state != STATE_IDLE:
@@ -1282,13 +1324,13 @@ def _local_sync_readiness(target):
     if training_inside_streak < 3:
         return False, 'TRAINING_%d_3' % training_inside_streak, 0
     local_target = _number(txt_target, 1, 'Kervan hedefi')
-    if local_target is None or local_target != target:
-        return False, 'TARGET_MISMATCH_%s' % local_target, 0
+    if local_target is None:
+        return False, 'TARGET_INVALID', 0
     count = _read_box_count(False)
     if count is None:
         return False, 'POUCH_UNAVAILABLE', 0
-    if count < target:
-        return False, 'BOX_%d_%d' % (count, target), count
+    if count < local_target:
+        return False, 'BOX_%d_%d' % (count, local_target), count
     if not _selected_job() or not _find_job(_job_identity()):
         return False, 'JOB_ITEM_MISSING', count
     script_name = _selected_script_name()
@@ -1323,13 +1365,14 @@ def _sync_reset(message='Sync idle.'):
     sync_expected_members = set()
     sync_ready_members.clear()
     sync_ack_members.clear()
+    sync_member_aliases.clear()
     sync_wait_details.clear()
     sync_last_check = 0.0
     sync_phase_since = 0.0
     _set_sync_text(message)
 
 
-def _sync_begin_coordinator(now, target):
+def _sync_begin_coordinator(now):
     global sync_run_id, sync_phase, sync_expected_members
     global sync_last_check, sync_phase_since
     valid, reason = _validate_sync_setup()
@@ -1338,20 +1381,16 @@ def _sync_begin_coordinator(now, target):
         return
     required = _required_member_names()
     own = _own_name().lower()
-    party = _party_names()
-    missing = required.difference(party | set([own]))
-    if missing:
-        _set_sync_text('Missing party members: %s' % ', '.join(sorted(missing)), '#c98a1a')
-        return
     sync_run_id = '%s-%d' % (own, int(now * 1000))
     sync_expected_members = required.difference(set([own]))
     sync_ready_members.clear()
     sync_ack_members.clear()
+    sync_member_aliases.clear()
     sync_wait_details.clear()
     sync_phase = 'WAIT_READY'
     sync_phase_since = now
     sync_last_check = now
-    _send_sync('CHECK', str(target))
+    _send_sync('CHECK')
     _set_sync_text('Waiting READY: 0/%d' % len(sync_expected_members), '#c98a1a')
 
 
@@ -1359,8 +1398,7 @@ def _sync_start_local():
     global sync_phase, trade_profile_active
     if cycle_active or sync_phase == 'STARTED':
         return
-    target = _number(txt_target, 1, 'Kervan hedefi')
-    ready, reason, count = _local_sync_readiness(target or 0)
+    ready, reason, count = _local_sync_readiness()
     if not ready:
         _set_sync_text('START rejected locally: %s' % reason, '#e74c3c')
         _send_sync('FAILED', '%s:%s' % (_own_name(), reason))
@@ -1389,33 +1427,36 @@ def _poll_sync(now, target, training_ready):
         return
     if sync_phase == 'IDLE':
         if training_ready and cycle_armed and last_box_count is not None and last_box_count >= target:
-            _sync_begin_coordinator(now, target)
+            _sync_begin_coordinator(now)
         return
     if sync_phase == 'WAIT_READY':
-        if now - sync_last_check >= SYNC_CHECK_INTERVAL:
+        if now - sync_last_check >= _sync_check_interval():
             sync_last_check = now
-            _send_sync('CHECK', str(target))
+            _send_sync('CHECK')
         if _sync_all_recent(now):
-            own_ready, own_reason, own_count = _local_sync_readiness(target)
+            own_ready, own_reason, own_count = _local_sync_readiness()
             if not own_ready:
                 _set_sync_text('Coordinator no longer ready: %s' % own_reason, '#c98a1a')
                 return
             sync_phase = 'WAIT_ACK'
             sync_phase_since = now
             sync_ack_members.clear()
-            _send_sync('PREPARE', str(target))
+            _send_sync('PREPARE')
             _set_sync_text('All READY; waiting final ACK', '#c98a1a')
     elif sync_phase == 'WAIT_ACK':
         if sync_expected_members.issubset(sync_ack_members):
-            own_ready, own_reason, own_count = _local_sync_readiness(target)
-            party_missing = sync_expected_members.difference(_party_names())
+            own_ready, own_reason, own_count = _local_sync_readiness()
+            party_names = _party_names()
+            party_missing = set(
+                member for member in sync_expected_members
+                if sync_member_aliases.get(member, '') not in party_names)
             if not own_ready or party_missing:
                 reason = own_reason if not own_ready else (
                     'PARTY_MISSING_%s' % ','.join(sorted(party_missing)))
                 _send_sync('ABORT', reason)
                 _sync_reset('Sync aborted before START: %s' % reason)
                 return
-            _send_sync('START', str(target))
+            _send_sync('START')
             _sync_start_local()
         elif now - sync_phase_since > SYNC_PREPARE_TIMEOUT:
             _send_sync('ABORT', 'ACK_TIMEOUT')
@@ -1720,31 +1761,28 @@ def handle_chat(t, player, msg):
     if (t != CHAT_PARTY or not player or not msg or
             not msg.startswith(SYNC_PROTOCOL + '|')):
         return False
-    parts = msg.split('|', 3)
-    if len(parts) < 3:
+    parts = msg.split('|', 4)
+    if len(parts) < 4:
         return True
     run_id = parts[1]
     command = parts[2].upper()
-    argument = parts[3] if len(parts) > 3 else ''
+    identity = parts[3].strip().lower()
+    argument = parts[4] if len(parts) > 4 else ''
     sender = str(player).lower()
     coordinator = _coordinator_name().lower()
-    own = _own_name().lower()
 
     if not QtBind.isChecked(gui, chk_sync_enabled):
         return True
 
     if command == 'CHECK':
-        if sender != coordinator or cycle_active:
-            return True
-        try:
-            target = int(argument)
-        except Exception:
+        if (identity != coordinator or cycle_active or
+                QtBind.isChecked(gui, chk_sync_coordinator)):
             return True
         if run_id != sync_run_id:
             sync_run_id = run_id
             sync_phase = 'WAIT_START'
         sync_phase_since = time.time()
-        ready, reason, count = _local_sync_readiness(target)
+        ready, reason, count = _local_sync_readiness()
         if ready:
             _send_sync('READY', str(count))
             _set_sync_text('READY %d; coordinator command pending' % count, '#1f9d63')
@@ -1757,19 +1795,20 @@ def handle_chat(t, player, msg):
         return True
 
     if QtBind.isChecked(gui, chk_sync_coordinator):
-        if sender not in sync_expected_members:
+        if identity not in sync_expected_members:
             return True
+        sync_member_aliases[identity] = sender
         if command == 'READY' and sync_phase == 'WAIT_READY':
-            sync_ready_members[sender] = time.time()
-            sync_wait_details.pop(sender, None)
+            sync_ready_members[identity] = time.time()
+            sync_wait_details.pop(identity, None)
             _set_sync_text('Waiting READY: %d/%d' % (
                 len(sync_ready_members), len(sync_expected_members)), '#c98a1a')
         elif command == 'WAIT' and sync_phase == 'WAIT_READY':
-            sync_ready_members.pop(sender, None)
-            sync_wait_details[sender] = argument
+            sync_ready_members.pop(identity, None)
+            sync_wait_details[identity] = argument
             _set_sync_text('%s waiting: %s' % (player, argument), '#c98a1a')
         elif command == 'ACK' and sync_phase == 'WAIT_ACK':
-            sync_ack_members.add(sender)
+            sync_ack_members.add(identity)
             _set_sync_text('Waiting ACK: %d/%d' % (
                 len(sync_ack_members), len(sync_expected_members)), '#c98a1a')
         elif command == 'FAILED':
@@ -1777,14 +1816,10 @@ def handle_chat(t, player, msg):
             _sync_reset('Sync failed: %s' % (argument or player))
         return True
 
-    if sender != coordinator:
+    if identity != coordinator:
         return True
     if command == 'PREPARE' and sync_phase == 'WAIT_START':
-        try:
-            target = int(argument)
-        except Exception:
-            return True
-        ready, reason, count = _local_sync_readiness(target)
+        ready, reason, count = _local_sync_readiness()
         if ready:
             _send_sync('ACK', str(count))
             _set_sync_text('Final ACK sent; START pending', '#c98a1a')
@@ -1943,8 +1978,6 @@ def btn_manual_clicked():
 def btn_abort_clicked():
     global cycle_active, cycle_armed, pending_action, pending_transport_death_time
     global trade_profile_active
-    if sync_run_id and QtBind.isChecked(gui, chk_sync_coordinator):
-        _send_sync('ABORT', 'USER_ABORT')
     cycle_active = False
     cycle_armed = False
     pending_action = None
@@ -1953,11 +1986,37 @@ def btn_abort_clicked():
         stop_script()
     except Exception:
         pass
+    try:
+        stop_bot()
+    except Exception:
+        pass
     if trade_profile_active:
         if _apply_phbot_profile(_selected_phbot_profile(cmb_farm_profile), 'Farm'):
             trade_profile_active = False
-    _sync_reset('Sync aborted by user.')
-    _set_state(STATE_IDLE, 'Aktif islem kullanici tarafindan iptal edildi; bot baslatilmadi.')
+        else:
+            _sync_reset('Local operation aborted; Farm Profile restore failed.')
+            _set_state(STATE_ERROR,
+                       'Local operation stopped, but Farm Profile could not be restored.')
+            return
+    _sync_reset('Local operation aborted; this client is not armed.')
+    _set_state(STATE_IDLE,
+               'Local operation aborted; use Re-arm This Client after fixing the issue.')
+
+
+def btn_rearm_clicked():
+    global cycle_armed, pending_action, pending_transport_death_time
+    if cycle_active or state != STATE_IDLE:
+        _set_message('Cannot re-arm while a local operation is active or not IDLE.', True)
+        return
+    if trade_profile_active:
+        _set_message('Cannot re-arm until the Farm Profile is restored.', True)
+        return
+    pending_action = None
+    pending_transport_death_time = 0.0
+    _sync_reset('Local client re-armed; waiting for synchronization.')
+    cycle_armed = True
+    _set_state(STATE_IDLE,
+               'This client is re-armed and ready for normal synchronization checks.')
 
 
 def chk_enabled_changed(checked):

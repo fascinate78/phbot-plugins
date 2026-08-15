@@ -45,6 +45,7 @@ downloaded version.
 
 ## Available plugins
 
+<!-- PLUGIN_TABLE_START -->
 | Plugin | Version | Description |
 |---|---:|---|
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Installs and updates FascinaTe phBot plugins from GitHub. |
@@ -56,8 +57,9 @@ downloaded version.
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
-| [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 3.2.4 | Coordinates party-synchronized trade scripts and job-item handling. |
+| [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 3.6.1 | Coordinates party-synchronized trade scripts and job-item handling. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
+<!-- PLUGIN_TABLE_END -->
 
 Plugin availability, versions, download locations, integrity hashes, and release
 notes are maintained in [`manifest.json`](manifest.json).

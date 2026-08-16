@@ -35,11 +35,11 @@ plugin_path = os.path.dirname(os.path.realpath(__file__))
 scripts_folder = os.path.join(plugin_path, 'scripts')
 
 def getPath():
-    """مجلد الـ config الخاص بالبلجن داخل get_config_dir()"""
+    """Return the plugin config folder inside get_config_dir()."""
     return get_config_dir() + CONFIG_FOLDER + "\\"
 
 def getConfig():
-    """مسار ملف الـ JSON الخاص بكل character"""
+    """Return the per-character JSON config path."""
     char = get_character_data()
     if char and char.get('name') and char.get('server'):
         return getPath() + char['server'] + "_" + char['name'] + ".json"
@@ -61,21 +61,21 @@ plugin_active = False
 # (get_training_area()'dan yakalanir: region,x,y,z,radius,path)
 saved_slot = None
 
-# lock بيحمي unique_queue / alive_uniques / pending_uniques من race conditions
-# لأنهم بيتعدّلوا من أكتر من thread (network event thread + threading.Timer callbacks)
+# Protect unique_queue / alive_uniques / pending_uniques from race conditions
+# between the network event thread and threading.Timer callbacks.
 _state_lock = threading.RLock()
 
-# لو الـ unique المستهدف اختفى من get_monsters() بعد ما بدأنا نضربه فعلاً (engaged)
-# لمدة أطول من دي، نعتبره مات ونرجع للتاون بدل ما ننتظر الـ timeout الكامل
+# If an engaged target disappears from get_monsters() longer than this grace
+# period, treat it as dead and return instead of waiting for the full timeout.
 LOST_TARGET_GRACE_SEC = 8.0
 
 # State Machine: IDLE, HUNTING, RETURNING
 bot_state = 'IDLE'
 force_stopped = False
-just_returned = False  # flag: وصلنا التاون للتو → تجاوز الـ town check مرة واحدة
+just_returned = False  # Skip the town check once immediately after returning.
 unique_not_found_count = 0
 script_finished = False
-_in_town_state = True  # tracking يدوي للـ town state — True = في التاون
+_in_town_state = True  # Manually tracked town state.
 
 # Town region'lari — hem _is_in_town hem capture_slot kullaniyor
 # (slot'u yanlislikla town sanmamak icin)
@@ -91,7 +91,7 @@ TOWN_REGIONS = {
     18432, 18433, 18434, 18435,  # Bagdad
 }
 # ================= AUTO RETURN STATE =================
-# لو unique ظهر ومفيش له script والبوت IDLE → يرجع للتاون
+# Return to town when an unmapped unique appears while the bot is idle.
 auto_return_enabled = False
 
 unique_priorities = {
@@ -194,7 +194,7 @@ def get_scripts():
         return []
 
 def save_config():
-    """يحفظ كل الـ settings في JSON خاص بالـ character الحالي"""
+    """Save settings to the current character's JSON file."""
     try:
         cfg = getConfig()
         if not cfg: return
@@ -214,7 +214,7 @@ def save_config():
         log(f"save_config error: {e}")
 
 def load_config():
-    """يحمل الـ settings من JSON الخاص بالـ character الحالي"""
+    """Load settings from the current character's JSON file."""
     global unique_script_map, discovered_uniques, plugin_active, auto_return_enabled, saved_slot
     try:
         cfg = getConfig()
@@ -238,7 +238,7 @@ def load_config():
                 except: pass
             else:
                 plugin_active = False
-        # دايماً نضيف الـ COMMON_UNIQUES
+        # Always include the built-in unique names.
         discovered_uniques.update(COMMON_UNIQUES)
         refresh_mapping_list()
         refresh_unique_dropdown()
@@ -319,9 +319,8 @@ def delete_pending():
 # ================= AUTO RETURN LOGIC =================
 def do_auto_return(unique_name):
     """
-    يُستدعى لما unique ظهر ومفيش له script.
-    لو الشخصية بره التاون → يرجع للتاون.
-    لو في التاون أصلاً → ما يعملش حاجة.
+    Handle an unmapped unique spawn.
+    Return when outside town; do nothing when already in town.
     """
     if not auto_return_enabled: return
     if _is_in_town() or just_returned:
@@ -332,8 +331,7 @@ def do_auto_return(unique_name):
 
 def _wait_for_town(on_arrived, label="Return", max_attempts=30):
     """
-    Generic: بيستنى لحد ما الشخصية توصل التاون فعلاً (polling كل ثانية) — max 30 محاولة.
-    بيستبدل الـ 3 نسخ المكررة اللي كانت موجودة قبل كده.
+    Poll once per second until the character reaches town or the attempt limit.
     """
     def _check(attempts=0):
         # disable edilirse bekleyen town-varis zincirini durdur
@@ -490,11 +488,11 @@ def finish_hunt_and_return():
         bot_state = 'IDLE'
 
 def _trigger_return_to_town():
-    """نقطة مركزية للرجوع للتاون من أي مكان"""
+    """Central entry point for returning to town."""
     global bot_state, just_returned
     just_returned = False
     bot_state = 'RETURNING'
-    _set_in_town(False)  # لسه مش في التاون
+    _set_in_town(False)  # The character has not reached town yet.
     stop_attack_loop()
     stop_loot_timer()
     try: stop_script()
@@ -507,7 +505,7 @@ def _trigger_return_to_town():
 def _do_return():
     try: use_return_scroll()
     except: pass
-    # استنى وصول التاون الفعلي بدل timer ثابت
+    # Wait for actual town arrival instead of using a fixed delay.
     threading.Timer(1.0, lambda: _wait_for_town(_stop_after_return, label="Return")).start()
 
 def _stop_after_return():
@@ -566,9 +564,9 @@ def get_loot_wait_seconds():
 
 def _is_unique_match(unique_name: str, monster_name: str) -> bool:
     """
-    تطابق دقيق — يمنع False Positives زي Tiger يتطابق مع Tiger Girl
+    Strict matching prevents false positives such as Tiger matching Tiger Girl.
     - exact match
-    - أو monster_name يبدأ بـ unique_name متبوعاً بـ space أو قوس
+    - or monster_name starts with unique_name followed by a space or parenthesis
     """
     u = unique_name.strip().lower()
     m = monster_name.strip().lower()
@@ -580,9 +578,8 @@ def _is_unique_match(unique_name: str, monster_name: str) -> bool:
 
 def _find_mapped_name(spawn_name: str) -> str:
     """
-    لو الـ spawn اسمه variant (Tiger Girl (INT)) وفي mapping لـ (Tiger Girl)
-    → يرجع الاسم المحفوظ في الـ map عشان يستخدمه
-    لو مفيش → يرجع spawn_name نفسه
+    Resolve a spawn variant such as Tiger Girl (INT) to its mapped base name.
+    Return the original spawn name when no mapping matches.
     """
     if spawn_name in unique_script_map:
         return spawn_name
@@ -594,14 +591,14 @@ def _find_mapped_name(spawn_name: str) -> str:
 # ================= CORE UNIQUE RUNNER =================
 def _on_unique_spawn(unique_name):
     """
-    يُستدعى لما unique يظهر والـ plugin active.
-    - لو في unique شغال حالياً → حط الجديد في القائمة وكمل
-    - لو مش في التاون → حط في القائمة وارجع للتاون أول
-    - لو في التاون → ضرب فوراً
+    Handle a unique spawn while the plugin is active.
+    - Queue it when another unique is active.
+    - Queue it and return first when outside town.
+    - Start immediately when already in town.
     """
     global bot_state, current_active_unique, force_stopped, just_returned
 
-    # لو في unique شغال → متوقفوش، حط الجديد في القائمة بس (لو عنده script)
+    # Keep the current hunt running and queue the new mapped unique.
     if current_active_unique and current_active_unique.lower() != unique_name.lower():
         if unique_name in unique_script_map:
             with _state_lock:
@@ -612,8 +609,8 @@ def _on_unique_spawn(unique_name):
             log(f"[Queue] {unique_name} queued (busy with {current_active_unique}).")
         return
 
-    # ===== تحقق من التاون قبل أي حاجة =====
-    # just_returned = True معناه وصلنا التاون للتو → تجاوز الـ check
+    # Check the town state before starting any new action.
+    # just_returned skips this check once immediately after arrival.
     in_town = just_returned or _is_in_town()
     if not in_town:
         # --- Script'i OLMAYAN unique → grind'i BOLME ---
@@ -639,7 +636,7 @@ def _on_unique_spawn(unique_name):
             _trigger_return_to_town()
         return
 
-    # ===== INSTANT ATTACK: ضرب فوري لو الـ unique قريب =====
+    # Attack immediately when the unique is already nearby.
     try:
         monsters = phBot.get_monsters()
         if monsters:
@@ -654,7 +651,7 @@ def _on_unique_spawn(unique_name):
     except Exception as e:
         if debug_enabled: log(f"[Spawn] instant attack error: {e}")
 
-    # شغّل الـ script
+    # Start the mapped script flow.
     run_mapped_script(unique_name, 'spawn')
 
 def run_mapped_script(unique_name, event_type):
@@ -691,7 +688,7 @@ def run_mapped_script(unique_name, event_type):
                 if removed:
                     update_queue_label()
                     log(f"{unique_name} removed from queue (Died while waiting).")
-                # لو الـ script الحالي بيمشي لنفس الـ unique المات → وقفه وارجع للتاون
+                # Stop the active route and return if its target died.
                 if current_active_unique and current_active_unique.lower() == unique_name.lower():
                     log(f"{unique_name} died while script was running → stopping script.")
                     stop_attack_loop()
@@ -719,7 +716,7 @@ def run_mapped_script(unique_name, event_type):
         if not alive_uniques[unique_name].get('alive', False): return
         if alive_uniques[unique_name].get('handled', False): return
 
-        # ---- AUTO RETURN: unique ظهر ومفيش له script والبوت IDLE ----
+        # Auto-return for an unmapped unique while the bot is idle.
         if unique_name not in unique_script_map:
             with _state_lock:
                 if unique_name not in pending_uniques:
@@ -731,7 +728,7 @@ def run_mapped_script(unique_name, event_type):
             alive_uniques[unique_name]['handled'] = True
             return
 
-        # ---- لو الشخصية بره التاون → حط الـ unique في القائمة وكمل اللي إنت فيه ----
+        # Queue the unique when the character is outside town.
         if not just_returned and not _is_in_town():
             with _state_lock:
                 if unique_name not in unique_queue:
@@ -772,7 +769,7 @@ def run_mapped_script(unique_name, event_type):
         try:
             force_stopped = False
             just_returned = False
-            _set_in_town(False)  # خرجنا من التاون
+            _set_in_town(False)  # The character is leaving town.
             try: stop_bot()
             except: pass
 
@@ -790,7 +787,7 @@ def run_mapped_script(unique_name, event_type):
                 bot_state = 'IDLE'
                 return
 
-            # جيب coordinates الـ unique
+            # Look up the unique coordinates.
             monsters = phBot.get_monsters()
             target_x, target_y, target_region = 0, 0, 0
             found_coords = False
@@ -807,7 +804,7 @@ def run_mapped_script(unique_name, event_type):
             bot_state = 'HUNTING'
 
             # ===== ENGAGE MODE =====
-            # لو الـ unique موجود في الـ monsters list → ضبط training area عليه وشغّل البوت
+            # If the unique is nearby, move the training area to it and start the bot.
             if found_coords and target_x != 0:
                 if target_region == 0:
                     try:
@@ -825,7 +822,7 @@ def run_mapped_script(unique_name, event_type):
                 start_attack_loop()
                 log(f"Started: {unique_name} (Engage Mode — pos set to unique)")
             else:
-                # الـ unique مش في الـ monsters list (بعيد) → شغّل الـ script للمشي إليه
+                # If the unique is distant, run the walk script to reach it.
                 set_training_script(script_path)
                 with open(script_path, 'r', encoding='utf-8') as f:
                     script_content = f.read()
@@ -857,7 +854,7 @@ def toggle_debug(checked=None):
 
 def _is_in_town():
     """
-    يتحقق لو الشخصية في التاون عن طريق الـ region.
+    Determine whether the character is in town from the current region.
     """
     global _in_town_state
     try:
@@ -874,7 +871,7 @@ def _is_in_town():
     return _in_town_state
 
 def _set_in_town(value: bool):
-    """يحدث الـ town state اليدوي"""
+    """Update the manually tracked town state."""
     global _in_town_state
     _in_town_state = value
 
@@ -939,14 +936,14 @@ def restore_slot():
         return False
 
 def _return_then_enable():
-    """يعمل return scroll وبعدين ينتظر الوصول للتاون فعلياً (polling بدل timer ثابت)"""
+    """Use a return scroll and poll until the character reaches town."""
     log("Plugin ENABLED - Not in town → Using return scroll first...")
     try: use_return_scroll()
     except: pass
     threading.Timer(1.0, lambda: _wait_for_town(_after_return_enable, label="Enable")).start()
 
 def _after_return_enable():
-    """بعد الـ return، يبدأ البلجن"""
+    """Finish enabling the plugin after returning to town."""
     global bot_state, force_stopped, just_returned
     if not plugin_active: return
     bot_state = 'IDLE'
@@ -968,11 +965,11 @@ def enable_plugin_monitoring():
     update_plugin_status()
     save_config()
     log("Plugin ENABLED")
-    # تحقق من التاون فعلاً بعد ثانيتين
+    # Check the actual town state after a short delay.
     threading.Timer(2.0, _check_town_on_enable).start()
 
 def _check_town_on_enable():
-    """يتحقق من التاون بعد delay من التفعيل"""
+    """Check the town state shortly after monitoring is enabled."""
     global just_returned
     if not plugin_active: return
     # Enable aninda mevcut slotu yakala (training area kalici; town'da olsak bile gecerli slot'u verir)
@@ -1091,7 +1088,7 @@ def auto_start_next_unique():
         if not plugin_active: return
         if not unique_queue: return
 
-        # لو مش في التاون (ومش رجعنا للتو) → ارجع الأول
+        # Return first when outside town and not immediately after arrival.
         if not just_returned and not _is_in_town():
             log("[AutoReturn] auto_start_next_unique: Not in town → Returning first!")
             if bot_state == 'IDLE':
@@ -1140,8 +1137,8 @@ def start_attack_loop():
     if attack_timer: attack_timer.cancel()
     unique_not_found_count = 0
     script_finished = False
-    engaged = [False]        # flag: اتعمل engage مرة واحدة بس
-    lost_after_engage = [0]  # كام tick متتالي مالقيناهوش بعد ما كان engaged (احتمال مات)
+    engaged = [False]        # Ensure the engage setup runs only once.
+    lost_after_engage = [0]  # Consecutive missing ticks after engagement.
 
     def attack_tick():
         global attack_timer, unique_not_found_count, script_finished, current_active_unique
@@ -1158,7 +1155,7 @@ def start_attack_loop():
                         unique_not_found_count = 0
                         lost_after_engage[0] = 0
 
-                        # ===== ENGAGE: أول مرة نلاقيه → وقف الـ script وضبط الـ training area عليه =====
+                        # On first contact, stop the route and center the training area on the target.
                         if not engaged[0]:
                             engaged[0] = True
                             script_finished = True
@@ -1186,7 +1183,7 @@ def start_attack_loop():
                             except Exception as e:
                                 if debug_enabled: log(f"[Engage] error: {e}")
 
-                        # ضرب مستمر
+                        # Continue attacking the target.
                         phBot.set_target(monster_id)
                         phBot.attack_monster(monster_id)
                         if debug_enabled: log(f"Attacking {monster.get('name')}")
@@ -1284,7 +1281,7 @@ def handle_unique_timeout():
         unique_not_found_count = 0
         update_active_unique_label()
         bot_state = 'RETURNING'
-        just_returned = False  # هنروح التاون دلوقتي
+        just_returned = False  # A new return-to-town flow is starting.
         phBot.use_return_scroll()
         log("Returning to town (Timeout)...")
         threading.Timer(1.0, lambda: _wait_for_town(_stop_after_return, label="Timeout")).start()
@@ -1545,7 +1542,7 @@ except Exception as e:
     log(f"Init error: {e}")
 
 def joined_game():
-    """يُستدعى تلقائياً لما الـ account يفتح ويدخل اللعبة"""
+    """Called automatically after the character enters the game."""
     try:
         # joined_game aninda character data henuz hazir olmayabilir. Config dosya
         # adi server+character'a bagli oldugu icin yuklemeyi kisa sure ertele.
@@ -1573,7 +1570,7 @@ def _load_config_after_join(attempt=0):
         log(f"_load_config_after_join error: {e}")
 
 def _check_location_on_join():
-    """بعد الـ join، لو بره التاون → ارجع الأول"""
+    """Return first when the character joins outside town."""
     if not plugin_active: return
     if not _is_in_town():
         _set_in_town(False)
@@ -1590,8 +1587,7 @@ UNIQUE_OBJ_CACHE = {}
 
 def bot_started():
     """
-    يتنادى لما أي plugin يشغّل البوت.
-    بنتجاهله خالص — البلجن بيتحكم في البوت بنفسه عن طريق run_mapped_script.
+    Ignore bot-start notifications because run_mapped_script controls the bot.
     """
     pass
 
@@ -1607,7 +1603,7 @@ def teleported():
     threading.Timer(1.5, _update_town_state_after_teleport).start()
 
 def _update_town_state_after_teleport():
-    """بعد الـ teleport بثانية ونص، نتحقق من الـ town state الحقيقي (region تحقق)"""
+    """Refresh the region-based town state shortly after teleporting."""
     _set_in_town(_is_in_town())
 
 # phBot'un native unique-spawn event'i (bkz. docs/phbot-api/events.md → handle_event türleri).
@@ -1721,7 +1717,7 @@ def handle_joymax(opcode, data):
             if event_type == 5 and name:
                 UNIQUE_OBJ_CACHE[obj_id] = name
                 if is_unique(name):
-                    # لو الاسم variant (Tiger Girl (INT)) → استخدم الـ mapped name (Tiger Girl)
+                    # Resolve variants such as Tiger Girl (INT) to the mapped base name.
                     mapped_name = _find_mapped_name(name)
                     is_new = False
                     with _state_lock:
@@ -1736,7 +1732,7 @@ def handle_joymax(opcode, data):
                                 pending_uniques.append(mapped_name)
                                 refresh_pending_list()
                                 log(f"[Pending] {name} has no script → added to pending.")
-                            # ملوش script → متضيفوش للـ queue خالص
+                            # Unmapped uniques do not enter the hunt queue.
                         else:
                             if mapped_name not in unique_queue:
                                 unique_queue.append(mapped_name)
@@ -1784,7 +1780,7 @@ def handle_chat(t, player, msg):
                             pending_uniques.append(unique_name)
                             refresh_pending_list()
                             log(f"[Pending] {unique_name} has no script → added to pending (Chat).")
-                        # ملوش script → متضيفوش للـ queue
+                        # Unmapped uniques do not enter the hunt queue.
                     else:
                         if unique_name not in unique_queue:
                             unique_queue.append(unique_name)

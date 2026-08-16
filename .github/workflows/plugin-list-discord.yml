@@ -28,4 +28,5 @@ jobs:
       - name: Sync plugin list to Discord
         env:
           DISCORD_PLUGIN_WEBHOOK: ${{ secrets.DISCORD_PLUGIN_WEBHOOK }}
+          DISCORD_PLUGIN_MESSAGE_ID: ${{ secrets.DISCORD_PLUGIN_MESSAGE_ID }}
         run: python scripts/sync_discord_plugin_list.py

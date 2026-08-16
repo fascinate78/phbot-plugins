@@ -1,5 +1,12 @@
 # FSroRAutoTrade Changelog
 
+## v3.6.2
+
+### Fixed
+
+- Fixed timed job-item unequip operations being restarted by repeated movement
+  packets; the plugin now sends one request and waits for slot 8 to clear.
+
 ## v3.6.1
 
 ### Fixed

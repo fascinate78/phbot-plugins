@@ -42,7 +42,7 @@
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "a353f3f38cf33b269f60c66e0d6977bf9932dbf5ea887eb9c2753a69ea4f7a81"
+                        "sha256":  "6affee8d030277caef33c2c1f74f6136b355f3a1ecff4068302f87b573647bb0"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -147,16 +147,16 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "3.6.1",
+                        "version":  "3.6.2",
                         "core":  false,
                         "description":  "Coordinates party-synchronized trade scripts and job-item handling.",
                         "changes":  [
-                                        "Fixed the saved trade script not being explicitly restored in the script"
+                                        "Fixed timed job-item unequip operations being restarted by repeated movement"
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "0afe8a0f7558e5164449e69f63e1d340fed59f30cb637912d10420ebbf44e89a"
+                        "sha256":  "b9baf44422ce5692237ff68fc2b519f8c286c75e0527a7f222de8ae67cdd29b7"
                     },
                     {
                         "id":  "FUniqueNotifier",

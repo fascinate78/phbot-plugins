@@ -9,7 +9,7 @@ import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.6.1'
+pVersion = '3.6.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -57,6 +57,8 @@ last_poll = 0.0
 last_action = 0.0
 cycle_active = False
 cycle_armed = True
+unequip_request_sent = False
+unequip_destination = -1
 trade_command_received = False
 trade_settled_received = False
 trade_complete_time = 0.0
@@ -1653,7 +1655,7 @@ def _poll_pouch_settle(now):
 
 
 def _begin_unequip():
-    global last_action
+    global last_action, unequip_request_sent, unequip_destination
     identity = _job_identity()
     item = _find_job(identity)
     if not item or int(item.get('slot', -1)) != 8:
@@ -1661,12 +1663,16 @@ def _begin_unequip():
         return
     _set_state(STATE_UNEQUIPPING,
                'Job itemi icin bos envanter slotu kontrol ediliyor.')
+    unequip_request_sent = False
+    unequip_destination = -1
     destination = _empty_inventory_slot()
     if destination < 0:
         last_action = time.time()
         _set_message('Bos envanter slotunun API\'de gorunmesi bekleniyor.')
         return
     _move_item(8, destination)
+    unequip_request_sent = True
+    unequip_destination = destination
     last_action = time.time()
     _set_message('Job itemi envanter slotu %d konumuna cikariliyor.' %
                  destination)
@@ -2060,6 +2066,7 @@ def chk_error_recovery_changed(checked):
 def _poll_state(now):
     global last_action, pending_action
     global respawn_attempts, last_respawn_request
+    global unequip_request_sent, unequip_destination
     elapsed = now - state_since
     identity = _job_identity()
 
@@ -2156,17 +2163,24 @@ def _poll_state(now):
             _schedule_action(_start_grinding,
                              'Job itemi cikarildi; bot hazirlaniyor.')
         elif elapsed > EQUIP_TIMEOUT:
-            _fail('Job itemi %d saniyede cikarilamadi; API bos envanter '
-                  'slotu gostermedi veya tasima istegi cevapsiz kaldi.' %
-                  EQUIP_TIMEOUT, False)
-        elif now - last_action >= max(ACTION_RETRY_SECONDS,
-                                      _action_delay_seconds()):
+            if unequip_request_sent:
+                _fail('Job itemi %d saniyede cikarilamadi; slot %d icin gonderilen '
+                      'tek tasima istegi tamamlanmadi.' %
+                      (EQUIP_TIMEOUT, unequip_destination), False)
+            else:
+                _fail('Job itemi %d saniyede cikarilamadi; API bos envanter '
+                      'slotu gostermedi.' % EQUIP_TIMEOUT, False)
+        elif (not unequip_request_sent and
+              now - last_action >= max(ACTION_RETRY_SECONDS,
+                                       _action_delay_seconds())):
             last_action = now
             destination = _empty_inventory_slot()
             if destination < 0:
                 _set_message('Bos envanter slotunun API\'de gorunmesi bekleniyor.')
             else:
                 _move_item(8, destination)
+                unequip_request_sent = True
+                unequip_destination = destination
                 _set_message('Job itemi envanter slotu %d konumuna cikariliyor.' %
                              destination)
 

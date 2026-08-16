@@ -14,26 +14,22 @@ from pathlib import Path
 MANIFEST_PATH = Path("manifest.json")
 
 WEBHOOK_URL = os.environ.get("DISCORD_PLUGIN_WEBHOOK", "").strip()
-
-# Optional:
-# Eğer bu secret/variable tanımlıysa yeni mesaj göndermek yerine
-# mevcut Discord mesajı güncellenir.
 MESSAGE_ID = os.environ.get("DISCORD_PLUGIN_MESSAGE_ID", "").strip()
 
 REPOSITORY_URL = "https://github.com/fascinate78/phbot-plugins"
 
 WEBHOOK_USERNAME = "FascinaTe Plugins"
-
 EMBED_TITLE = "🧩 FascinaTe phBot Plugins"
-
 USER_AGENT = "FascinaTe-phBot-Plugins-GitHub-Action/1.0"
 
+# Discord embed description limiti 4096 karakter.
+# Güvenli pay bırakıyoruz.
+MAX_EMBED_DESCRIPTION = 3800
 
-# Discord embed description maksimum 4096 karakter.
-# Bir miktar güvenli alan bırakıyoruz.
-MAX_EMBED_DESCRIPTION = 3900
+# Discord bir mesajda en fazla 10 embed kabul eder.
+MAX_EMBEDS = 10
 
-# Tek plugin açıklamasının çok uzun olması durumunda.
+# Tek plugin açıklaması çok uzunsa kısaltılır.
 MAX_PLUGIN_DESCRIPTION = 220
 
 
@@ -47,9 +43,6 @@ def fail(message: str, exit_code: int = 1):
 
 
 def truncate(text: str, max_length: int) -> str:
-    """
-    Metni Discord limitlerine uygun şekilde kısaltır.
-    """
     if not text:
         return ""
 
@@ -62,41 +55,27 @@ def truncate(text: str, max_length: int) -> str:
 
 
 def load_manifest():
-    """
-    manifest.json dosyasını yükler.
-    """
     if not MANIFEST_PATH.exists():
         fail(f"{MANIFEST_PATH} bulunamadı.")
 
     try:
         with MANIFEST_PATH.open("r", encoding="utf-8") as file:
-            manifest = json.load(file)
+            return json.load(file)
+
     except json.JSONDecodeError as exc:
         fail(f"manifest.json geçerli JSON değil: {exc}")
+
     except Exception as exc:
         fail(f"manifest.json okunamadı: {exc}")
 
-    return manifest
-
 
 def get_plugins(manifest):
-    """
-    Manifest içindeki plugin listesini bulur.
-
-    Desteklenen yapılar:
-
-    {
-        "plugins": [...]
-    }
-
-    veya doğrudan:
-
-    [...]
-    """
     if isinstance(manifest, dict):
         plugins = manifest.get("plugins", [])
+
     elif isinstance(manifest, list):
         plugins = manifest
+
     else:
         fail("manifest.json beklenmeyen bir yapıya sahip.")
 
@@ -117,10 +96,11 @@ def plugin_sort_key(plugin):
     ).lower()
 
 
+# ============================================================
+# PLUGIN FORMAT
+# ============================================================
+
 def build_plugin_entry(plugin):
-    """
-    Bir plugin için Discord Markdown metni oluşturur.
-    """
     name = (
         plugin.get("name")
         or plugin.get("id")
@@ -162,96 +142,124 @@ def build_plugin_entry(plugin):
     return "\n".join(lines)
 
 
-def build_embed_description(plugins):
-    """
-    Pluginleri tek embed description'a dönüştürür.
+# ============================================================
+# MULTI EMBED
+# ============================================================
 
-    Discord 4096 karakter limitini aşarsa kalan pluginleri
-    özet şekilde gösterir.
+def split_plugins_into_embeds(plugins):
     """
-    entries = []
+    Pluginleri description karakter uzunluğuna göre
+    birden fazla embed'e böler.
+    """
+
+    groups = []
+    current_entries = []
     current_length = 0
-    hidden_count = 0
 
     for plugin in plugins:
         entry = build_plugin_entry(plugin)
 
-        separator_length = 2 if entries else 0
-        new_length = current_length + separator_length + len(entry)
-
-        # Sonuna uyarı yazabilmek için biraz alan bırakıyoruz.
-        if new_length > MAX_EMBED_DESCRIPTION - 120:
-            hidden_count += 1
-            continue
-
-        entries.append(entry)
-        current_length = new_length
-
-    description = "\n\n".join(entries)
-
-    if hidden_count:
-        description += (
-            f"\n\n"
-            f"**+ {hidden_count} plugin daha mevcut.**\n"
-            f"[Tüm pluginleri GitHub'da görüntüle]({REPOSITORY_URL})"
+        separator_length = 2 if current_entries else 0
+        projected_length = (
+            current_length
+            + separator_length
+            + len(entry)
         )
 
-    return description
+        # Mevcut embed dolduysa yenisini aç.
+        if (
+            current_entries
+            and projected_length > MAX_EMBED_DESCRIPTION
+        ):
+            groups.append(current_entries)
+
+            current_entries = [entry]
+            current_length = len(entry)
+
+        else:
+            current_entries.append(entry)
+            current_length = projected_length
+
+    if current_entries:
+        groups.append(current_entries)
+
+    return groups
 
 
-def build_payload(plugins):
-    """
-    Discord webhook payload oluşturur.
-    """
-    description = build_embed_description(plugins)
+def build_embeds(plugins):
+    groups = split_plugins_into_embeds(plugins)
+
+    if len(groups) > MAX_EMBEDS:
+        fail(
+            f"Plugin listesi {len(groups)} embed gerektiriyor. "
+            f"Discord bir mesajda maksimum {MAX_EMBEDS} embed kabul ediyor."
+        )
 
     core_count = sum(
-        1 for plugin in plugins
+        1
+        for plugin in plugins
         if plugin.get("core", False)
     )
 
     normal_count = len(plugins) - core_count
 
-    footer_parts = [
-        f"{len(plugins)} plugins"
-    ]
+    embeds = []
 
-    if core_count:
-        footer_parts.append(f"{core_count} core")
+    for index, group in enumerate(groups):
+        description = "\n\n".join(group)
 
-    if normal_count:
-        footer_parts.append(f"{normal_count} standard")
+        embed = {
+            "description": description
+        }
 
-    footer_parts.append("Automatically synced from GitHub")
+        # Başlık sadece ilk embed'de olsun.
+        if index == 0:
+            embed["title"] = EMBED_TITLE
+            embed["url"] = REPOSITORY_URL
 
-    payload = {
+        # Her embed'e küçük sayfa göstergesi ekleyelim.
+        embed["author"] = {
+            "name": (
+                f"Plugin Listesi "
+                f"({index + 1}/{len(groups)})"
+            )
+        }
+
+        # Footer sadece son embed'de.
+        if index == len(groups) - 1:
+            embed["footer"] = {
+                "text": (
+                    f"{len(plugins)} plugins • "
+                    f"{core_count} core • "
+                    f"{normal_count} standard • "
+                    f"Automatically synced from GitHub"
+                )
+            }
+
+        embeds.append(embed)
+
+    return embeds
+
+
+def build_payload(plugins):
+    embeds = build_embeds(plugins)
+
+    return {
         "username": WEBHOOK_USERNAME,
+
         "allowed_mentions": {
             "parse": []
         },
-        "embeds": [
-            {
-                "title": EMBED_TITLE,
-                "description": description,
-                "url": REPOSITORY_URL,
-                "footer": {
-                    "text": " • ".join(footer_parts)
-                }
-            }
-        ]
-    }
 
-    return payload
+        "embeds": embeds
+    }
 
 
 # ============================================================
-# DISCORD
+# DISCORD HTTP
 # ============================================================
 
 def webhook_base_url():
-    """
-    Webhook URL içindeki query parametrelerini kaldırır.
-    """
     parsed = urllib.parse.urlsplit(WEBHOOK_URL)
 
     return urllib.parse.urlunsplit(
@@ -266,9 +274,6 @@ def webhook_base_url():
 
 
 def send_request(url, payload, method):
-    """
-    Discord'a HTTP isteği gönderir.
-    """
     data = json.dumps(
         payload,
         ensure_ascii=False
@@ -304,6 +309,7 @@ def send_request(url, payload, method):
             if response_body:
                 try:
                     return json.loads(response_body)
+
                 except json.JSONDecodeError:
                     return response_body
 
@@ -316,13 +322,16 @@ def send_request(url, payload, method):
         )
 
         print("", file=sys.stderr)
+
         print(
-            f"Discord HTTP error: {exc.code} {exc.reason}",
+            f"Discord HTTP error: "
+            f"{exc.code} {exc.reason}",
             file=sys.stderr
         )
 
         print(
-            f"Discord response: {body or '(empty response)'}",
+            f"Discord response: "
+            f"{body or '(empty response)'}",
             file=sys.stderr
         )
 
@@ -335,16 +344,14 @@ def send_request(url, payload, method):
 
         elif exc.code == 403:
             print(
-                "Discord isteği Forbidden (403) olarak reddetti. "
-                "Webhook'un aktif olduğunu, doğru kanala ait olduğunu "
-                "ve GitHub Secret içindeki URL'nin güncel olduğunu kontrol et.",
+                "Discord isteği Forbidden (403) olarak reddetti.",
                 file=sys.stderr
             )
 
         elif exc.code == 404:
             print(
-                "Webhook veya mesaj bulunamadı. "
-                "Webhook URL veya DISCORD_PLUGIN_MESSAGE_ID yanlış olabilir.",
+                "Webhook veya Discord mesajı bulunamadı. "
+                "DISCORD_PLUGIN_MESSAGE_ID yanlış olabilir.",
                 file=sys.stderr
             )
 
@@ -361,21 +368,23 @@ def send_request(url, payload, method):
             f"Discord bağlantı hatası: {exc}",
             file=sys.stderr
         )
+
         raise
 
 
-def create_message(payload):
-    """
-    İlk Discord mesajını oluşturur.
+# ============================================================
+# CREATE / UPDATE MESSAGE
+# ============================================================
 
-    wait=true sayesinde Discord oluşturulan mesajın JSON'unu
-    geri döndürür ve message ID'yi alabiliriz.
-    """
+def create_message(payload):
     base_url = webhook_base_url()
 
     url = f"{base_url}?wait=true"
 
-    print("Yeni Discord plugin listesi mesajı oluşturuluyor...")
+    print(
+        "Yeni Discord plugin listesi mesajı "
+        "oluşturuluyor..."
+    )
 
     response = send_request(
         url=url,
@@ -392,20 +401,11 @@ def create_message(payload):
             print("Discord mesajı oluşturuldu.")
             print(f"MESSAGE ID: {message_id}")
             print("========================================")
-            print("")
-            print(
-                "Bu ID'yi GitHub Actions secret/variable olarak "
-                "'DISCORD_PLUGIN_MESSAGE_ID' adıyla kaydedersen "
-                "sonraki çalıştırmalarda aynı mesaj güncellenir."
-            )
 
     return response
 
 
 def update_message(payload, message_id):
-    """
-    Mevcut Discord webhook mesajını düzenler.
-    """
     base_url = webhook_base_url()
 
     encoded_message_id = urllib.parse.quote(
@@ -465,7 +465,6 @@ def main():
         key=plugin_sort_key
     )
 
-    print(f"Manifest yüklendi.")
     print(f"Bulunan plugin sayısı: {len(plugins)}")
 
     for plugin in plugins:
@@ -477,7 +476,27 @@ def main():
 
         version = plugin.get("version") or "?"
 
-        print(f" - {name} v{version}")
+        print(
+            f" - {name} v{version}"
+        )
+
+    embed_groups = split_plugins_into_embeds(
+        plugins
+    )
+
+    print(
+        f"Oluşturulacak embed sayısı: "
+        f"{len(embed_groups)}"
+    )
+
+    for index, group in enumerate(
+        embed_groups,
+        start=1
+    ):
+        print(
+            f" - Embed {index}: "
+            f"{len(group)} plugin"
+        )
 
     payload = build_payload(plugins)
 
@@ -488,13 +507,17 @@ def main():
         )
 
         print("")
-        print("Discord plugin listesi güncellendi.")
+        print(
+            "Discord plugin listesi başarıyla güncellendi."
+        )
 
     else:
         create_message(payload)
 
         print("")
-        print("Discord plugin listesi gönderildi.")
+        print(
+            "Discord plugin listesi başarıyla oluşturuldu."
+        )
 
 
 if __name__ == "__main__":

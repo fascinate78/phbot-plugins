@@ -30,6 +30,21 @@
                         "sha256":  "63aa17f4047a2497be68dc9052031baed71a669e5c34897adb825ee2329ffe98"
                     },
                     {
+                        "id":  "FAutoUnique",
+                        "name":  "FAutoUnique V2",
+                        "version":  "2.2.2",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Clarified the Manual Hunt selection/action grouping and separated the current-hunt stop action.",
+                                        "Improved mapping-row spacing and consolidated diagnostics into a compact secondary block."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
+                        "install_path":  "FAutoUniqueV2.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
+                        "sha256":  "a353f3f38cf33b269f60c66e0d6977bf9932dbf5ea887eb9c2753a69ea4f7a81"
+                    },
+                    {
                         "id":  "FCaravanNavigator",
                         "name":  "FCaravanNavigator V3",
                         "version":  "3.0.0",

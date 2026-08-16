@@ -1,5 +1,10 @@
 # FAutoUnique V2 Changelog
 
+## v2.2.3
+
+### Improved
+- Moved packet, event, and chat spawn/death trace messages behind the existing Detailed log option to prevent routine log spam.
+
 ## v2.2.2
 
 ### Improved

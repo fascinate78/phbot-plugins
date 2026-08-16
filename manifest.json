@@ -32,17 +32,16 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "2.2.2",
+                        "version":  "2.2.3",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "changes":  [
-                                        "Clarified the Manual Hunt selection/action grouping and separated the current-hunt stop action.",
-                                        "Improved mapping-row spacing and consolidated diagnostics into a compact secondary block."
+                                        "Moved packet, event, and chat spawn/death trace messages behind the existing Detailed log option to prevent routine log spam."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "6affee8d030277caef33c2c1f74f6136b355f3a1ecff4068302f87b573647bb0"
+                        "sha256":  "5fad2f2d43cb22632ea74a6f849f94d3e3f587ddab9184775fe033649fbd66da"
                     },
                     {
                         "id":  "FCaravanNavigator",

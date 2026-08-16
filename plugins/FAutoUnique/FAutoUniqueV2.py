@@ -11,7 +11,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.2.2'
+pVersion = '2.2.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -1641,10 +1641,12 @@ def handle_event(t, data):
                     log(f"[Auto-Saved] {unique_name} added to queue (Event).")
 
         if plugin_active and is_new:
-            log(f"Event Spawn: {unique_name} (Executing)")
+            if debug_enabled:
+                log(f"Event Spawn: {unique_name} (Executing)")
             _on_unique_spawn(unique_name)
         elif not plugin_active and is_new:
-            log(f"Event Spawn: {unique_name} (Plugin Disabled - Saved Only)")
+            if debug_enabled:
+                log(f"Event Spawn: {unique_name} (Plugin Disabled - Saved Only)")
     except Exception as e:
         if debug_enabled: log(f"handle_event error: {e}")
 
@@ -1658,7 +1660,8 @@ def _handle_unique_death_notification(unique_name, source_tag):
     if not unique_name or not is_unique(unique_name):
         return
     mapped_name = _find_mapped_name(unique_name)
-    log(f"{source_tag}: {unique_name} -> {mapped_name}")
+    if debug_enabled:
+        log(f"{source_tag}: {unique_name} -> {mapped_name}")
     with _state_lock:
         if mapped_name in alive_uniques:
             alive_uniques[mapped_name]['alive'] = False
@@ -1741,10 +1744,12 @@ def handle_joymax(opcode, data):
                                 log(f"[Auto-Saved] {name} → using mapping [{mapped_name}] added to queue.")
                     if is_new:
                         if plugin_active:
-                            log(f"Packet Spawn: {name} → mapped as [{mapped_name}] (Executing)")
+                            if debug_enabled:
+                                log(f"Packet Spawn: {name} → mapped as [{mapped_name}] (Executing)")
                             _on_unique_spawn(mapped_name)
                         else:
-                            log(f"Packet Spawn: {name} (Plugin Disabled - Saved Only)")
+                            if debug_enabled:
+                                log(f"Packet Spawn: {name} (Plugin Disabled - Saved Only)")
 
             # --- DEATH ---
             elif event_type == 6 and name:
@@ -1788,7 +1793,8 @@ def handle_chat(t, player, msg):
                             update_queue_label()
                             log(f"[Auto-Saved] {unique_name} added to queue (Chat).")
                 if plugin_active and is_new:
-                    log(f"Chat Spawn: {unique_name} (Executing)")
+                    if debug_enabled:
+                        log(f"Chat Spawn: {unique_name} (Executing)")
                     _on_unique_spawn(unique_name)
 
         # --- DEATH ---

@@ -1,0 +1,31 @@
+name: Sync Discord Plugin List
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "manifest.json"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-plugin-list:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync plugin list to Discord
+        env:
+          DISCORD_PLUGIN_WEBHOOK: ${{ secrets.DISCORD_PLUGIN_WEBHOOK }}
+        run: python scripts/sync_discord_plugin_list.py

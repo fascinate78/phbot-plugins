@@ -13,23 +13,35 @@ from pathlib import Path
 
 MANIFEST_PATH = Path("manifest.json")
 
-WEBHOOK_URL = os.environ.get("DISCORD_PLUGIN_WEBHOOK", "").strip()
-MESSAGE_ID = os.environ.get("DISCORD_PLUGIN_MESSAGE_ID", "").strip()
+WEBHOOK_URL = os.environ.get(
+    "DISCORD_PLUGIN_WEBHOOK",
+    ""
+).strip()
 
-REPOSITORY_URL = "https://github.com/fascinate78/phbot-plugins"
+MESSAGE_ID = os.environ.get(
+    "DISCORD_PLUGIN_MESSAGE_ID",
+    ""
+).strip()
+
+REPOSITORY_URL = (
+    "https://github.com/fascinate78/phbot-plugins"
+)
 
 WEBHOOK_USERNAME = "FascinaTe Plugins"
-EMBED_TITLE = "🧩 FascinaTe phBot Plugins"
-USER_AGENT = "FascinaTe-phBot-Plugins-GitHub-Action/1.0"
 
-# Discord embed description limiti 4096 karakter.
-# Güvenli pay bırakıyoruz.
-MAX_EMBED_DESCRIPTION = 3800
+EMBED_TITLE = "🧩 FascinaTe phBot Plugins"
+
+USER_AGENT = (
+    "FascinaTe-phBot-Plugins-GitHub-Action/1.0"
+)
+
+# Her embed'de kaç plugin gösterilecek.
+PLUGINS_PER_EMBED = 6
 
 # Discord bir mesajda en fazla 10 embed kabul eder.
 MAX_EMBEDS = 10
 
-# Tek plugin açıklaması çok uzunsa kısaltılır.
+# Plugin açıklaması çok uzunsa kısaltılır.
 MAX_PLUGIN_DESCRIPTION = 220
 
 
@@ -38,7 +50,10 @@ MAX_PLUGIN_DESCRIPTION = 220
 # ============================================================
 
 def fail(message: str, exit_code: int = 1):
-    print(f"ERROR: {message}", file=sys.stderr)
+    print(
+        f"ERROR: {message}",
+        file=sys.stderr
+    )
     sys.exit(exit_code)
 
 
@@ -51,39 +66,66 @@ def truncate(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
 
-    return text[: max_length - 3].rstrip() + "..."
+    return (
+        text[: max_length - 3].rstrip()
+        + "..."
+    )
 
+
+# ============================================================
+# MANIFEST
+# ============================================================
 
 def load_manifest():
     if not MANIFEST_PATH.exists():
-        fail(f"{MANIFEST_PATH} bulunamadı.")
+        fail(
+            f"{MANIFEST_PATH} bulunamadı."
+        )
 
     try:
-        with MANIFEST_PATH.open("r", encoding="utf-8") as file:
+        with MANIFEST_PATH.open(
+            "r",
+            encoding="utf-8"
+        ) as file:
             return json.load(file)
 
     except json.JSONDecodeError as exc:
-        fail(f"manifest.json geçerli JSON değil: {exc}")
+        fail(
+            f"manifest.json geçerli JSON değil: {exc}"
+        )
 
     except Exception as exc:
-        fail(f"manifest.json okunamadı: {exc}")
+        fail(
+            f"manifest.json okunamadı: {exc}"
+        )
 
 
 def get_plugins(manifest):
     if isinstance(manifest, dict):
-        plugins = manifest.get("plugins", [])
+        plugins = manifest.get(
+            "plugins",
+            []
+        )
 
     elif isinstance(manifest, list):
         plugins = manifest
 
     else:
-        fail("manifest.json beklenmeyen bir yapıya sahip.")
+        fail(
+            "manifest.json beklenmeyen "
+            "bir yapıya sahip."
+        )
 
     if not isinstance(plugins, list):
-        fail("manifest.json içindeki 'plugins' alanı liste değil.")
+        fail(
+            "manifest.json içindeki "
+            "'plugins' alanı liste değil."
+        )
 
     if not plugins:
-        fail("manifest.json içinde plugin bulunamadı.")
+        fail(
+            "manifest.json içinde plugin bulunamadı."
+        )
 
     return plugins
 
@@ -107,17 +149,29 @@ def build_plugin_entry(plugin):
         or "Unknown Plugin"
     )
 
-    version = str(plugin.get("version") or "?")
+    version = str(
+        plugin.get("version")
+        or "?"
+    )
 
     description = truncate(
         plugin.get("description") or "",
         MAX_PLUGIN_DESCRIPTION
     )
 
-    download_url = plugin.get("download_url") or ""
-    changelog_url = plugin.get("changelog_url") or ""
+    download_url = (
+        plugin.get("download_url")
+        or ""
+    )
 
-    core = bool(plugin.get("core", False))
+    changelog_url = (
+        plugin.get("changelog_url")
+        or ""
+    )
+
+    core = bool(
+        plugin.get("core", False)
+    )
 
     icon = "⭐" if core else "📦"
 
@@ -126,73 +180,62 @@ def build_plugin_entry(plugin):
     ]
 
     if description:
-        lines.append(description)
+        lines.append(
+            description
+        )
 
     links = []
 
     if download_url:
-        links.append(f"[⬇️ Download]({download_url})")
+        links.append(
+            f"[⬇️ Download]({download_url})"
+        )
 
     if changelog_url:
-        links.append(f"[📝 Changelog]({changelog_url})")
+        links.append(
+            f"[📝 Changelog]({changelog_url})"
+        )
 
     if links:
-        lines.append(" • ".join(links))
+        lines.append(
+            " • ".join(links)
+        )
 
     return "\n".join(lines)
 
 
 # ============================================================
-# MULTI EMBED
+# EMBED GROUPS
 # ============================================================
 
-def split_plugins_into_embeds(plugins):
-    """
-    Pluginleri description karakter uzunluğuna göre
-    birden fazla embed'e böler.
-    """
-
+def split_plugins_into_groups(plugins):
     groups = []
-    current_entries = []
-    current_length = 0
 
-    for plugin in plugins:
-        entry = build_plugin_entry(plugin)
+    for index in range(
+        0,
+        len(plugins),
+        PLUGINS_PER_EMBED
+    ):
+        group = plugins[
+            index:index + PLUGINS_PER_EMBED
+        ]
 
-        separator_length = 2 if current_entries else 0
-        projected_length = (
-            current_length
-            + separator_length
-            + len(entry)
-        )
-
-        # Mevcut embed dolduysa yenisini aç.
-        if (
-            current_entries
-            and projected_length > MAX_EMBED_DESCRIPTION
-        ):
-            groups.append(current_entries)
-
-            current_entries = [entry]
-            current_length = len(entry)
-
-        else:
-            current_entries.append(entry)
-            current_length = projected_length
-
-    if current_entries:
-        groups.append(current_entries)
+        groups.append(group)
 
     return groups
 
 
 def build_embeds(plugins):
-    groups = split_plugins_into_embeds(plugins)
+    groups = split_plugins_into_groups(
+        plugins
+    )
 
     if len(groups) > MAX_EMBEDS:
         fail(
-            f"Plugin listesi {len(groups)} embed gerektiriyor. "
-            f"Discord bir mesajda maksimum {MAX_EMBEDS} embed kabul ediyor."
+            f"{len(plugins)} plugin için "
+            f"{len(groups)} embed gerekiyor. "
+            f"Discord tek mesajda en fazla "
+            f"{MAX_EMBEDS} embed kabul ediyor."
         )
 
     core_count = sum(
@@ -201,32 +244,53 @@ def build_embeds(plugins):
         if plugin.get("core", False)
     )
 
-    normal_count = len(plugins) - core_count
+    normal_count = (
+        len(plugins) - core_count
+    )
+
+    total_pages = len(groups)
 
     embeds = []
 
-    for index, group in enumerate(groups):
-        description = "\n\n".join(group)
+    for page_index, group in enumerate(
+        groups,
+        start=1
+    ):
+        entries = [
+            build_plugin_entry(plugin)
+            for plugin in group
+        ]
+
+        description = "\n\n".join(
+            entries
+        )
 
         embed = {
             "description": description
         }
 
-        # Başlık sadece ilk embed'de olsun.
-        if index == 0:
+        # İlk embed
+        if page_index == 1:
             embed["title"] = EMBED_TITLE
             embed["url"] = REPOSITORY_URL
 
-        # Her embed'e küçük sayfa göstergesi ekleyelim.
-        embed["author"] = {
-            "name": (
-                f"Plugin Listesi "
-                f"({index + 1}/{len(groups)})"
-            )
-        }
+            embed["author"] = {
+                "name": (
+                    f"Plugin Listesi • "
+                    f"{page_index}/{total_pages}"
+                )
+            }
 
-        # Footer sadece son embed'de.
-        if index == len(groups) - 1:
+        else:
+            embed["author"] = {
+                "name": (
+                    f"Plugin Listesi • "
+                    f"{page_index}/{total_pages}"
+                )
+            }
+
+        # Son embed footer
+        if page_index == total_pages:
             embed["footer"] = {
                 "text": (
                     f"{len(plugins)} plugins • "
@@ -236,14 +300,18 @@ def build_embeds(plugins):
                 )
             }
 
-        embeds.append(embed)
+        embeds.append(
+            embed
+        )
 
     return embeds
 
 
-def build_payload(plugins):
-    embeds = build_embeds(plugins)
+# ============================================================
+# PAYLOAD
+# ============================================================
 
+def build_payload(plugins):
     return {
         "username": WEBHOOK_USERNAME,
 
@@ -251,7 +319,9 @@ def build_payload(plugins):
             "parse": []
         },
 
-        "embeds": embeds
+        "embeds": build_embeds(
+            plugins
+        )
     }
 
 
@@ -260,7 +330,9 @@ def build_payload(plugins):
 # ============================================================
 
 def webhook_base_url():
-    parsed = urllib.parse.urlsplit(WEBHOOK_URL)
+    parsed = urllib.parse.urlsplit(
+        WEBHOOK_URL
+    )
 
     return urllib.parse.urlunsplit(
         (
@@ -273,7 +345,11 @@ def webhook_base_url():
     )
 
 
-def send_request(url, payload, method):
+def send_request(
+    url,
+    payload,
+    method
+):
     data = json.dumps(
         payload,
         ensure_ascii=False
@@ -296,22 +372,24 @@ def send_request(url, payload, method):
             timeout=30
         ) as response:
 
-            response_body = response.read().decode(
+            body = response.read().decode(
                 "utf-8",
                 errors="replace"
             )
 
             print(
-                f"Discord request successful: "
+                "Discord request successful: "
                 f"HTTP {response.status}"
             )
 
-            if response_body:
+            if body:
                 try:
-                    return json.loads(response_body)
+                    return json.loads(
+                        body
+                    )
 
                 except json.JSONDecodeError:
-                    return response_body
+                    return body
 
             return None
 
@@ -321,7 +399,10 @@ def send_request(url, payload, method):
             errors="replace"
         )
 
-        print("", file=sys.stderr)
+        print(
+            "",
+            file=sys.stderr
+        )
 
         print(
             f"Discord HTTP error: "
@@ -344,14 +425,17 @@ def send_request(url, payload, method):
 
         elif exc.code == 403:
             print(
-                "Discord isteği Forbidden (403) olarak reddetti.",
+                "Discord isteği Forbidden (403) "
+                "olarak reddetti.",
                 file=sys.stderr
             )
 
         elif exc.code == 404:
             print(
-                "Webhook veya Discord mesajı bulunamadı. "
-                "DISCORD_PLUGIN_MESSAGE_ID yanlış olabilir.",
+                "Webhook veya Discord mesajı "
+                "bulunamadı. "
+                "DISCORD_PLUGIN_MESSAGE_ID "
+                "yanlış olabilir.",
                 file=sys.stderr
             )
 
@@ -373,17 +457,19 @@ def send_request(url, payload, method):
 
 
 # ============================================================
-# CREATE / UPDATE MESSAGE
+# CREATE MESSAGE
 # ============================================================
 
 def create_message(payload):
     base_url = webhook_base_url()
 
-    url = f"{base_url}?wait=true"
+    url = (
+        f"{base_url}?wait=true"
+    )
 
     print(
-        "Yeni Discord plugin listesi mesajı "
-        "oluşturuluyor..."
+        "Yeni Discord plugin listesi "
+        "mesajı oluşturuluyor..."
     )
 
     response = send_request(
@@ -393,24 +479,43 @@ def create_message(payload):
     )
 
     if isinstance(response, dict):
-        message_id = response.get("id")
+        message_id = response.get(
+            "id"
+        )
 
         if message_id:
             print("")
-            print("========================================")
-            print("Discord mesajı oluşturuldu.")
-            print(f"MESSAGE ID: {message_id}")
-            print("========================================")
+            print(
+                "========================================"
+            )
+            print(
+                "Discord mesajı oluşturuldu."
+            )
+            print(
+                f"MESSAGE ID: {message_id}"
+            )
+            print(
+                "========================================"
+            )
 
     return response
 
 
-def update_message(payload, message_id):
+# ============================================================
+# UPDATE MESSAGE
+# ============================================================
+
+def update_message(
+    payload,
+    message_id
+):
     base_url = webhook_base_url()
 
-    encoded_message_id = urllib.parse.quote(
-        message_id,
-        safe=""
+    encoded_message_id = (
+        urllib.parse.quote(
+            message_id,
+            safe=""
+        )
     )
 
     url = (
@@ -419,8 +524,8 @@ def update_message(payload, message_id):
     )
 
     print(
-        f"Mevcut Discord mesajı güncelleniyor: "
-        f"{message_id}"
+        "Mevcut Discord mesajı "
+        f"güncelleniyor: {message_id}"
     )
 
     return send_request(
@@ -435,14 +540,20 @@ def update_message(payload, message_id):
 # ============================================================
 
 def main():
-    print("========================================")
-    print("FascinaTe Discord Plugin List Sync")
-    print("========================================")
+    print(
+        "========================================"
+    )
+    print(
+        "FascinaTe Discord Plugin List Sync"
+    )
+    print(
+        "========================================"
+    )
 
     if not WEBHOOK_URL:
         fail(
-            "DISCORD_PLUGIN_WEBHOOK environment variable "
-            "tanımlı değil."
+            "DISCORD_PLUGIN_WEBHOOK "
+            "environment variable tanımlı değil."
         )
 
     if not WEBHOOK_URL.startswith(
@@ -452,20 +563,26 @@ def main():
         )
     ):
         fail(
-            "DISCORD_PLUGIN_WEBHOOK geçerli bir Discord "
-            "webhook URL'sine benzemiyor."
+            "DISCORD_PLUGIN_WEBHOOK "
+            "geçerli bir Discord webhook URL'sine "
+            "benzemiyor."
         )
 
     manifest = load_manifest()
 
-    plugins = get_plugins(manifest)
+    plugins = get_plugins(
+        manifest
+    )
 
     plugins = sorted(
         plugins,
         key=plugin_sort_key
     )
 
-    print(f"Bulunan plugin sayısı: {len(plugins)}")
+    print(
+        f"Bulunan plugin sayısı: "
+        f"{len(plugins)}"
+    )
 
     for plugin in plugins:
         name = (
@@ -474,23 +591,41 @@ def main():
             or "Unknown"
         )
 
-        version = plugin.get("version") or "?"
-
-        print(
-            f" - {name} v{version}"
+        version = (
+            plugin.get("version")
+            or "?"
         )
 
-    embed_groups = split_plugins_into_embeds(
+        core = bool(
+            plugin.get(
+                "core",
+                False
+            )
+        )
+
+        icon = (
+            "CORE"
+            if core
+            else "PLUGIN"
+        )
+
+        print(
+            f" - [{icon}] "
+            f"{name} v{version}"
+        )
+
+    groups = split_plugins_into_groups(
         plugins
     )
 
+    print("")
     print(
         f"Oluşturulacak embed sayısı: "
-        f"{len(embed_groups)}"
+        f"{len(groups)}"
     )
 
     for index, group in enumerate(
-        embed_groups,
+        groups,
         start=1
     ):
         print(
@@ -498,7 +633,9 @@ def main():
             f"{len(group)} plugin"
         )
 
-    payload = build_payload(plugins)
+    payload = build_payload(
+        plugins
+    )
 
     if MESSAGE_ID:
         update_message(
@@ -508,15 +645,19 @@ def main():
 
         print("")
         print(
-            "Discord plugin listesi başarıyla güncellendi."
+            "Discord plugin listesi "
+            "başarıyla güncellendi."
         )
 
     else:
-        create_message(payload)
+        create_message(
+            payload
+        )
 
         print("")
         print(
-            "Discord plugin listesi başarıyla oluşturuldu."
+            "Discord plugin listesi "
+            "başarıyla oluşturuldu."
         )
 
 

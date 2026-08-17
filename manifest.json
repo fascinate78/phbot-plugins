@@ -74,16 +74,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.6.2",
+                        "version":  "1.6.3",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Fixed teleport announcements being silently dropped by waiting for stable destination character and region data before sending from phBot\u0027s event loop."
+                                        "Fixed iSRO job-item unequip requests selecting reserved equipment slots 13–16 instead of an available inventory slot."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "e9b81976d15137ef7738c010e296f732e37740eb5cd4adefe4a522042d67d8e6"
+                        "sha256":  "2c8d974d0fcbfc4de590c3e3657987fbcccda39591c24374605759e139c9b5d4"
                     },
                     {
                         "id":  "FPvpHelperV2",

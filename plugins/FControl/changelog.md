@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.6.3
+
+### Fixed
+- Fixed iSRO job-item unequip requests selecting reserved equipment slots 13–16 instead of an available inventory slot.
+
 ## v1.6.2
 
 ### Fixed

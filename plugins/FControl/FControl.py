@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.2'
+pVersion = '1.6.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -955,13 +955,14 @@ def GetNPCUniqueID(name):
                 return UniqueID
     return 0
 
-# Finds an empty inventory slot (excluding equip slots 0-12), returns -1 if full
+# Finds an empty inventory slot; iSRO reserves equipment slots 13-16 as well.
 def GetEmptySlot():
-    items = get_inventory()['items']
-    for slot, item in enumerate(items):
-        if slot >= 13:
-            if not item:
-                return slot
+    inventory = get_inventory() or {}
+    items = inventory.get('items') or []
+    first_inventory_slot = 17 if get_locale() == 18 else 13
+    for slot in range(first_inventory_slot, len(items)):
+        if not items[slot]:
+            return slot
     return -1
 
 # Injects item movement on inventory (equip/unequip/avatar slots)

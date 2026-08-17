@@ -74,16 +74,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.6.3",
+                        "version":  "1.6.4",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Fixed iSRO job-item unequip requests selecting reserved equipment slots 13–16 instead of an available inventory slot."
+                                        "Fixed generic `USE` commands on iSRO sending the legacy packed item type instead of the required expanded four-byte item type group."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "2c8d974d0fcbfc4de590c3e3657987fbcccda39591c24374605759e139c9b5d4"
+                        "sha256":  "3bf5d0f30e5b0e76676abe22bc995b4dcf94e3c8862b9728ccdee1d29fa35661"
                     },
                     {
                         "id":  "FPvpHelperV2",

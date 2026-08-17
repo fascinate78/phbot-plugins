@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.3'
+pVersion = '1.6.4'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1046,15 +1046,28 @@ def GetTIDFromItem(itemId):
 # Try to use the item specified
 def UseItem(item):
     try:
-        tid = GetTIDFromItem(item['model'])
-        if tid is None:
+        item_data = get_item(item['model'])
+        if not item_data:
             log('Plugin: Item data not found for "' + item.get('name', 'Unknown') + '"')
             return False
         p = struct.pack('<B', item['slot'])
         loc = get_locale()
-        if loc == 22:  # vsro
-            p += struct.pack('<H', tid)
+        if loc == 18:  # iSRO uses the expanded four-byte item type group.
+            p += struct.pack(
+                '<BBBB',
+                (3 << 4) + int(bool(item_data.get('cash_item'))),
+                int(item_data.get('tid1', 0)) * 4,
+                int(item_data.get('tid2', 0)),
+                int(item_data.get('tid3', 0))
+            )
         else:
+            tid = GetTIDFromItem(item['model'])
+            if tid is None:
+                log('Plugin: Item type data not found for "' + item.get('name', 'Unknown') + '"')
+                return False
+        if loc == 22:  # vSRO
+            p += struct.pack('<H', tid)
+        elif loc != 18:
             p += struct.pack('<I', tid)
         log('Plugin: Using item "' + item['name'] + '"...')
         # CLIENT_INVENTORY_ITEM_USE

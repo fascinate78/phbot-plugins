@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.6.4
+
+### Fixed
+- Fixed generic `USE` commands on iSRO sending the legacy packed item type instead of the required expanded four-byte item type group.
+
 ## v1.6.3
 
 ### Fixed

@@ -38,7 +38,14 @@ def parse_changelog(path):
     title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
     plugin_name = os.path.basename(os.path.dirname(path))
     if title_match:
-        plugin_name = re.sub(r"\s*changelog\s*$", "", title_match.group(1), flags=re.IGNORECASE).strip()
+        parsed_name = re.sub(
+            r"\s*changelog\s*$",
+            "",
+            title_match.group(1),
+            flags=re.IGNORECASE,
+        ).strip()
+        if parsed_name:
+            plugin_name = parsed_name
 
     sections = re.split(r"^##\s+", text, flags=re.MULTILINE)[1:]
     if not sections:

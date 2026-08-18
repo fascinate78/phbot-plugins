@@ -54,6 +54,7 @@ downloaded version.
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.0.0 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FControl](plugins/FControl/) | 1.6.4 | Provides shared control commands, actions, and teleport handling. |
+| [FInventoryManager](plugins/FInventoryManager/) | 3.0.2 | FascinaTe phBot plugin. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |

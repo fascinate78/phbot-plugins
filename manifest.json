@@ -86,6 +86,21 @@
                         "sha256":  "3bf5d0f30e5b0e76676abe22bc995b4dcf94e3c8862b9728ccdee1d29fa35661"
                     },
                     {
+                        "id":  "FInventoryManager",
+                        "name":  "FInventoryManager",
+                        "version":  "3.0.2",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Removed obsolete Personal Storage validation/status widgets that remained visible across Dashboard, Inventory, and both preview screens after the v3.0.1 layout redesign.",
+                                        "Shortened the refreshed Storage state text so it remains inside the fixed-width status column."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/changelog.md",
+                        "install_path":  "FInventoryManager.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/FInventoryManager.py",
+                        "sha256":  "de37f967be27b997289619aeff6e82e43a302307c2d7ee8194f87ce0602b1698"
+                    },
+                    {
                         "id":  "FPvpHelperV2",
                         "name":  "FPvpHelperV2",
                         "version":  "1.2.0",

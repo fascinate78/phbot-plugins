@@ -161,16 +161,16 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "3.6.2",
+                        "version":  "3.6.3",
                         "core":  false,
                         "description":  "Coordinates party-synchronized trade scripts and job-item handling.",
                         "changes":  [
-                                        "Fixed timed job-item unequip operations being restarted by repeated movement"
+                                        "Fixed false Trade and Farm Profile failures by waiting five seconds after a"
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "b9baf44422ce5692237ff68fc2b519f8c286c75e0527a7f222de8ae67cdd29b7"
+                        "sha256":  "df46a494a17c66c12b5d190fb4b2b789ae7f6b17b485b8c8d7bbdb46d5b263ab"
                     },
                     {
                         "id":  "FUniqueNotifier",

@@ -9,7 +9,7 @@ import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.6.2'
+pVersion = '3.6.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -48,6 +48,7 @@ TRANSPORT_DEATH_CONFIRM_SECONDS = 5.0
 TRANSPORT_TELEPORT_GRACE_SECONDS = 5.0
 TRANSPORT_SNAPSHOT_MAX_AGE = 10.0
 DEFAULT_SYNC_CHECK_INTERVAL = 10.0
+PROFILE_VERIFY_DELAY = 5.0
 SYNC_RESPONSE_TIMEOUT = 30.0
 SYNC_PREPARE_TIMEOUT = 30.0
 
@@ -68,6 +69,7 @@ job_candidates = []
 script_candidates = []
 training_inside_streak = 0
 pending_action = None
+pending_action_delay = None
 pouch_settle_started = 0.0
 pouch_last_poll = 0.0
 pouch_last_count = None
@@ -400,11 +402,13 @@ def _action_delay_seconds():
     return min(value, 60000) / 1000.0
 
 
-def _schedule_action(action, message):
-    global pending_action
+def _schedule_action(action, message, delay_seconds=None):
+    global pending_action, pending_action_delay
     pending_action = action
+    pending_action_delay = (
+        _action_delay_seconds() if delay_seconds is None else float(delay_seconds))
     _set_state(STATE_WAITING_ACTION, '%s (%d ms bekleniyor)' % (
-        message, int(_action_delay_seconds() * 1000)))
+        message, int(pending_action_delay * 1000)))
 
 
 def _fail(message, allow_recovery=True):
@@ -1397,7 +1401,7 @@ def _sync_begin_coordinator(now):
 
 
 def _sync_start_local():
-    global sync_phase, trade_profile_active
+    global sync_phase, cycle_active
     if cycle_active or sync_phase == 'STARTED':
         return
     ready, reason, count = _local_sync_readiness()
@@ -1406,13 +1410,40 @@ def _sync_start_local():
         _send_sync('FAILED', '%s:%s' % (_own_name(), reason))
         return
     trade_profile = _selected_phbot_profile(cmb_trade_profile)
-    if not _apply_phbot_profile(trade_profile, 'Trade'):
+    try:
+        requested = set_profile(trade_profile)
+    except Exception as ex:
+        log('[%s] Trade profile request error: %s' % (pName, ex))
+        requested = False
+    if requested is False:
         _send_sync('FAILED', '%s:TRADE_PROFILE' % _own_name())
         _set_sync_text('Trade profile could not be activated', '#e74c3c')
         return
+    cycle_active = True
+    _schedule_action(
+        _verify_trade_profile,
+        'Trade profili istendi; etkin profil dogrulanacak.',
+        PROFILE_VERIFY_DELAY)
+
+
+def _verify_trade_profile():
+    global sync_phase, trade_profile_active, cycle_active
+    trade_profile = _selected_phbot_profile(cmb_trade_profile)
+    try:
+        active = get_profile()
+    except Exception as ex:
+        log('[%s] Trade profile verification error: %s' % (pName, ex))
+        active = None
+    if active != trade_profile:
+        cycle_active = False
+        _send_sync('FAILED', '%s:TRADE_PROFILE' % _own_name())
+        _set_sync_text('Trade profile could not be verified after 5 seconds', '#e74c3c')
+        _set_state(STATE_ERROR, 'Trade profili 5 saniye sonra dogrulanamadi.')
+        return
     trade_profile_active = True
     sync_phase = 'STARTED'
-    _set_sync_text('START received; trade profile active (%d boxes)' % count, '#1f9d63')
+    _set_sync_text('START received; trade profile active', '#1f9d63')
+    cycle_active = False
     if not _begin_cycle(False):
         trade_profile_active = False
         _apply_phbot_profile(_selected_phbot_profile(cmb_farm_profile), 'Farm')
@@ -1679,13 +1710,42 @@ def _begin_unequip():
 
 
 def _start_grinding():
-    global cycle_active, trade_profile_active
+    global cycle_active
     if trade_profile_active:
         farm_profile = _selected_phbot_profile(cmb_farm_profile)
-        if not _apply_phbot_profile(farm_profile, 'Farm'):
+        try:
+            requested = set_profile(farm_profile)
+        except Exception as ex:
+            log('[%s] Farm profile request error: %s' % (pName, ex))
+            requested = False
+        if requested is False:
             _fail('Farm profiline donulemedi; bot guvenlik icin baslatilmadi.', False)
             return
-        trade_profile_active = False
+        _schedule_action(
+            _verify_farm_profile_and_start_bot,
+            'Farm profili istendi; etkin profil dogrulanacak.',
+            PROFILE_VERIFY_DELAY)
+        return
+    _start_bot_after_profile_restore()
+
+
+def _verify_farm_profile_and_start_bot():
+    global trade_profile_active
+    farm_profile = _selected_phbot_profile(cmb_farm_profile)
+    try:
+        active = get_profile()
+    except Exception as ex:
+        log('[%s] Farm profile verification error: %s' % (pName, ex))
+        active = None
+    if active != farm_profile:
+        _fail('Farm profili 5 saniye sonra dogrulanamadi; bot guvenlik icin baslatilmadi.', False)
+        return
+    trade_profile_active = False
+    _start_bot_after_profile_restore()
+
+
+def _start_bot_after_profile_restore():
+    global cycle_active
     try:
         result = start_bot()
     except Exception as ex:
@@ -2064,16 +2124,19 @@ def chk_error_recovery_changed(checked):
 
 
 def _poll_state(now):
-    global last_action, pending_action
+    global last_action, pending_action, pending_action_delay
     global respawn_attempts, last_respawn_request
     global unequip_request_sent, unequip_destination
     elapsed = now - state_since
     identity = _job_identity()
 
     if state == STATE_WAITING_ACTION:
-        if elapsed >= _action_delay_seconds():
+        delay = (_action_delay_seconds() if pending_action_delay is None
+                 else pending_action_delay)
+        if elapsed >= delay:
             action = pending_action
             pending_action = None
+            pending_action_delay = None
             if action:
                 action()
             else:

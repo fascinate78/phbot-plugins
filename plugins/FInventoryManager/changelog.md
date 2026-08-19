@@ -1,4 +1,4 @@
-# Changelog
+# FInventoryManager Changelog
 
 ## v3.0.2
 

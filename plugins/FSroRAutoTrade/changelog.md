@@ -1,5 +1,12 @@
 # FSroRAutoTrade Changelog
 
+## v3.6.3
+
+### Fixed
+
+- Fixed false Trade and Farm Profile failures by waiting five seconds after a
+  profile-change request before verifying the active profile.
+
 ## v3.6.2
 
 ### Fixed

@@ -72,6 +72,23 @@
                         "sha256":  "f52fe8995228d7ea0d36c3d6a2c96c3b24f251255d56b9a14e441c2101fc0fca"
                     },
                     {
+                        "id":  "FCharacterPluginManager",
+                        "name":  "FCharacterPluginManager",
+                        "version":  "1.0.0",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Added per-server and per-character plugin selection with automatic in-memory loading.",
+                                        "Added support for managed single-file plugins and plugin folders.",
+                                        "Added event forwarding, packet return handling, GUI callback isolation, and plugin cleanup.",
+                                        "Added a GUI for scanning, selecting, saving, and applying managed plugins."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCharacterPluginManager/changelog.md",
+                        "install_path":  "FCharacterPluginManager.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCharacterPluginManager/FCharacterPluginManager.py",
+                        "sha256":  "b014866ccd3eb3cdb455856d6e8c049f58b8c642db25d27a133a82cb7ea08f66"
+                    },
+                    {
                         "id":  "FControl",
                         "name":  "FControl",
                         "version":  "1.6.4",

@@ -46,16 +46,19 @@
                     {
                         "id":  "FCaravanNavigator",
                         "name":  "FCaravanNavigator V3",
-                        "version":  "3.0.0",
+                        "version":  "3.1.1",
                         "core":  false,
                         "description":  "Navigates caravan routes and recovers interrupted travel.",
                         "changes":  [
-                                        "Changelog tracking started for the current version."
+                                        "Added Samarkand and Constantinople to the town destinations.",
+                                        "Added self-issued `!GO \u003ccode\u003e`, `!GO LIST`, and `!GO STOP` chat commands for navigation control.",
+                                        "Added validation for unique destination codes used by chat commands.",
+                                        "Fixed the Taklamakan Special button appearing below the visible plugin area after adding the new town destinations."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/changelog.md",
                         "install_path":  "FCaravanNavigatorV3.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FCaravanNavigator/FCaravanNavigatorV3.py",
-                        "sha256":  "d696af46dfc1c14fe97109a9df6922ee0d0b4eee091270366c7b9c1089e33a13"
+                        "sha256":  "f490383f1384a58c4d03e1868a834a4dfe45ec8c41eea0f2465b28478e254755"
                     },
                     {
                         "id":  "FChamberViciousShadows",

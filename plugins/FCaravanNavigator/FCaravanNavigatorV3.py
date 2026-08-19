@@ -12,7 +12,7 @@ import urllib.request
 
 
 pName = "FCaravanNavigator V3"
-pVersion = "3.0.0"
+pVersion = "3.1.1"
 pUrl = ""
 
 PATHFINDING_COOLDOWN = 6.0
@@ -26,6 +26,8 @@ C_MUTED = "#9aa0ac"
 C_WARNING = "#c98a1a"
 C_BLUE = "#2b8fd6"
 OFFSCREEN_X = 3000
+DESTINATION_ROW_HEIGHT = 26
+DESTINATION_GROUP_GAP = 6
 EVENT_TRANSPORT_DIED = 3
 EVENT_PLAYER_ATTACKING = 4
 EVENT_DIED = 7
@@ -47,6 +49,7 @@ SETTINGS_DEFAULTS = {
 locations = [
     {
         "name": "Roc Special",
+        "code": "ROC",
         "category": "special",
         "region": 23411,
         "x": -3798,
@@ -55,6 +58,7 @@ locations = [
     },
     {
         "name": "Bandit Special",
+        "code": "BAN",
         "category": "special",
         "region": 23712,
         "x": 4840,
@@ -63,6 +67,7 @@ locations = [
     },
     {
         "name": "Taklamakan Special",
+        "code": "TAK",
         "category": "special",
         "region": 26753,
         "x": -1134,
@@ -71,6 +76,7 @@ locations = [
     },
     {
         "name": "Jangan",
+        "code": "JG",
         "category": "town",
         "region": 25000,
         "x": 6504,
@@ -79,6 +85,7 @@ locations = [
     },
     {
         "name": "Donwhang",
+        "code": "DW",
         "category": "town",
         "region": 26265,
         "x": 3502,
@@ -87,11 +94,30 @@ locations = [
     },
     {
         "name": "Hotan",
+        "code": "HT",
         "category": "town",
         "region": 23687,
         "x": 148,
         "y": 82,
         "z": 243
+    },
+    {
+        "name": "Samarkand",
+        "code": "SM",
+        "category": "town",
+        "region": 27244,
+        "x": -5106,
+        "y": 2873,
+        "z": 180
+    },
+    {
+        "name": "Constantinople",
+        "code": "CT",
+        "category": "town",
+        "region": 26959,
+        "x": -10713,
+        "y": 2525,
+        "z": 80
     }
 ]
 location_buttons = []
@@ -713,6 +739,20 @@ def validate_location(record, index):
         plugin_log("Skipping location {0}: name must be a non-empty string".format(index))
         return None
 
+    code = record.get("code")
+    if not isinstance(code, str) or not code.strip():
+        plugin_log("Skipping location {0} ({1}): code must be a non-empty string".format(
+            index, name.strip()
+        ))
+        return None
+
+    code = code.strip().upper()
+    if " " in code:
+        plugin_log("Skipping location {0} ({1}): code must not contain spaces".format(
+            index, name.strip()
+        ))
+        return None
+
     category = record.get("category")
     if not isinstance(category, str) or not category.strip():
         plugin_log(
@@ -747,6 +787,7 @@ def validate_location(record, index):
     try:
         return {
             "name": name.strip(),
+            "code": code,
             "category": category,
             "region": convert_number(record["region"], "region"),
             "x": convert_number(record["x"], "x"),
@@ -762,9 +803,18 @@ def validate_location(record, index):
 
 def load_locations():
     valid_locations = []
+    used_codes = set()
     for index, record in enumerate(locations):
         location = validate_location(record, index)
         if location is not None:
+            if location["code"] in used_codes:
+                plugin_log(
+                    "Skipping location {0} ({1}): duplicate code {2}".format(
+                        index, location["name"], location["code"]
+                    )
+                )
+                continue
+            used_codes.add(location["code"])
             valid_locations.append(location)
     return valid_locations
 
@@ -851,16 +901,22 @@ def create_location_buttons():
                 callback_name,
                 "{0}  {1}".format(button_icon, location["name"]),
                 12 + (column * 190),
-                current_y + (row * 30)
+                current_y + (row * DESTINATION_ROW_HEIGHT)
             )
             location_buttons.append(button)
             location_callback_names.append(callback_name)
             destination_widgets.append(
-                (button, 12 + (column * 190), current_y + (row * 30))
+                (
+                    button,
+                    12 + (column * 190),
+                    current_y + (row * DESTINATION_ROW_HEIGHT)
+                )
             )
 
         row_count = int(math.ceil(len(category_locations) / 2.0))
-        current_y += (row_count * 30) + 10
+        current_y += (
+            row_count * DESTINATION_ROW_HEIGHT
+        ) + DESTINATION_GROUP_GAP
 
 
 def create_settings_gui():
@@ -1347,6 +1403,62 @@ def stop_navigation():
         set_status("Could not stop navigation")
 
 
+def show_go_command_list():
+    grouped_locations = (
+        ("Towns", "town"),
+        ("Special", "special")
+    )
+    for heading, category in grouped_locations:
+        entries = [
+            "{0}:{1}".format(location["code"], location["name"])
+            for location in locations
+            if location["category"] == category
+        ]
+        if entries:
+            client_notice("{0}: {1}".format(heading, " | ".join(entries)))
+    client_notice("Usage: !GO <code> | Stop: !GO STOP")
+
+
+def handle_chat(t, player, msg):
+    if not isinstance(msg, str):
+        return
+
+    parts = msg.strip().split()
+    if not parts or parts[0].upper() != "!GO":
+        return
+
+    try:
+        character = get_character_data() or {}
+        character_name = str(character.get("name") or "").strip().lower()
+        player_name = str(player or "").strip().lower()
+        if player_name and character_name and player_name != character_name:
+            return
+    except Exception as error:
+        plugin_log("Could not verify !GO command sender: {0}".format(error))
+        return
+
+    if len(parts) != 2:
+        client_notice("Usage: !GO <code> | List: !GO LIST | Stop: !GO STOP")
+        return
+
+    command = parts[1].upper()
+    if command == "LIST":
+        show_go_command_list()
+        return
+    if command == "STOP":
+        stop_navigation()
+        client_notice("Navigation stop command received.")
+        return
+
+    for index, location in enumerate(locations):
+        if location["code"] == command:
+            plugin_log("Chat command selected destination: {0}".format(location["name"]))
+            navigate_to_location(index)
+            return
+
+    client_notice("Unknown destination code: {0}. Use !GO LIST.".format(command))
+
+
 def get_recent_attacker():
     if not settings.get("attacker_tracking_enabled", True):
         return None
@@ -1562,3 +1674,4 @@ set_navigation_status("IDLE", C_MUTED)
 set_duration_status("Travel time", 0)
 set_route_status("NOT GENERATED", C_MUTED)
 set_attacker_status(None, C_MUTED)
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

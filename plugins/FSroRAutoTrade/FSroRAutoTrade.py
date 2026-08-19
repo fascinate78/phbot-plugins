@@ -1,15 +1,20 @@
 from phBot import *
 import QtBind
 import phBotChat
+import datetime
 import json
 import os
+import ssl
 import struct
+import threading
 import time
+import urllib.error
+import urllib.request
 import webbrowser
 
 
 pName = 'FSroRAutoTrade'
-pVersion = '3.6.3'
+pVersion = '4.0.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 CHAT_PARTY = 4
 SYNC_PROTOCOL = '#FRT'
@@ -100,6 +105,36 @@ sync_last_check = 0.0
 sync_phase_since = 0.0
 sync_wait_details = {}
 current_language = 'en'
+telegram_panel_open = False
+telegram_results = []
+telegram_last_events = {}
+recovery_in_progress = False
+TELEGRAM_TIMEOUT = 8
+TELEGRAM_EVENT_KEYS = (
+    'trade_started', 'delivery', 'trade_completed', 'character_died',
+    'transport_died', 'disconnected', 'plugin_error', 'recovery_started',
+    'recovery_succeeded', 'recovery_failed', 'sync_started', 'sync_cancelled'
+)
+TELEGRAM_EVENT_TEXT = {
+    'en': {
+        'trade_started': 'Trade started', 'delivery': 'Delivery completed',
+        'trade_completed': 'Trade completed', 'character_died': 'Character died',
+        'transport_died': 'Transport died', 'disconnected': 'Disconnected',
+        'plugin_error': 'Plugin error', 'recovery_started': 'Recovery started',
+        'recovery_succeeded': 'Recovery succeeded',
+        'recovery_failed': 'Recovery failed', 'sync_started': 'Party sync started',
+        'sync_cancelled': 'Party sync cancelled'
+    },
+    'tr': {
+        'trade_started': 'Kervan başladı', 'delivery': 'Teslimat gerçekleşti',
+        'trade_completed': 'Kervan tamamlandı', 'character_died': 'Karakter öldü',
+        'transport_died': 'Transport öldü', 'disconnected': 'Bağlantı kesildi',
+        'plugin_error': 'Plugin hatası', 'recovery_started': 'Kurtarma başladı',
+        'recovery_succeeded': 'Kurtarma başarılı',
+        'recovery_failed': 'Kurtarma başarısız', 'sync_started': 'Party sync başladı',
+        'sync_cancelled': 'Party sync iptal edildi'
+    }
+}
 
 
 def _config_directory():
@@ -140,12 +175,13 @@ gui = QtBind.init(__name__, pName)
 QtBind.createLabel(
     gui, '<font color="#FF0000" size="4"><b>🐫 FSRO-R AUTO TRADE</b></font>', 12, 6
 )
-QtBind.createLabel(gui, '<font color="#9aa0ac">v%s</font>' % pVersion, 280, 12)
-btn_language = QtBind.createButton(gui, 'btn_language_clicked', 'EN / TR', 325, 3)
-btn_status_tab = QtBind.createButton(gui, 'btn_status_tab_clicked', '📊  Sync Status', 385, 3)
-btn_discord = QtBind.createButton(gui, 'discord_clicked', u'💬 Discord', 510, 3)
+QtBind.createLabel(gui, '<font color="#9aa0ac">v%s</font>' % pVersion, 275, 12)
+btn_language = QtBind.createButton(gui, 'btn_language_clicked', 'EN / TR', 315, 3)
+btn_status_tab = QtBind.createButton(gui, 'btn_status_tab_clicked', 'Status', 370, 3)
+btn_telegram_tab = QtBind.createButton(gui, 'btn_telegram_tab_clicked', 'Telegram', 430, 3)
+btn_discord = QtBind.createButton(gui, 'discord_clicked', u'💬 Discord', 500, 3)
 QtBind.createLabel(
-    gui, u'<font color="#FF0000"><b>⚜ Made By FascinaTe</b></font>', 610, 11
+    gui, u'<font color="#FF0000"><b>⚜ Made By FascinaTe</b></font>', 590, 11
 )
 QtBind.createLineEdit(gui, '', 12, 30, 716, 1)
 
@@ -234,6 +270,56 @@ lbl_sync_check_interval_unit = QtBind.createLabel(
     gui, 'sec', STATUS_OFFSCREEN_X, 147)
 lst_status_panel = QtBind.createList(gui, STATUS_OFFSCREEN_X, 210, 716, 200)
 
+lbl_telegram_section = QtBind.createLabel(
+    gui, '<font color="#FF0000"><b>TELEGRAM NOTIFICATIONS</b></font>',
+    STATUS_OFFSCREEN_X, 42)
+lbl_telegram_token = QtBind.createLabel(
+    gui, '<b>Bot token:</b>', STATUS_OFFSCREEN_X, 70)
+txt_telegram_token = QtBind.createLineEdit(
+    gui, '', STATUS_OFFSCREEN_X, 65, 390, 22)
+lbl_telegram_chat = QtBind.createLabel(
+    gui, '<b>Chat ID:</b>', STATUS_OFFSCREEN_X, 104)
+txt_telegram_chat = QtBind.createLineEdit(
+    gui, '', STATUS_OFFSCREEN_X, 99, 220, 22)
+lbl_telegram_types = QtBind.createLabel(
+    gui, '<font color="#FF0000"><b>NOTIFICATION TYPES</b></font>',
+    STATUS_OFFSCREEN_X, 134)
+telegram_divider = QtBind.createLineEdit(gui, '', STATUS_OFFSCREEN_X, 154, 716, 1)
+
+telegram_checkboxes = {}
+telegram_checkbox_positions = []
+for telegram_index, telegram_key in enumerate(TELEGRAM_EVENT_KEYS):
+    telegram_column = telegram_index // 6
+    telegram_row = telegram_index % 6
+    telegram_x = 12 + (telegram_column * 355)
+    telegram_y = 164 + (telegram_row * 25)
+    telegram_widget = QtBind.createCheckBox(
+        gui, 'telegram_checkbox_changed', telegram_key,
+        STATUS_OFFSCREEN_X, telegram_y)
+    telegram_checkboxes[telegram_key] = telegram_widget
+    telegram_checkbox_positions.append(
+        (telegram_widget, telegram_x, telegram_y))
+
+lbl_telegram_test_event = QtBind.createLabel(
+    gui, '<b>Manual event:</b>', STATUS_OFFSCREEN_X, 322)
+cmb_telegram_test_event = QtBind.createCombobox(
+    gui, STATUS_OFFSCREEN_X, 317, 205, 22)
+lbl_telegram_test_state = QtBind.createLabel(
+    gui, '<b>State:</b>', STATUS_OFFSCREEN_X, 322)
+txt_telegram_test_state = QtBind.createLineEdit(
+    gui, 'RUNNING_TRADE', STATUS_OFFSCREEN_X, 317, 155, 22)
+lbl_telegram_test_detail = QtBind.createLabel(
+    gui, '<b>Error / detail:</b>', STATUS_OFFSCREEN_X, 352)
+txt_telegram_test_detail = QtBind.createLineEdit(
+    gui, '', STATUS_OFFSCREEN_X, 347, 350, 22)
+btn_telegram_save = QtBind.createButton(
+    gui, 'btn_telegram_save_clicked', 'Save Telegram', STATUS_OFFSCREEN_X, 382)
+btn_telegram_test = QtBind.createButton(
+    gui, 'btn_telegram_test_clicked', 'Send Selected Test', STATUS_OFFSCREEN_X, 382)
+lbl_telegram_status = QtBind.createLabel(
+    gui, _fixed_width_text('<font color="#9aa0ac">Ready</font>', 350),
+    STATUS_OFFSCREEN_X, 408)
+
 sync_panel_positions = (
     (lst_sync_background, 12, 38),
     (chk_sync_enabled, 20, 45),
@@ -254,6 +340,21 @@ sync_panel_positions = (
     (lbl_sync_state, 20, 180),
     (lst_status_panel, 12, 210)
 )
+
+telegram_panel_positions = tuple([
+    (lbl_telegram_section, 12, 42),
+    (lbl_telegram_token, 12, 70), (txt_telegram_token, 100, 65),
+    (lbl_telegram_chat, 12, 104), (txt_telegram_chat, 100, 99),
+    (lbl_telegram_types, 12, 134), (telegram_divider, 12, 154),
+    (lbl_telegram_test_event, 12, 322),
+    (cmb_telegram_test_event, 115, 317),
+    (lbl_telegram_test_state, 340, 322),
+    (txt_telegram_test_state, 400, 317),
+    (lbl_telegram_test_detail, 12, 352),
+    (txt_telegram_test_detail, 115, 347),
+    (btn_telegram_save, 12, 382), (btn_telegram_test, 135, 382),
+    (lbl_telegram_status, 320, 386)
+] + telegram_checkbox_positions)
 
 main_panel_positions = (
     (lbl_box_section, 10, 38), (chk_enabled, 10, 58),
@@ -276,7 +377,12 @@ main_panel_positions = (
 
 TRANSLATIONS = {
     'en': {
-        'status': '📊  Sync Status', 'back': '←  Main Screen',
+        'status': 'Status', 'back': 'Main', 'telegram_tab': 'Telegram',
+        'telegram_section': 'TELEGRAM NOTIFICATIONS', 'telegram_token': 'Bot token:',
+        'telegram_chat': 'Chat ID:', 'telegram_types': 'NOTIFICATION TYPES',
+        'telegram_event': 'Manual event:', 'telegram_state': 'State:',
+        'telegram_detail': 'Error / detail:', 'telegram_save': 'Save Telegram',
+        'telegram_test': 'Send Selected Test',
         'box_section': '<font color="#FF0000"><b>📦 BOX CONTROL</b></font>',
         'enabled': 'Plugin enabled', 'total': '<font color="#6b7280"><b>Total boxes:</b></font>',
         'target': '<font color="#6b7280"><b>Trade target:</b></font>',
@@ -301,7 +407,12 @@ TRANSLATIONS = {
         'sync_interval': '<b>CHECK interval:</b>', 'seconds': 'sec'
     },
     'tr': {
-        'status': '📊  Senkron Durum', 'back': '←  Ana Ekran',
+        'status': 'Durum', 'back': 'Ana', 'telegram_tab': 'Telegram',
+        'telegram_section': 'TELEGRAM BİLDİRİMLERİ', 'telegram_token': 'Bot token:',
+        'telegram_chat': 'Chat ID:', 'telegram_types': 'BİLDİRİM TÜRLERİ',
+        'telegram_event': 'Manuel olay:', 'telegram_state': 'Durum:',
+        'telegram_detail': 'Hata / açıklama:', 'telegram_save': 'Telegram Kaydet',
+        'telegram_test': 'Seçili Testi Gönder',
         'box_section': '<font color="#FF0000"><b>📦 KUTU KONTROLÜ</b></font>',
         'enabled': 'Plugin aktif', 'total': '<font color="#6b7280"><b>Toplam kutu:</b></font>',
         'target': '<font color="#6b7280"><b>Kervan hedefi:</b></font>',
@@ -332,7 +443,27 @@ def _ui(key):
     return TRANSLATIONS.get(current_language, TRANSLATIONS['en']).get(key, key)
 
 
-def _apply_language():
+def _selected_telegram_event():
+    selected = str(QtBind.text(gui, cmb_telegram_test_event) or '')
+    for telegram_key in TELEGRAM_EVENT_KEYS:
+        if selected == TELEGRAM_EVENT_TEXT[current_language][telegram_key]:
+            return telegram_key
+    return TELEGRAM_EVENT_KEYS[0]
+
+
+def _fill_telegram_event_list(selected_key=None):
+    QtBind.clear(gui, cmb_telegram_test_event)
+    keys = list(TELEGRAM_EVENT_KEYS)
+    if selected_key in keys:
+        keys.remove(selected_key)
+        keys.insert(0, selected_key)
+    for telegram_key in keys:
+        QtBind.append(
+            gui, cmb_telegram_test_event,
+            TELEGRAM_EVENT_TEXT[current_language][telegram_key])
+
+
+def _apply_language(telegram_selected_key=None):
     pairs = (
         (lbl_box_section, 'box_section'), (chk_enabled, 'enabled'),
         (lbl_box_total_title, 'total'), (lbl_target_title, 'target'),
@@ -356,7 +487,31 @@ def _apply_language():
     for widget, key in pairs:
         QtBind.setText(gui, widget, _ui(key))
     QtBind.setText(gui, btn_status_tab, _ui('back') if status_panel_open else _ui('status'))
+    QtBind.setText(gui, btn_telegram_tab,
+                   _ui('back') if telegram_panel_open else _ui('telegram_tab'))
     QtBind.setText(gui, btn_language, 'TR' if current_language == 'en' else 'EN')
+    QtBind.setText(
+        gui, lbl_telegram_section,
+        '<font color="#FF0000"><b>%s</b></font>' % _ui('telegram_section'))
+    QtBind.setText(gui, lbl_telegram_token, '<b>%s</b>' % _ui('telegram_token'))
+    QtBind.setText(gui, lbl_telegram_chat, '<b>%s</b>' % _ui('telegram_chat'))
+    QtBind.setText(
+        gui, lbl_telegram_types,
+        '<font color="#FF0000"><b>%s</b></font>' % _ui('telegram_types'))
+    QtBind.setText(gui, lbl_telegram_test_event,
+                   '<b>%s</b>' % _ui('telegram_event'))
+    QtBind.setText(gui, lbl_telegram_test_state,
+                   '<b>%s</b>' % _ui('telegram_state'))
+    QtBind.setText(gui, lbl_telegram_test_detail,
+                   '<b>%s</b>' % _ui('telegram_detail'))
+    QtBind.setText(gui, btn_telegram_save, _ui('telegram_save'))
+    QtBind.setText(gui, btn_telegram_test, _ui('telegram_test'))
+    for telegram_key in TELEGRAM_EVENT_KEYS:
+        QtBind.setText(
+            gui, telegram_checkboxes[telegram_key],
+            TELEGRAM_EVENT_TEXT[current_language][telegram_key])
+    _fill_telegram_event_list(
+        telegram_selected_key or _selected_telegram_event())
 
 
 def _html_escape(value):
@@ -395,6 +550,173 @@ def _set_sync_text(message, color='#9aa0ac'):
         '<font color="%s">%s</font>' % (color, _html_escape(message)), 700))
 
 
+def _set_telegram_status(message, color='#9aa0ac'):
+    QtBind.setText(gui, lbl_telegram_status, _fixed_width_text(
+        '<font color="%s"><b>%s</b></font>' %
+        (color, _html_escape(message)), 350))
+
+
+def _telegram_field_text():
+    if current_language == 'tr':
+        return {
+            'event': 'Olay', 'character': 'Karakter', 'server': 'Sunucu',
+            'state': 'Durum', 'detail': 'Hata / açıklama',
+            'date': 'Tarih ve saat', 'none': 'Yok'
+        }
+    return {
+        'event': 'Event', 'character': 'Character', 'server': 'Server',
+        'state': 'State', 'detail': 'Error / detail',
+        'date': 'Date and time', 'none': 'None'
+    }
+
+
+def _telegram_character_and_server():
+    try:
+        character = get_character_data() or {}
+    except Exception:
+        character = {}
+    return (str(character.get('name') or 'default'),
+            str(character.get('server') or '-'))
+
+
+def _build_telegram_message(event_key, detail='', state_value=None):
+    fields = _telegram_field_text()
+    character_name, server_name = _telegram_character_and_server()
+    detail = str(detail or '').strip() or fields['none']
+    state_text = str(state if state_value is None else state_value)
+    lines = [
+        '🐫 FSroRAutoTrade',
+        '%s: %s' % (
+            fields['event'], TELEGRAM_EVENT_TEXT[current_language][event_key]),
+        '%s: %s' % (fields['character'], character_name),
+        '%s: %s' % (fields['server'], server_name),
+        '%s: %s' % (fields['state'], state_text),
+        '%s: %s' % (fields['detail'], detail),
+        '%s: %s' % (
+            fields['date'], datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    ]
+    return '\n'.join(lines)
+
+
+def _telegram_credentials_are_valid(token, chat_id):
+    return bool(token and ':' in token and chat_id)
+
+
+def _telegram_certificate_error(error):
+    reason = getattr(error, 'reason', error)
+    text = ('%r %r' % (reason, error)).upper()
+    return ('CERTIFICATE_VERIFY_FAILED' in text or
+            'CERTIFICATE VERIFY FAILED' in text)
+
+
+def _telegram_request(token, chat_id, message):
+    endpoint = 'https://api.telegram.org/bot%s/sendMessage' % token
+    payload = json.dumps({
+        'chat_id': chat_id, 'text': message,
+        'disable_web_page_preview': True
+    }).encode('utf-8')
+    return urllib.request.Request(
+        endpoint, data=payload,
+        headers={'Content-Type': 'application/json',
+                 'User-Agent': '%s-%s' % (pName, pVersion)})
+
+
+def _perform_telegram_request(request, context=None):
+    if context is None:
+        response = urllib.request.urlopen(request, timeout=TELEGRAM_TIMEOUT)
+    else:
+        response = urllib.request.urlopen(
+            request, timeout=TELEGRAM_TIMEOUT, context=context)
+    try:
+        status_code = response.getcode()
+        body = response.read().decode('utf-8', errors='replace')
+    finally:
+        response.close()
+    if status_code != 200:
+        raise RuntimeError('Telegram returned HTTP %s' % status_code)
+    try:
+        result = json.loads(body)
+    except Exception:
+        result = {}
+    if result and not result.get('ok', False):
+        raise RuntimeError(str(
+            result.get('description') or 'Telegram rejected the request'))
+
+
+def _telegram_http_error(error):
+    try:
+        body = error.read().decode('utf-8', errors='replace')
+        result = json.loads(body)
+        if isinstance(result, dict) and result.get('description'):
+            return 'HTTP %s: %s' % (error.code, result.get('description'))
+    except Exception:
+        pass
+    return 'HTTP %s: %s' % (error.code, error.reason)
+
+
+def _telegram_worker(token, chat_id, message, event_key):
+    try:
+        request = _telegram_request(token, chat_id, message)
+        _perform_telegram_request(request)
+        telegram_results.append(
+            (True, event_key, 'Message sent with verified SSL'))
+        return
+    except urllib.error.HTTPError as error:
+        telegram_results.append(
+            (False, event_key, _telegram_http_error(error)))
+        return
+    except urllib.error.URLError as error:
+        if not _telegram_certificate_error(error):
+            telegram_results.append(
+                (False, event_key, 'Network error: %s' % error.reason))
+            return
+        log('[%s] Telegram SSL verification failed; compatibility retry started.' %
+            pName)
+    except Exception as error:
+        if not _telegram_certificate_error(error):
+            telegram_results.append(
+                (False, event_key, '%s: %s' %
+                 (type(error).__name__, error)))
+            return
+        log('[%s] Telegram SSL verification failed; compatibility retry started.' %
+            pName)
+    try:
+        _perform_telegram_request(request, ssl._create_unverified_context())
+        telegram_results.append(
+            (True, event_key, 'Message sent using SSL compatibility mode'))
+    except urllib.error.HTTPError as error:
+        telegram_results.append(
+            (False, event_key, _telegram_http_error(error)))
+    except Exception as error:
+        telegram_results.append(
+            (False, event_key, 'SSL compatibility retry failed: %s' % error))
+
+
+def _send_telegram_notification(event_key, detail='', state_value=None,
+                                force=False):
+    if event_key not in TELEGRAM_EVENT_KEYS:
+        return False
+    if not force and not QtBind.isChecked(gui, telegram_checkboxes[event_key]):
+        return False
+    token = QtBind.text(gui, txt_telegram_token).strip()
+    chat_id = QtBind.text(gui, txt_telegram_chat).strip()
+    if not _telegram_credentials_are_valid(token, chat_id):
+        log('[%s] Telegram notification skipped: invalid token or Chat ID.' % pName)
+        return False
+    now = time.time()
+    signature = '%s|%s|%s' % (event_key, state_value, detail)
+    if not force and now - telegram_last_events.get(signature, 0.0) < 5.0:
+        return False
+    telegram_last_events[signature] = now
+    message = _build_telegram_message(event_key, detail, state_value)
+    worker = threading.Thread(
+        target=_telegram_worker,
+        args=(token, chat_id, message, event_key))
+    worker.daemon = True
+    worker.start()
+    return True
+
+
 def _action_delay_seconds():
     value = _number(txt_action_delay, 0, 'Komut gecikmesi')
     if value is None:
@@ -413,6 +735,8 @@ def _schedule_action(action, message, delay_seconds=None):
 
 def _fail(message, allow_recovery=True):
     global cycle_active, cycle_armed, pending_action, pending_transport_death_time
+    global recovery_in_progress
+    was_recovery = recovery_in_progress or state == STATE_ERROR_RECOVERY
     recovery_enabled = False
     try:
         recovery_enabled = bool(
@@ -431,14 +755,22 @@ def _fail(message, allow_recovery=True):
         stop_bot()
     except Exception:
         pass
+    _send_telegram_notification('plugin_error', message, state)
     if recovery_enabled:
         cycle_active = True
         cycle_armed = True
+        recovery_in_progress = True
         _set_state(STATE_ERROR_RECOVERY,
                    '%s Otomatik hata kurtarma icin sehir dogrulaniyor.' % message)
+        _send_telegram_notification(
+            'recovery_started', message, STATE_ERROR_RECOVERY)
     else:
         cycle_active = False
         _set_state(STATE_ERROR, message)
+        if was_recovery:
+            recovery_in_progress = False
+            _send_telegram_notification(
+                'recovery_failed', message, STATE_ERROR)
 
 
 def _recover_error_at_training():
@@ -448,7 +780,7 @@ def _recover_error_at_training():
     global pending_transport_death_time, pending_transport_death_region
     global pouch_settle_started, pouch_last_poll
     global pouch_last_count, pouch_stable_reads, death_teleport_received
-    global respawn_attempts, last_respawn_request
+    global respawn_attempts, last_respawn_request, recovery_in_progress
 
     cycle_active = False
     cycle_armed = True
@@ -466,6 +798,7 @@ def _recover_error_at_training():
     death_teleport_received = False
     respawn_attempts = 0
     last_respawn_request = 0.0
+    recovery_in_progress = False
     _set_state(STATE_IDLE,
                'Training area 3/3 dogrulandi; hata sifirlandi ve kontrol yeniden basladi.')
 
@@ -874,6 +1207,10 @@ def _confirm_pending_transport_death(now):
         return
 
     if snapshot_fresh and last_transport_box_count is not None and last_transport_box_count > 0:
+        _send_telegram_notification(
+            'transport_died',
+            'Son gorulen yuk: %d kutu.' % last_transport_box_count,
+            state)
         _fail('Transport olumu dogrulandi; son gorulen yuk %d kutu.' %
               last_transport_box_count, False)
         return
@@ -1051,7 +1388,13 @@ def _profile_values():
         'required_members': str(QtBind.text(gui, txt_sync_members) or '').strip(),
         'farm_profile': _selected_phbot_profile(cmb_farm_profile),
         'trade_profile': _selected_phbot_profile(cmb_trade_profile),
-        'language': current_language
+        'language': current_language,
+        'telegram_bot_token': QtBind.text(gui, txt_telegram_token).strip(),
+        'telegram_chat_id': QtBind.text(gui, txt_telegram_chat).strip(),
+        'telegram_notifications': dict(
+            (telegram_key, bool(QtBind.isChecked(
+                gui, telegram_checkboxes[telegram_key])))
+            for telegram_key in TELEGRAM_EVENT_KEYS)
     }
 
 
@@ -1201,6 +1544,17 @@ def _load_profile():
                    str(data.get('coordinator_name', '')))
     QtBind.setText(gui, txt_sync_members,
                    str(data.get('required_members', '')))
+    QtBind.setText(gui, txt_telegram_token,
+                   str(data.get('telegram_bot_token', '')))
+    QtBind.setText(gui, txt_telegram_chat,
+                   str(data.get('telegram_chat_id', '')))
+    telegram_enabled = data.get('telegram_notifications', {})
+    if not isinstance(telegram_enabled, dict):
+        telegram_enabled = {}
+    for telegram_key in TELEGRAM_EVENT_KEYS:
+        QtBind.setChecked(
+            gui, telegram_checkboxes[telegram_key],
+            bool(telegram_enabled.get(telegram_key, False)))
     QtBind.setChecked(gui, chk_enabled, bool(data.get('enabled', False)))
     _apply_language()
     settings_loading = False
@@ -1366,6 +1720,7 @@ def _sync_all_recent(now):
 def _sync_reset(message='Sync idle.'):
     global sync_run_id, sync_phase, sync_expected_members
     global sync_last_check, sync_phase_since
+    previous_phase = sync_phase
     sync_run_id = ''
     sync_phase = 'IDLE'
     sync_expected_members = set()
@@ -1376,6 +1731,8 @@ def _sync_reset(message='Sync idle.'):
     sync_last_check = 0.0
     sync_phase_since = 0.0
     _set_sync_text(message)
+    if previous_phase != 'IDLE' and not message.startswith('Trade completed'):
+        _send_telegram_notification('sync_cancelled', message, state)
 
 
 def _sync_begin_coordinator(now):
@@ -1443,6 +1800,8 @@ def _verify_trade_profile():
     trade_profile_active = True
     sync_phase = 'STARTED'
     _set_sync_text('START received; trade profile active', '#1f9d63')
+    _send_telegram_notification(
+        'sync_started', 'START received; trade profile active.', state)
     cycle_active = False
     if not _begin_cycle(False):
         trade_profile_active = False
@@ -1500,6 +1859,7 @@ def _begin_cycle(manual=False):
     global cycle_active, cycle_armed
     global trade_command_received, trade_settled_received
     global trade_complete_time, pending_transport_death_time
+    global recovery_in_progress
     if cycle_active:
         _set_message('Zaten aktif bir kervan islemi var.', True)
         return False
@@ -1535,6 +1895,7 @@ def _begin_cycle(manual=False):
     trade_command_received = False
     trade_settled_received = False
     trade_complete_time = 0.0
+    recovery_in_progress = False
     pending_transport_death_time = 0.0
     try:
         stop_script()
@@ -1618,6 +1979,8 @@ def _start_trade_script():
         _fail('phBot kervan scriptini baslatmayi reddetti.')
         return
     _set_state(STATE_RUNNING_TRADE, 'Kervan scripti calisiyor: %s' % name)
+    _send_telegram_notification(
+        'trade_started', 'Kervan scripti: %s' % name, STATE_RUNNING_TRADE)
 
 
 def _try_finish_trade():
@@ -1745,7 +2108,8 @@ def _verify_farm_profile_and_start_bot():
 
 
 def _start_bot_after_profile_restore():
-    global cycle_active
+    global cycle_active, recovery_in_progress
+    was_recovery = recovery_in_progress
     try:
         result = start_bot()
     except Exception as ex:
@@ -1755,7 +2119,15 @@ def _start_bot_after_profile_restore():
         _fail('phBot botu baslatmayi reddetti.', False)
         return
     cycle_active = False
+    recovery_in_progress = False
     _set_state(STATE_IDLE, 'Kervan tamamlandi; bot bir kez baslatildi.')
+    if was_recovery:
+        _send_telegram_notification(
+            'recovery_succeeded',
+            'Karakter sehirde dogrulandi ve bot baslatildi.', STATE_IDLE)
+    else:
+        _send_telegram_notification(
+            'trade_completed', 'Bot yeniden baslatildi.', STATE_IDLE)
     _sync_reset('Trade completed; farm profile active.')
 
 
@@ -1783,12 +2155,16 @@ def FSroRAutoTrade_settled(arguments):
     if not cycle_active or state != STATE_RUNNING_TRADE:
         log('[%s] Teslimat komutu aktif kervan disinda yok sayildi.' % pName)
         return 0
+    first_delivery_signal = not trade_settled_received
     trade_settled_received = True
     if pending_transport_death_time > 0:
         pending_transport_death_time = 0.0
         _set_message('Trade teslim edildi; bekleyen pet termination eventi yok sayildi.', True)
     else:
         _set_message('Trade teslimat komutu alindi.', True)
+    if first_delivery_signal:
+        _send_telegram_notification(
+            'delivery', 'Trade teslimat komutu alindi.', state)
     return 0
 
 
@@ -1902,7 +2278,7 @@ def handle_chat(t, player, msg):
 def handle_event(event_type, data):
     global pending_action, cycle_armed, death_teleport_received
     global pending_transport_death_time, pending_transport_death_region
-    global respawn_attempts, last_respawn_request
+    global respawn_attempts, last_respawn_request, recovery_in_progress
     if not cycle_active:
         return
     if event_type == EVENT_DIED:
@@ -1924,6 +2300,13 @@ def handle_event(event_type, data):
             pass
         _set_state(STATE_DEATH_RECOVERY,
                    'Karakter oldu; sehirde yeniden dogma hazirlaniyor.')
+        recovery_in_progress = True
+        _send_telegram_notification(
+            'character_died', 'Sehirde yeniden dogma hazirlaniyor.',
+            STATE_DEATH_RECOVERY)
+        _send_telegram_notification(
+            'recovery_started', 'Olum sonrasi sehirde yeniden dogma baslatildi.',
+            STATE_DEATH_RECOVERY)
         try:
             character = get_character_data()
         except Exception:
@@ -1944,6 +2327,11 @@ def handle_event(event_type, data):
 
 def disconnected():
     global trade_profile_active
+    had_activity = cycle_active or sync_phase != 'IDLE'
+    if had_activity:
+        _send_telegram_notification(
+            'disconnected', 'Aktif kervan veya sync sirasinda baglanti kesildi.',
+            state)
     if cycle_active:
         _fail('Kervan dongusu sirasinda baglanti kesildi; otomatik devam iptal edildi.',
               False)
@@ -1973,28 +2361,46 @@ def btn_check_clicked():
 
 
 def btn_status_tab_clicked():
-    global status_panel_open
-    status_panel_open = not status_panel_open
+    global status_panel_open, telegram_panel_open
+    opening = not status_panel_open
+    status_panel_open = opening
+    telegram_panel_open = False
+    for widget, x, y in main_panel_positions:
+        QtBind.move(gui, widget, STATUS_OFFSCREEN_X if opening else x, y)
+    for widget, x, y in telegram_panel_positions:
+        QtBind.move(gui, widget, STATUS_OFFSCREEN_X, y)
     if status_panel_open:
         _read_box_count(False)
-        for widget, x, y in main_panel_positions:
-            QtBind.move(gui, widget, STATUS_OFFSCREEN_X, y)
         for widget, x, y in sync_panel_positions:
             QtBind.move(gui, widget, x, y)
-        QtBind.setText(gui, btn_status_tab, _ui('back'))
         _refresh_status_panel()
     else:
         for widget, x, y in sync_panel_positions:
             QtBind.move(gui, widget, STATUS_OFFSCREEN_X, y)
-        for widget, x, y in main_panel_positions:
-            QtBind.move(gui, widget, x, y)
-        QtBind.setText(gui, btn_status_tab, _ui('status'))
+    _apply_language()
+
+
+def btn_telegram_tab_clicked():
+    global status_panel_open, telegram_panel_open
+    opening = not telegram_panel_open
+    telegram_panel_open = opening
+    status_panel_open = False
+    for widget, x, y in main_panel_positions:
+        QtBind.move(gui, widget, STATUS_OFFSCREEN_X if opening else x, y)
+    for widget, x, y in sync_panel_positions:
+        QtBind.move(gui, widget, STATUS_OFFSCREEN_X, y)
+    for widget, x, y in telegram_panel_positions:
+        QtBind.move(gui, widget, x if opening else STATUS_OFFSCREEN_X, y)
+    _apply_language()
+    if opening:
+        _set_telegram_status('Ready', '#1f9d63')
 
 
 def btn_language_clicked():
     global current_language
+    telegram_selected = _selected_telegram_event()
     current_language = 'tr' if current_language == 'en' else 'en'
-    _apply_language()
+    _apply_language(telegram_selected)
     if not settings_loading:
         _save_settings(True, False)
 
@@ -2037,17 +2443,56 @@ def btn_save_clicked():
     _save_settings(False)
 
 
+def telegram_checkbox_changed(checked=False):
+    return
+
+
+def btn_telegram_save_clicked():
+    token = QtBind.text(gui, txt_telegram_token).strip()
+    chat_id = QtBind.text(gui, txt_telegram_chat).strip()
+    any_enabled = any(
+        QtBind.isChecked(gui, telegram_checkboxes[key])
+        for key in TELEGRAM_EVENT_KEYS)
+    if any_enabled and not _telegram_credentials_are_valid(token, chat_id):
+        _set_telegram_status(
+            'Enter a valid Bot Token and Chat ID', '#e74c3c')
+        return
+    if _save_settings(True):
+        _set_telegram_status('Telegram settings saved', '#1f9d63')
+    else:
+        _set_telegram_status('Could not save Telegram settings', '#e74c3c')
+
+
+def btn_telegram_test_clicked():
+    token = QtBind.text(gui, txt_telegram_token).strip()
+    chat_id = QtBind.text(gui, txt_telegram_chat).strip()
+    if not _telegram_credentials_are_valid(token, chat_id):
+        _set_telegram_status(
+            'Enter a valid Bot Token and Chat ID', '#e74c3c')
+        return
+    event_key = _selected_telegram_event()
+    detail = QtBind.text(gui, txt_telegram_test_detail).strip()
+    state_value = QtBind.text(gui, txt_telegram_test_state).strip() or state
+    if not _save_settings(True):
+        _set_telegram_status('Could not save Telegram settings', '#e74c3c')
+        return
+    if _send_telegram_notification(
+            event_key, detail, state_value, force=True):
+        _set_telegram_status('Sending selected Telegram test...', '#c98a1a')
+
+
 def btn_manual_clicked():
     _begin_cycle(True)
 
 
 def btn_abort_clicked():
     global cycle_active, cycle_armed, pending_action, pending_transport_death_time
-    global trade_profile_active
+    global trade_profile_active, recovery_in_progress
     cycle_active = False
     cycle_armed = False
     pending_action = None
     pending_transport_death_time = 0.0
+    recovery_in_progress = False
     try:
         stop_script()
     except Exception:
@@ -2250,6 +2695,12 @@ def _poll_state(now):
 
 def event_loop():
     global last_poll, cycle_armed, profile_name, training_inside_streak
+    while telegram_results:
+        success, event_key, result_message = telegram_results.pop(0)
+        _set_telegram_status(
+            result_message, '#1f9d63' if success else '#e74c3c')
+        log('[%s] Telegram %s result: %s' %
+            (pName, event_key, result_message))
     now = time.time()
     if now - last_poll < POLL_SECONDS:
         return

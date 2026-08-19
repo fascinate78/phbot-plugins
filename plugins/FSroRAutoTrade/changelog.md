@@ -1,5 +1,19 @@
 # FSroRAutoTrade Changelog
 
+## v4.0.0
+
+### Added
+
+- Added a separate Telegram screen with character-specific Bot Token, Chat ID,
+  and individual controls for twelve trade, error, recovery, and party-sync
+  notification types.
+- Added manual delivery of every notification type with editable state and
+  error/detail fields for verifying the final message before enabling automation.
+- Added automatic English/Turkish Telegram messages containing the event,
+  character, server, state, error/detail, and local date/time.
+- Added non-blocking Telegram delivery with verified HTTPS and a one-time SSL
+  compatibility retry limited to certificate verification failures.
+
 ## v3.6.3
 
 ### Fixed

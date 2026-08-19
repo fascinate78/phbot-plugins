@@ -178,16 +178,19 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "3.6.3",
+                        "version":  "4.0.0",
                         "core":  false,
                         "description":  "Coordinates party-synchronized trade scripts and job-item handling.",
                         "changes":  [
-                                        "Fixed false Trade and Farm Profile failures by waiting five seconds after a"
+                                        "Added a separate Telegram screen with character-specific Bot Token, Chat ID,",
+                                        "Added manual delivery of every notification type with editable state and",
+                                        "Added automatic English/Turkish Telegram messages containing the event,",
+                                        "Added non-blocking Telegram delivery with verified HTTPS and a one-time SSL"
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "df46a494a17c66c12b5d190fb4b2b789ae7f6b17b485b8c8d7bbdb46d5b263ab"
+                        "sha256":  "a22b468b640333d6bf6754afffb0cc19d08ec6f9cac5b2e7ab31ab0dca16f72d"
                     },
                     {
                         "id":  "FUniqueNotifier",

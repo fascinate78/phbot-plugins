@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FAutoPetClock'
-pVersion = '1.4.1'
+pVersion = '1.5.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -52,6 +52,7 @@ MAX_SUMMON_TEST_ATTEMPTS = 2
 DEFAULT_PICK_PET_SUMMON_TAIL = b'\xCD\x10'
 # Manually verified locale 22 Clock item-use TID: ED 66 on the wire.
 LOCALE22_CLOCK_USE_TID = 0x66ED
+EXPIRED_SUMMON_RESPONSE = b'\x02\xA4\x18'
 
 settings = dict(DEFAULT_SETTINGS)
 settings_loading = False
@@ -673,14 +674,16 @@ def start_next_summon_test():
         item = summon_test['queue'].pop(0)
         if target_key(item) in summon_test_states:
             continue
-        if not inject_pet_summon(item):
-            add_activity('Skipped %s: summon request could not be built.' %
-                         (item.get('name') or item.get('servername')))
-            continue
         summon_test['current'] = dict(item)
         summon_test['attempt'] = 1
         summon_test['phase'] = 'waiting-summon'
         summon_test['deadline'] = time.time() + SUMMON_TEST_TIMEOUT_SECONDS
+        if not inject_pet_summon(item):
+            add_activity('Skipped %s: summon request could not be built.' %
+                         (item.get('name') or item.get('servername')))
+            summon_test['current'] = None
+            summon_test['phase'] = 'starting'
+            continue
         set_status('TESTING PET', COLOR_WARNING)
         set_current('%s (attempt 1/%d)' %
                     (item.get('name') or item.get('servername'),
@@ -741,6 +744,45 @@ def begin_summon_test_cycle(pets, manual_only=False):
     return True
 
 
+def reject_current_summon_test(immediate=False):
+    if not summon_test or summon_test.get('phase') != 'waiting-summon':
+        return
+    current = summon_test.get('current')
+    if not current:
+        return
+    if summon_test['attempt'] < MAX_SUMMON_TEST_ATTEMPTS:
+        summon_test['attempt'] += 1
+        summon_test['deadline'] = time.time() + SUMMON_TEST_TIMEOUT_SECONDS
+        set_current('%s (attempt %d/%d)' %
+                    (current.get('name') or current.get('servername'),
+                     summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS),
+                    COLOR_WARNING)
+        if immediate:
+            add_activity(
+                'Server reported an expired summon; retrying %s immediately (attempt %d/%d).' %
+                (current.get('name') or current.get('servername'),
+                 summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS))
+        else:
+            add_activity('Retrying summon test for %s (attempt %d/%d).' %
+                         (current.get('name') or current.get('servername'),
+                          summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS))
+        if not inject_pet_summon(current):
+            finish_summon_test('Pet summon retry could not be sent.', True)
+        return
+
+    summon_test_states[target_key(current)] = 'dead'
+    add_activity('%s marked expired after %d failed summon attempts.' %
+                 (current.get('name') or current.get('servername'),
+                  MAX_SUMMON_TEST_ATTEMPTS))
+    if target_key(current) in clock_verification_targets:
+        clock_verification_targets.discard(target_key(current))
+        summon_test['failure_after_restore'] = True
+        summon_test['queue'] = []
+        add_activity(
+            'Clock verification failed; no additional Clock will be used.')
+    start_next_summon_test()
+
+
 def process_summon_test():
     global summon_test
     if not summon_test:
@@ -771,31 +813,7 @@ def process_summon_test():
             return
         if now <= summon_test['deadline']:
             return
-        if summon_test['attempt'] < MAX_SUMMON_TEST_ATTEMPTS:
-            summon_test['attempt'] += 1
-            if not inject_pet_summon(current):
-                finish_summon_test('Pet summon retry could not be sent.', True)
-                return
-            summon_test['deadline'] = now + SUMMON_TEST_TIMEOUT_SECONDS
-            set_current('%s (attempt %d/%d)' %
-                        (current.get('name') or current.get('servername'),
-                         summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS),
-                        COLOR_WARNING)
-            add_activity('Retrying summon test for %s (attempt %d/%d).' %
-                         (current.get('name') or current.get('servername'),
-                          summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS))
-            return
-        summon_test_states[target_key(current)] = 'dead'
-        add_activity('%s marked expired after %d failed summon attempts.' %
-                     (current.get('name') or current.get('servername'),
-                      MAX_SUMMON_TEST_ATTEMPTS))
-        if target_key(current) in clock_verification_targets:
-            clock_verification_targets.discard(target_key(current))
-            summon_test['failure_after_restore'] = True
-            summon_test['queue'] = []
-            add_activity(
-                'Clock verification failed; no additional Clock will be used.')
-        start_next_summon_test()
+        reject_current_summon_test(False)
         return
 
     if phase == 'waiting-test-close':
@@ -1326,6 +1344,11 @@ def handle_joymax(opcode, data):
     if opcode == 0xB04C and data:
         raw = bytes(data)
         add_activity('SERVER 0xB04C: %s' % packet_hex(raw))
+        if (summon_test
+                and summon_test.get('phase') == 'waiting-summon'
+                and raw == EXPIRED_SUMMON_RESPONSE):
+            reject_current_summon_test(True)
+            return True
         if not pending_operation:
             return True
         response_tid = None

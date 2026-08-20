@@ -1,5 +1,11 @@
 # FAutoPetClock Changelog
 
+## v1.5.0
+
+### Improved
+- Accelerated expired-pet detection by immediately handling the verified locale 22 `02 A4 18` summon rejection instead of waiting for two nine-second timeouts.
+- Kept the two-attempt safety check and `get_pets()` confirmation for successful summons.
+
 ## v1.4.1
 
 ### Fixed

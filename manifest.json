@@ -32,16 +32,17 @@
                     {
                         "id":  "FAutoPetClock",
                         "name":  "FAutoPetClock",
-                        "version":  "1.4.1",
+                        "version":  "1.5.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "changes":  [
-                                        "Fixed locale 22 Clock requests failing with `Unregistered type : pstr` by using the manually verified `ED 66` item-use TID without querying static item data."
+                                        "Accelerated expired-pet detection by immediately handling the verified locale 22 `02 A4 18` summon rejection instead of waiting for two nine-second timeouts.",
+                                        "Kept the two-attempt safety check and `get_pets()` confirmation for successful summons."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/changelog.md",
                         "install_path":  "FAutoPetClock.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/FAutoPetClock.py",
-                        "sha256":  "f3f42cb05f9b5c76b0540154d904f44788e9049ac77cbe95cc0e9f135dc75e36"
+                        "sha256":  "f89787d15615eb70b42c45c6bc8c13e58c0074102f9cc24d3b945c6a0cb41e71"
                     },
                     {
                         "id":  "FAutoUnique",

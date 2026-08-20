@@ -30,6 +30,20 @@
                         "sha256":  "63aa17f4047a2497be68dc9052031baed71a669e5c34897adb825ee2329ffe98"
                     },
                     {
+                        "id":  "FAutoPetClock",
+                        "name":  "FAutoPetClock",
+                        "version":  "1.0.4",
+                        "core":  false,
+                        "description":  "FascinaTe phBot plugin.",
+                        "changes":  [
+                                        "Changed the empty current-operation status from `None` to the clearer `No active operation` message."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/changelog.md",
+                        "install_path":  "FAutoPetClock.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/FAutoPetClock.py",
+                        "sha256":  "0413e826c4ab01228afc19cb7de0ed24c1747d6b78b0695548d80eb1eae065e3"
+                    },
+                    {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
                         "version":  "2.2.3",
@@ -94,16 +108,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.6.4",
+                        "version":  "1.6.5",
                         "core":  true,
                         "description":  "Provides shared control commands, actions, and teleport handling.",
                         "changes":  [
-                                        "Fixed generic `USE` commands on iSRO sending the legacy packed item type instead of the required expanded four-byte item type group."
+                                        "Fixed the `CLOCK` command to build locale-aware targeted item-use packets, including the manually verified locale 22 vSRO format."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "3bf5d0f30e5b0e76676abe22bc995b4dcf94e3c8862b9728ccdee1d29fa35661"
+                        "sha256":  "8c70bc0a0cd169dde5988807f988526786f2e32cb9cb07a9bdd3ab005d82521d"
                     },
                     {
                         "id":  "FInventoryManager",

@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.4'
+pVersion = '1.6.5'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1586,7 +1586,33 @@ def handle_clock_command(player):
         log("Plugin: CLOCK: Inventory slot is outside the one-byte packet range; command cancelled")
         return
 
-    packet = bytes([clock_slot]) + b'\x31\x0C\x0D\x0C' + bytes([pet_slot])
+    clock_data = get_item(clock.get('model'))
+    if not clock_data:
+        log("Plugin: CLOCK: Static Clock item data is unavailable; command cancelled")
+        return
+
+    locale = get_locale()
+    if locale == 18:
+        packet = struct.pack(
+            '<BBBBBB',
+            clock_slot,
+            (3 << 4) + int(bool(clock_data.get('cash_item'))),
+            int(clock_data.get('tid1', 0)) * 4,
+            int(clock_data.get('tid2', 0)),
+            int(clock_data.get('tid3', 0)),
+            pet_slot
+        )
+    else:
+        use_tid = GetTIDFromItem(clock.get('model'))
+        if use_tid is None:
+            log("Plugin: CLOCK: Clock item-use TID is unavailable; command cancelled")
+            return
+        if locale == 22:
+            # Verified vSRO capture:
+            # [Clock slot][two-byte item-use TID][Pick Pet scroll slot].
+            packet = struct.pack('<BHB', clock_slot, use_tid, pet_slot)
+        else:
+            packet = struct.pack('<BIB', clock_slot, use_tid, pet_slot)
     clock_pending = True
     clock_pending_slot = clock_slot
     clock_pending_pet_slot = pet_slot
@@ -1594,8 +1620,9 @@ def handle_clock_command(player):
     clock_deadline = now + 10.0
     inject_joymax(0x704C, packet, True)
     log("Plugin: CLOCK: Requested one [%s] from slot %d for pet scroll slot %d "
-        "(Leader: %s)" % (clock.get('name') or clock.get('servername'),
-                           clock_slot, pet_slot, player))
+        "using locale %s packet [%s] (Leader: %s)" %
+        (clock.get('name') or clock.get('servername'), clock_slot, pet_slot,
+         locale, ' '.join('%02X' % value for value in packet), player))
 
 
 def _is_devil_item(item):

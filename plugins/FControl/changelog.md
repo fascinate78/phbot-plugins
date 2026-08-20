@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.6.5
+
+### Fixed
+- Fixed the `CLOCK` command to build locale-aware targeted item-use packets, including the manually verified locale 22 vSRO format.
+
 ## v1.6.4
 
 ### Fixed

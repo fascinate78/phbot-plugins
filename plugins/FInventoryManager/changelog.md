@@ -1,5 +1,14 @@
 # FInventoryManager Changelog
 
+## v3.0.3
+
+### Improved
+- Blocked Personal Storage sorting unless an active storage NPC interaction has been observed, and clear the captured session when the NPC interaction closes or the client disconnects.
+
+### Fixed
+- Fixed vSRO Personal Storage moves being rejected with B034 `02 03 00` by sending the runtime NPC entity ID captured from the `0x7045`/`0x7046` interaction instead of a fixed session value.
+- Report short B034 failure payloads as server rejections instead of unsupported responses.
+
 ## v3.0.2
 
 ### Fixed

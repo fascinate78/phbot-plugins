@@ -122,17 +122,18 @@
                     {
                         "id":  "FInventoryManager",
                         "name":  "FInventoryManager",
-                        "version":  "3.0.2",
+                        "version":  "3.0.3",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "changes":  [
-                                        "Removed obsolete Personal Storage validation/status widgets that remained visible across Dashboard, Inventory, and both preview screens after the v3.0.1 layout redesign.",
-                                        "Shortened the refreshed Storage state text so it remains inside the fixed-width status column."
+                                        "Blocked Personal Storage sorting unless an active storage NPC interaction has been observed, and clear the captured session when the NPC interaction closes or the client disconnects.",
+                                        "Fixed vSRO Personal Storage moves being rejected with B034 `02 03 00` by sending the runtime NPC entity ID captured from the `0x7045`/`0x7046` interaction instead of a fixed session value.",
+                                        "Report short B034 failure payloads as server rejections instead of unsupported responses."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/changelog.md",
                         "install_path":  "FInventoryManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/FInventoryManager.py",
-                        "sha256":  "de37f967be27b997289619aeff6e82e43a302307c2d7ee8194f87ce0602b1698"
+                        "sha256":  "426ddf035dce0dfad3bd2ab578d4d5d78ab57be90b1774c500cc3205d15a6f7c"
                     },
                     {
                         "id":  "FPvpHelperV2",

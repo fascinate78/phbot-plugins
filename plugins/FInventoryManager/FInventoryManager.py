@@ -8,13 +8,16 @@ import webbrowser
 
 
 pName = 'FInventoryManager'
-pVersion = '3.0.2'
+pVersion = '3.0.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 LEGACY_CONFIG_DIRECTORY = 'InventoryManagerV1'
 
 # Verified on the target vSRO environment by FInventoryProtocolTester.
 OPCODE_INVENTORY_OPERATION = 0x7034
 OPCODE_INVENTORY_RESPONSE = 0xB034
+OPCODE_SELECT_ENTITY = 0x7045
+OPCODE_NPC_TALK = 0x7046
+OPCODE_NPC_EXIT = 0x704B
 OP_INVENTORY_MOVE = 0x00
 INVENTORY_PACKET_ENCRYPTED = False
 DEFAULT_BAG_START_SLOT = 13
@@ -25,7 +28,6 @@ QUIET_PERIOD_SECONDS = 1.0
 RESPONSE_TIMEOUT_SECONDS = 3.0
 SNAPSHOT_TIMEOUT_SECONDS = 3.0
 MAX_REPLANS = 3
-STORAGE_SESSION_DATA = b'\xFF\x00\x00\x00'
 
 STATE_IDLE = 'IDLE'
 STATE_PREVIEW_READY = 'PREVIEW_READY'
@@ -109,6 +111,8 @@ storage_replan_count = 0
 storage_completed_operations = 0
 storage_planned_total = 0
 storage_quick_mode = False
+selected_entity_id = None
+storage_entity_id = None
 
 
 def fixed_width_text(content, width):
@@ -422,6 +426,10 @@ def packet_hex(data):
 
 def decode_observed_storage_response(data):
     raw = bytes(data or b'')
+    if not raw:
+        return None
+    if raw[0] == 0x02:
+        return {'success_byte': raw[0], 'error_data': raw[1:], 'trailing': raw[1:]}
     if len(raw) < 4:
         return None
     result = {'success_byte': raw[0], 'operation': raw[1],
@@ -1054,6 +1062,10 @@ def storage_sort_clicked():
     if pending_operation is not None:
         set_storage_state(STORAGE_ERROR, 'Inventory sorting is active.', COLOR_ERROR)
         return
+    if storage_entity_id is None:
+        set_storage_state(STORAGE_ERROR, 'Open personal storage and try again.', COLOR_ERROR)
+        storage_log('Storage sorting blocked: no active storage NPC session.')
+        return
     current = take_storage_snapshot()
     if current is None:
         fail_storage_run('Open personal storage and try again.')
@@ -1074,6 +1086,10 @@ def quick_sort_storage_clicked():
     global storage_preview_snapshot, storage_preview_plan, storage_snapshot
     global storage_quick_mode, storage_planned_total
     if pending_operation is not None or storage_pending is not None:
+        return
+    if storage_entity_id is None:
+        set_storage_state(STORAGE_ERROR, 'Open personal storage and try again.', COLOR_ERROR)
+        storage_log('Quick Sort blocked: no active storage NPC session.')
         return
     snapshot = take_storage_snapshot()
     if snapshot is None:
@@ -1131,6 +1147,9 @@ def storage_replan_and_continue(snapshot, count_replan):
 
 def storage_send_next_operation(snapshot, operation):
     global storage_pending
+    if storage_entity_id is None:
+        fail_storage_run('Storage session ended. Open personal storage and try again.')
+        return
     fresh = take_storage_snapshot()
     if fresh is None:
         fail_storage_run('Open personal storage and try again.')
@@ -1149,7 +1168,7 @@ def storage_send_next_operation(snapshot, operation):
     operation.requested_quantity = source_item.quantity
     payload = (struct.pack('<BBBH', 0x01, operation.source,
                            operation.destination, operation.requested_quantity) +
-               STORAGE_SESSION_DATA)
+               struct.pack('<I', storage_entity_id))
     storage_pending = {
         'production': True, 'move': operation, 'baseline': fresh,
         'source': operation.source, 'destination': operation.destination,
@@ -1499,6 +1518,31 @@ def send_next_operation(snapshot, operation):
         fail_run('Packet injection failed: %s' % error)
 
 
+def handle_silkroad(opcode, data):
+    global selected_entity_id, storage_entity_id
+    raw = bytes(data or b'')
+    if opcode == OPCODE_SELECT_ENTITY and len(raw) >= 4:
+        selected_entity_id = struct.unpack_from('<I', raw, 0)[0]
+    elif opcode == OPCODE_NPC_TALK and len(raw) >= 5:
+        entity_id = struct.unpack_from('<I', raw, 0)[0]
+        if raw[4] == 0x03 and entity_id == selected_entity_id:
+            storage_entity_id = entity_id
+            storage_log('Storage NPC session captured: 0x%08X.' % entity_id)
+            set_storage_state(STORAGE_SNAPSHOT_AVAILABLE,
+                              'Storage session active.', COLOR_SUCCESS)
+    elif opcode == OPCODE_NPC_EXIT and len(raw) >= 4:
+        entity_id = struct.unpack_from('<I', raw, 0)[0]
+        if entity_id == storage_entity_id:
+            storage_entity_id = None
+            if storage_pending is not None:
+                fail_storage_run('Storage session ended during sorting.')
+            else:
+                set_storage_state(STORAGE_UNKNOWN, 'Open personal storage.', COLOR_MUTED)
+        if entity_id == selected_entity_id:
+            selected_entity_id = None
+    return True
+
+
 def handle_joymax(opcode, data):
     global pending_operation, storage_pending
     if opcode == OPCODE_INVENTORY_RESPONSE and storage_pending is not None:
@@ -1651,6 +1695,7 @@ def disconnected():
     global connected_to_game, pending_operation, preview_snapshot, preview_plan
     global storage_snapshot, storage_pending, storage_preview_snapshot, storage_preview_plan
     global inventory_quick_mode, storage_quick_mode
+    global selected_entity_id, storage_entity_id
     connected_to_game = False
     pending_operation = None
     preview_snapshot = None
@@ -1661,6 +1706,8 @@ def disconnected():
     storage_preview_plan = []
     inventory_quick_mode = False
     storage_quick_mode = False
+    selected_entity_id = None
+    storage_entity_id = None
     set_storage_state(STORAGE_UNKNOWN, 'Disconnected', COLOR_MUTED)
     set_state(STATE_IDLE, 'Disconnected', COLOR_MUTED)
 

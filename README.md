@@ -50,7 +50,7 @@ downloaded version.
 |---|---:|---|
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Installs and updates FascinaTe phBot plugins from GitHub. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
-| [FAutoPetClock](plugins/FAutoPetClock/) | 1.1.0 | FascinaTe phBot plugin. |
+| [FAutoPetClock](plugins/FAutoPetClock/) | 1.4.1 | FascinaTe phBot plugin. |
 | [FAutoUnique V2](plugins/FAutoUnique/) | 2.2.3 | FascinaTe phBot plugin. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |

@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FAutoPetClock'
-pVersion = '1.1.0'
+pVersion = '1.4.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -27,6 +27,9 @@ DEFAULT_SETTINGS = {
     'revive_expired_pets': True,
     'prioritize_expired_pets': True,
     'extend_near_expiry': False,
+    'detect_expired_by_summon': True,
+    'enable_custom_pets': False,
+    'custom_pet_patterns': [],
     'near_expiry_hours': 6,
     'scan_interval_seconds': 10,
     'clock_priority': 'Shortest duration first'
@@ -40,6 +43,15 @@ MAX_SCAN_INTERVAL_SECONDS = 300
 MIN_THRESHOLD_HOURS = 1
 MAX_THRESHOLD_HOURS = 23
 MAX_ACTIVITY_LINES = 60
+OFFSCREEN_X = 3000
+SUMMON_TEST_TIMEOUT_SECONDS = 9.0
+UNSUMMON_TIMEOUT_SECONDS = 9.0
+MAX_SUMMON_TEST_ATTEMPTS = 2
+# Pick Pet summon item-use TID observed on locale 22:
+# client 0x704C = [inventory slot] CD 10.
+DEFAULT_PICK_PET_SUMMON_TAIL = b'\xCD\x10'
+# Manually verified locale 22 Clock item-use TID: ED 66 on the wire.
+LOCALE22_CLOCK_USE_TID = 0x66ED
 
 settings = dict(DEFAULT_SETTINGS)
 settings_loading = False
@@ -50,6 +62,10 @@ pending_operation = None
 failed_targets = {}
 last_snapshot = {'pets': [], 'clocks': []}
 activity_lines = []
+custom_pet_patterns = []
+summon_test = None
+summon_test_states = {}
+clock_verification_targets = set()
 
 
 def fixed_width_text(content, width):
@@ -93,6 +109,8 @@ chk_expired_first = QtBind.createCheckBox(
     gui, 'setting_changed', 'Prioritize expired Pets first', 175, 88)
 chk_extend = QtBind.createCheckBox(
     gui, 'setting_changed', 'Extend pets near expiration', 12, 111)
+chk_summon_test = QtBind.createCheckBox(
+    gui, 'setting_changed', 'Verify dead Pets by summon test', 190, 111)
 
 QtBind.createLabel(gui, '<font color="%s">Near-expiry threshold</font>' %
                    COLOR_TEXT, 12, 142)
@@ -112,8 +130,11 @@ QtBind.append(gui, cmb_priority, 'Longest duration first')
 QtBind.append(gui, cmb_priority, 'Inventory slot order')
 
 btn_save = QtBind.createButton(gui, 'save_clicked', 'Save Settings', 12, 229)
-btn_scan = QtBind.createButton(gui, 'scan_clicked', 'Scan Now', 122, 229)
-btn_pause = QtBind.createButton(gui, 'pause_clicked', 'Pause', 210, 229)
+btn_scan = QtBind.createButton(
+    gui, 'test_pets_clicked', 'Test Pets Now', 112, 229)
+btn_pause = QtBind.createButton(gui, 'pause_clicked', 'Pause', 218, 229)
+btn_custom_pets = QtBind.createButton(
+    gui, 'show_custom_pets_clicked', 'Custom Pets', 278, 229)
 
 QtBind.createLineEdit(gui, '', 370, 42, 1, 208)
 QtBind.createLabel(
@@ -166,6 +187,57 @@ QtBind.createLabel(
 lst_pets = QtBind.createList(gui, 12, 290, 350, 135)
 lst_activity = QtBind.createList(gui, 382, 290, 346, 135)
 
+# Custom-pet configuration is a separate overlay page so the primary monitoring
+# screen stays readable in phBot's fixed-width plugin area.
+custom_background = QtBind.createList(gui, OFFSCREEN_X, 38, 716, 387)
+custom_title = QtBind.createLabel(
+    gui, '<font color="%s"><b>CUSTOM PICK PETS</b></font>' % COLOR_PRIMARY,
+    OFFSCREEN_X, 50)
+custom_back = QtBind.createButton(
+    gui, 'hide_custom_pets_clicked', 'Back', OFFSCREEN_X, 46)
+chk_custom_pets = QtBind.createCheckBox(
+    gui, 'setting_changed', 'Enable custom Pick Pets', OFFSCREEN_X, 80)
+custom_help = QtBind.createLabel(
+    gui,
+    fixed_width_text(
+        '<font color="%s">Use an exact servername (safest), or * for a verified family.</font>' %
+        COLOR_TEXT, 680),
+    OFFSCREEN_X, 108)
+custom_example = QtBind.createLabel(
+    gui,
+    fixed_width_text(
+        '<font color="%s">Example: ITEM_HELL_GRAB_BATMAN_SCROLL or ITEM_HELL_GRAB_*_SCROLL</font>' %
+        COLOR_MUTED, 680),
+    OFFSCREEN_X, 132)
+txt_custom_pattern = QtBind.createLineEdit(gui, '', OFFSCREEN_X, 158, 430, 22)
+btn_add_custom = QtBind.createButton(
+    gui, 'add_custom_pattern_clicked', 'Add Pattern', OFFSCREEN_X, 157)
+btn_remove_custom = QtBind.createButton(
+    gui, 'remove_custom_pattern_clicked', 'Remove Selected', OFFSCREEN_X, 157)
+lst_custom_patterns = QtBind.createList(gui, OFFSCREEN_X, 194, 680, 150)
+custom_status = QtBind.createLabel(
+    gui,
+    fixed_width_text('<font color="%s">Custom pet support is disabled.</font>' %
+                     COLOR_MUTED, 680),
+    OFFSCREEN_X, 360)
+custom_save = QtBind.createButton(
+    gui, 'save_clicked', 'Save Settings', OFFSCREEN_X, 390)
+
+CUSTOM_PANEL_LAYOUT = (
+    (custom_background, 12, 38),
+    (custom_title, 24, 50),
+    (custom_back, 665, 46),
+    (chk_custom_pets, 24, 80),
+    (custom_help, 24, 108),
+    (custom_example, 24, 132),
+    (txt_custom_pattern, 24, 158),
+    (btn_add_custom, 470, 157),
+    (btn_remove_custom, 565, 157),
+    (lst_custom_patterns, 24, 194),
+    (custom_status, 24, 360),
+    (custom_save, 24, 390)
+)
+
 
 def plugin_log(message):
     log('[%s] %s' % (pName, message))
@@ -184,6 +256,27 @@ def set_current(message, color=COLOR_TEXT):
         gui, lbl_current,
         fixed_width_text('<font color="%s">%s</font>' %
                          (color, html_escape(message)), 235))
+
+
+def set_custom_status(message, color=COLOR_MUTED):
+    QtBind.setText(
+        gui, custom_status,
+        fixed_width_text('<font color="%s">%s</font>' %
+                         (color, html_escape(message)), 680))
+
+
+def refresh_custom_pattern_list():
+    QtBind.clear(gui, lst_custom_patterns)
+    if not custom_pet_patterns:
+        QtBind.append(gui, lst_custom_patterns, 'No custom patterns configured.')
+    else:
+        for pattern in custom_pet_patterns:
+            QtBind.append(gui, lst_custom_patterns, pattern)
+    if settings.get('enable_custom_pets', False):
+        set_custom_status('%d custom pattern(s) enabled.' %
+                          len(custom_pet_patterns), COLOR_SUCCESS)
+    else:
+        set_custom_status('Custom pet support is disabled.', COLOR_MUTED)
 
 
 def add_activity(message):
@@ -247,6 +340,10 @@ def read_gui_settings():
         'prioritize_expired_pets': bool(
             QtBind.isChecked(gui, chk_expired_first)),
         'extend_near_expiry': bool(QtBind.isChecked(gui, chk_extend)),
+        'detect_expired_by_summon': bool(
+            QtBind.isChecked(gui, chk_summon_test)),
+        'enable_custom_pets': bool(QtBind.isChecked(gui, chk_custom_pets)),
+        'custom_pet_patterns': list(custom_pet_patterns),
         'near_expiry_hours': clamp_int(
             QtBind.text(gui, txt_threshold),
             DEFAULT_SETTINGS['near_expiry_hours'],
@@ -268,6 +365,9 @@ def apply_settings_to_gui():
         QtBind.setChecked(
             gui, chk_expired_first, settings['prioritize_expired_pets'])
         QtBind.setChecked(gui, chk_extend, settings['extend_near_expiry'])
+        QtBind.setChecked(
+            gui, chk_summon_test, settings['detect_expired_by_summon'])
+        QtBind.setChecked(gui, chk_custom_pets, settings['enable_custom_pets'])
         QtBind.setText(gui, txt_threshold, str(settings['near_expiry_hours']))
         QtBind.setText(gui, txt_scan_interval,
                        str(settings['scan_interval_seconds']))
@@ -277,8 +377,10 @@ def apply_settings_to_gui():
 
 
 def load_settings(character_key):
-    global settings, settings_loaded_for, paused
+    global settings, settings_loaded_for, paused, custom_pet_patterns
+    global summon_test
     failed_targets.clear()
+    clock_verification_targets.clear()
     settings = dict(DEFAULT_SETTINGS)
     path = get_settings_path(character_key)
     try:
@@ -295,6 +397,18 @@ def load_settings(character_key):
         settings['prioritize_expired_pets'] = bool(
             settings['prioritize_expired_pets'])
         settings['extend_near_expiry'] = bool(settings['extend_near_expiry'])
+        settings['detect_expired_by_summon'] = bool(
+            settings['detect_expired_by_summon'])
+        settings['enable_custom_pets'] = bool(settings['enable_custom_pets'])
+        loaded_patterns = settings.get('custom_pet_patterns') or []
+        if not isinstance(loaded_patterns, list):
+            loaded_patterns = []
+        custom_pet_patterns = []
+        for value in loaded_patterns:
+            pattern = normalize_custom_pattern(value)
+            if pattern and pattern not in custom_pet_patterns:
+                custom_pet_patterns.append(pattern)
+        settings['custom_pet_patterns'] = list(custom_pet_patterns)
         settings['near_expiry_hours'] = clamp_int(
             settings['near_expiry_hours'], DEFAULT_SETTINGS['near_expiry_hours'],
             MIN_THRESHOLD_HOURS, MAX_THRESHOLD_HOURS)
@@ -307,14 +421,21 @@ def load_settings(character_key):
                 'Inventory slot order'):
             settings['clock_priority'] = DEFAULT_SETTINGS['clock_priority']
         settings_loaded_for = character_key
+        summon_test = None
+        summon_test_states.clear()
         paused = False
         QtBind.setText(gui, btn_pause, 'Pause')
         apply_settings_to_gui()
+        refresh_custom_pattern_list()
         add_activity('Character settings loaded.')
     except (OSError, IOError, ValueError, TypeError) as error:
         settings = dict(DEFAULT_SETTINGS)
+        custom_pet_patterns = []
+        summon_test = None
+        summon_test_states.clear()
         settings_loaded_for = character_key
         apply_settings_to_gui()
+        refresh_custom_pattern_list()
         add_activity('Settings could not be loaded; defaults restored: %s' % error)
 
 
@@ -344,15 +465,75 @@ def save_settings_file():
         return False
 
 
+def normalize_custom_pattern(value):
+    pattern = str(value or '').strip().upper()
+    if not pattern or len(pattern) > 160:
+        return ''
+    if not pattern.startswith('ITEM_') or 'SCROLL' not in pattern:
+        return ''
+    if not re.match(r'^[A-Z0-9_*]+$', pattern):
+        return ''
+    return pattern
+
+
+def custom_pattern_matches(servername, pattern):
+    expression = '^%s$' % re.escape(pattern).replace(r'\*', '.*')
+    return re.match(expression, servername, re.IGNORECASE) is not None
+
+
+def is_configured_custom_pet_servername(servername):
+    if not settings.get('enable_custom_pets', False):
+        return False
+    candidates = [str(servername or '').upper()]
+    if candidates[0] and not candidates[0].endswith('_SCROLL'):
+        candidates.append(candidates[0] + '_SCROLL')
+    return any(custom_pattern_matches(candidate, pattern)
+               for candidate in candidates
+               for pattern in custom_pet_patterns)
+
+
 def is_pick_pet_scroll(item):
     servername = str(item.get('servername') or '').upper()
-    return ('COS_P_' in servername and 'SCROLL' in servername
-            and 'COS_P_EXTENSION' not in servername)
+    standard_pet = ('COS_P_' in servername and 'SCROLL' in servername
+                    and 'COS_P_EXTENSION' not in servername)
+    if standard_pet:
+        return True
+    if not settings.get('enable_custom_pets', False):
+        return False
+    return is_configured_custom_pet_servername(servername)
 
 
 def is_reincarnation_clock(item):
     servername = str(item.get('servername') or '').upper()
     return servername.startswith('ITEM_COS_P_EXTENSION')
+
+
+def pick_pet_server_key(servername):
+    """Normalize active-pet and summon-scroll server names for comparison."""
+    servername = str(servername or '').upper()
+    if not servername or 'COS_P_EXTENSION' in servername:
+        return ''
+    marker = 'COS_P_'
+    marker_index = servername.find(marker)
+    if marker_index >= 0:
+        key = servername[marker_index + len(marker):]
+    else:
+        key = servername
+        if key.startswith('ITEM_'):
+            key = key[5:]
+    scroll_index = key.find('_SCROLL')
+    if scroll_index >= 0:
+        key = key[:scroll_index]
+    return key.strip('_')
+
+
+def pet_keys_match(left, right):
+    if not left or not right:
+        return False
+    return (left == right or left.startswith(right + '_')
+            or right.startswith(left + '_')
+            or left.endswith('_' + right)
+            or right.endswith('_' + left))
 
 
 def expiration_value(item):
@@ -378,6 +559,261 @@ def target_key(item):
         item.get('slot'), item.get('model'), item.get('servername'))
 
 
+def summon_tail_for(item):
+    if not item or not is_pick_pet_scroll(item):
+        return None
+    return DEFAULT_PICK_PET_SUMMON_TAIL
+
+
+def active_pick_pets():
+    result = []
+    try:
+        for pet_id, pet in (get_pets() or {}).items():
+            if not pet:
+                continue
+            servername = str(pet.get('servername') or '').upper()
+            if (pet.get('type') == 'pick' or 'COS_P_' in servername
+                    or is_configured_custom_pet_servername(servername)):
+                entry = dict(pet)
+                entry['id'] = int(pet_id)
+                result.append(entry)
+    except Exception as error:
+        plugin_log('Active Pick Pet inspection error: %s' % error)
+    return result
+
+
+def active_pet_matches_item(pet, item):
+    return pet_keys_match(
+        pick_pet_server_key(pet.get('servername')),
+        pick_pet_server_key(item.get('servername')))
+
+
+def inject_pet_summon(item):
+    slot = int(item['slot'])
+    tail = summon_tail_for(item)
+    if slot < 0 or slot > 255 or not tail:
+        return False
+    inject_joymax(0x704C, struct.pack('<B', slot) + tail, True)
+    return True
+
+
+def inject_pet_unsummon(pet):
+    inject_joymax(0x7116, struct.pack('<I', int(pet['id'])), False)
+
+
+def find_matching_inventory_pet(reference, pets=None):
+    if pets is None:
+        pets, unused_clocks = scan_inventory()
+    exact = [item for item in pets
+             if item.get('model') == reference.get('model')
+             and item.get('servername') == reference.get('servername')]
+    for item in exact:
+        if item.get('slot') == reference.get('slot'):
+            return item
+    return exact[0] if exact else None
+
+
+def finish_summon_test(message, failed=False):
+    global summon_test, last_scan_time, paused
+    manual_only = bool(summon_test and summon_test.get('manual_only'))
+    add_activity(message)
+    summon_test = None
+    last_scan_time = 0.0
+    set_current('No active operation')
+    if failed:
+        paused = True
+        QtBind.setText(gui, btn_pause, 'Resume')
+        set_status('PAUSED AFTER TEST FAILURE', COLOR_ERROR)
+        add_activity('Automatic processing paused for safety.')
+    elif manual_only:
+        paused = True
+        QtBind.setText(gui, btn_pause, 'Resume')
+        pets, clocks = scan_inventory()
+        refresh_snapshot_gui(pets, clocks)
+        alive = sum(1 for item in pets
+                    if summon_test_states.get(target_key(item)) == 'alive')
+        dead = sum(1 for item in pets
+                   if summon_test_states.get(target_key(item)) == 'dead')
+        set_status('PET TEST COMPLETE', COLOR_SUCCESS)
+        set_current('Alive %d | Expired %d' % (alive, dead), COLOR_SUCCESS)
+        add_activity(
+            'Pet test result: %d alive, %d expired. No Clock was used.' %
+            (alive, dead))
+    else:
+        set_status('MONITORING', COLOR_SUCCESS)
+
+
+def restore_original_pet_or_finish():
+    global summon_test
+    original = summon_test.get('original') if summon_test else None
+    if not original:
+        finish_summon_test(
+            'Summon verification cycle completed.',
+            bool(summon_test and summon_test.get('failure_after_restore')))
+        return
+    pets, unused_clocks = scan_inventory()
+    item = find_matching_inventory_pet(original, pets)
+    if not item or not inject_pet_summon(item):
+        finish_summon_test(
+            'Could not restore the Pick Pet that was active before testing.',
+            True)
+        return
+    summon_test['phase'] = 'waiting-restore'
+    summon_test['current'] = dict(item)
+    summon_test['deadline'] = time.time() + SUMMON_TEST_TIMEOUT_SECONDS
+    set_status('RESTORING ORIGINAL PET', COLOR_WARNING)
+    set_current(item.get('name') or item.get('servername'), COLOR_WARNING)
+    add_activity('Restoring the previously active Pick Pet from slot %d.' %
+                 item['slot'])
+
+
+def start_next_summon_test():
+    global summon_test
+    while summon_test and summon_test['queue']:
+        item = summon_test['queue'].pop(0)
+        if target_key(item) in summon_test_states:
+            continue
+        if not inject_pet_summon(item):
+            add_activity('Skipped %s: summon request could not be built.' %
+                         (item.get('name') or item.get('servername')))
+            continue
+        summon_test['current'] = dict(item)
+        summon_test['attempt'] = 1
+        summon_test['phase'] = 'waiting-summon'
+        summon_test['deadline'] = time.time() + SUMMON_TEST_TIMEOUT_SECONDS
+        set_status('TESTING PET', COLOR_WARNING)
+        set_current('%s (attempt 1/%d)' %
+                    (item.get('name') or item.get('servername'),
+                     MAX_SUMMON_TEST_ATTEMPTS), COLOR_WARNING)
+        add_activity('Summon-testing %s from slot %d (attempt 1/%d).' %
+                     (item.get('name') or item.get('servername'), item['slot'],
+                      MAX_SUMMON_TEST_ATTEMPTS))
+        return
+    restore_original_pet_or_finish()
+
+
+def begin_summon_test_cycle(pets, manual_only=False):
+    global summon_test
+    candidates = [dict(item) for item in pets
+                  if target_key(item) not in summon_test_states
+                  and summon_tail_for(item)]
+    if not candidates:
+        return False
+
+    active = active_pick_pets()
+    if len(active) > 1:
+        add_activity('Summon test stopped: multiple active Pick Pets detected.')
+        return False
+
+    original = None
+    if active:
+        matches = [item for item in pets
+                   if summon_tail_for(item)
+                   if active_pet_matches_item(active[0], item)]
+        if not matches:
+            add_activity(
+                'Summon test stopped: active Pick Pet cannot be restored safely.')
+            return False
+        original = dict(matches[0])
+        summon_test_states[target_key(original)] = 'alive'
+        candidates = [item for item in candidates
+                      if target_key(item) != target_key(original)]
+
+    summon_test = {
+        'phase': 'starting',
+        'queue': candidates,
+        'current': None,
+        'attempt': 0,
+        'original': original,
+        'failure_after_restore': False,
+        'manual_only': bool(manual_only),
+        'deadline': 0.0
+    }
+    if active:
+        inject_pet_unsummon(active[0])
+        summon_test['phase'] = 'waiting-initial-close'
+        summon_test['deadline'] = time.time() + UNSUMMON_TIMEOUT_SECONDS
+        set_status('CLOSING ACTIVE PET', COLOR_WARNING)
+        set_current(active[0].get('name') or 'Active Pick Pet', COLOR_WARNING)
+        add_activity('Closing the active Pick Pet before summon verification.')
+    else:
+        start_next_summon_test()
+    return True
+
+
+def process_summon_test():
+    global summon_test
+    if not summon_test:
+        return
+    now = time.time()
+    phase = summon_test['phase']
+    active = active_pick_pets()
+
+    if phase == 'waiting-initial-close':
+        if not active:
+            start_next_summon_test()
+        elif now > summon_test['deadline']:
+            finish_summon_test('Active Pick Pet could not be closed.', True)
+        return
+
+    current = summon_test.get('current')
+    matching = [pet for pet in active
+                if current and active_pet_matches_item(pet, current)]
+    if phase == 'waiting-summon':
+        if matching:
+            summon_test_states[target_key(current)] = 'alive'
+            clock_verification_targets.discard(target_key(current))
+            add_activity('%s is alive; summon test succeeded.' %
+                         (current.get('name') or current.get('servername')))
+            inject_pet_unsummon(matching[0])
+            summon_test['phase'] = 'waiting-test-close'
+            summon_test['deadline'] = now + UNSUMMON_TIMEOUT_SECONDS
+            return
+        if now <= summon_test['deadline']:
+            return
+        if summon_test['attempt'] < MAX_SUMMON_TEST_ATTEMPTS:
+            summon_test['attempt'] += 1
+            if not inject_pet_summon(current):
+                finish_summon_test('Pet summon retry could not be sent.', True)
+                return
+            summon_test['deadline'] = now + SUMMON_TEST_TIMEOUT_SECONDS
+            set_current('%s (attempt %d/%d)' %
+                        (current.get('name') or current.get('servername'),
+                         summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS),
+                        COLOR_WARNING)
+            add_activity('Retrying summon test for %s (attempt %d/%d).' %
+                         (current.get('name') or current.get('servername'),
+                          summon_test['attempt'], MAX_SUMMON_TEST_ATTEMPTS))
+            return
+        summon_test_states[target_key(current)] = 'dead'
+        add_activity('%s marked expired after %d failed summon attempts.' %
+                     (current.get('name') or current.get('servername'),
+                      MAX_SUMMON_TEST_ATTEMPTS))
+        if target_key(current) in clock_verification_targets:
+            clock_verification_targets.discard(target_key(current))
+            summon_test['failure_after_restore'] = True
+            summon_test['queue'] = []
+            add_activity(
+                'Clock verification failed; no additional Clock will be used.')
+        start_next_summon_test()
+        return
+
+    if phase == 'waiting-test-close':
+        if not matching:
+            start_next_summon_test()
+        elif now > summon_test['deadline']:
+            finish_summon_test('Tested Pick Pet could not be closed.', True)
+        return
+
+    if phase == 'waiting-restore':
+        if matching:
+            finish_summon_test(
+                'Original Pick Pet restored successfully.',
+                bool(summon_test.get('failure_after_restore')))
+        elif now > summon_test['deadline']:
+            finish_summon_test('Original Pick Pet could not be restored.', True)
+
+
 def scan_inventory():
     inventory = get_inventory() or {}
     items = inventory.get('items') or []
@@ -397,20 +833,26 @@ def scan_inventory():
         elif is_pick_pet_scroll(item):
             pets.append(entry)
 
-    active_servernames = []
+    active_pet_keys = []
     try:
         for pet in (get_pets() or {}).values():
-            if pet and pet.get('type') == 'pick':
-                servername = str(pet.get('servername') or '').upper()
-                if servername:
-                    active_servernames.append(servername)
+            if not pet:
+                continue
+            servername = str(pet.get('servername') or '').upper()
+            pet_key = pick_pet_server_key(servername)
+            # Some custom servers expose collection pets as type "none" even
+            # though their stable server name still belongs to COS_P_.
+            if pet_key and (pet.get('type') == 'pick' or 'COS_P_' in servername
+                            or is_configured_custom_pet_servername(servername)):
+                active_pet_keys.append(pet_key)
     except Exception as error:
         plugin_log('Active Pick Pet inspection error: %s' % error)
 
     for item in pets:
-        scroll_servername = str(item.get('servername') or '').upper()
+        scroll_key = pick_pet_server_key(item.get('servername'))
         item['summoned'] = any(
-            servername in scroll_servername for servername in active_servernames)
+            pet_keys_match(scroll_key, active_key)
+            for active_key in active_pet_keys)
     return pets, clocks
 
 
@@ -428,10 +870,15 @@ def format_remaining(seconds):
 
 
 def refresh_snapshot_gui(pets, clocks):
-    expired_count = sum(1 for item in pets
-                        if not item.get('summoned')
-                        if expiration_value(item) is not None
-                        and expiration_value(item) <= 0)
+    if settings.get('detect_expired_by_summon', False):
+        expired_count = sum(
+            1 for item in pets
+            if summon_test_states.get(target_key(item)) == 'dead')
+    else:
+        expired_count = sum(1 for item in pets
+                            if not item.get('summoned')
+                            if expiration_value(item) is not None
+                            and expiration_value(item) <= 0)
     clock_count = 0
     for item in clocks:
         clock_count += max(1, clamp_int(item.get('quantity'), 1, 1, 999999))
@@ -459,7 +906,12 @@ def refresh_snapshot_gui(pets, clocks):
         QtBind.append(gui, lst_pets, 'No Pick Pet scrolls detected.')
     for item in pets:
         remaining = expiration_value(item)
-        if item.get('summoned'):
+        tested_state = summon_test_states.get(target_key(item))
+        if settings.get('detect_expired_by_summon', False) and tested_state:
+            state = 'EXPIRED' if tested_state == 'dead' else 'ALIVE'
+        elif settings.get('detect_expired_by_summon', False):
+            state = 'UNTESTED'
+        elif item.get('summoned'):
             state = 'SUMMONED'
         elif remaining is None:
             state = 'UNKNOWN'
@@ -476,32 +928,49 @@ def refresh_snapshot_gui(pets, clocks):
 
 def eligible_targets(pets, now):
     threshold_seconds = int(settings['near_expiry_hours']) * 3600
-    targets = []
+    expired_targets = []
+    near_expiry_targets = []
     for item in pets:
         remaining = expiration_value(item)
-        if remaining is None or item.get('summoned'):
+        if item.get('summoned'):
             continue
         key = target_key(item)
         retry_at = failed_targets.get(key, 0.0)
         if retry_at > now:
             continue
-        if remaining <= 0 and settings['revive_expired_pets']:
+        verified_dead = (
+            settings.get('detect_expired_by_summon', False)
+            and summon_test_states.get(key) == 'dead')
+        if verified_dead and settings['revive_expired_pets']:
+            entry = dict(item)
+            entry['reason'] = 'summon-verified-expired'
+            expired_targets.append(entry)
+        elif settings.get('detect_expired_by_summon', False):
+            # In summon-test mode, an unreliable inventory expiration must
+            # never override the observed result of an actual summon attempt.
+            continue
+        elif remaining is None:
+            continue
+        elif remaining <= 0 and settings['revive_expired_pets']:
             entry = dict(item)
             entry['reason'] = 'expired'
-            targets.append(entry)
+            expired_targets.append(entry)
         elif (remaining > 0 and remaining <= threshold_seconds
               and settings['extend_near_expiry']):
             entry = dict(item)
             entry['reason'] = 'near-expiry'
-            targets.append(entry)
+            near_expiry_targets.append(entry)
+    expired_targets.sort(
+        key=lambda item: (expiration_value(item), item['slot']))
+    near_expiry_targets.sort(
+        key=lambda item: (expiration_value(item), item['slot']))
     if settings.get('prioritize_expired_pets', True):
-        return sorted(
-            targets,
-            key=lambda item: (
-                0 if item.get('reason') == 'expired' else 1,
-                expiration_value(item),
-                item['slot']))
-    return sorted(targets, key=lambda item: item['slot'])
+        # Keep the queues physically separate so an active/near-expiry pet can
+        # never interleave with the expired-pet revival queue.
+        return expired_targets + near_expiry_targets
+    return sorted(
+        expired_targets + near_expiry_targets,
+        key=lambda item: item['slot'])
 
 
 def select_clock(clocks):
@@ -530,15 +999,17 @@ def get_item_use_tid(item):
 
 def build_clock_packet(clock, pet_slot):
     clock_slot = int(clock['slot'])
-    tid, item_data = get_item_use_tid(clock)
-    if tid is None:
-        raise ValueError('static Clock item data is unavailable')
     locale = int(get_locale())
     if locale == 22:
         # Verified manual vSRO capture:
         # [Clock slot][two-byte item-use TID][Pick Pet scroll slot].
-        return struct.pack('<BHB', clock_slot, tid, pet_slot), tid
+        return (struct.pack(
+            '<BHB', clock_slot, LOCALE22_CLOCK_USE_TID, pet_slot),
+                LOCALE22_CLOCK_USE_TID)
     if locale == 18:
+        tid, item_data = get_item_use_tid(clock)
+        if tid is None:
+            raise ValueError('static Clock item data is unavailable')
         packet = struct.pack(
             '<BBBBB',
             clock_slot,
@@ -669,6 +1140,12 @@ def perform_scan(allow_action):
         set_status('SCAN COMPLETE', COLOR_SUCCESS)
         return
 
+    if settings.get('detect_expired_by_summon', False):
+        untested = [item for item in pets
+                    if target_key(item) not in summon_test_states]
+        if untested and begin_summon_test_cycle(pets):
+            return
+
     now = time.time()
     targets = eligible_targets(pets, now)
     if not targets:
@@ -691,6 +1168,46 @@ def discord_clicked():
         set_status('COULD NOT OPEN DISCORD', COLOR_ERROR)
 
 
+def show_custom_pets_clicked():
+    refresh_custom_pattern_list()
+    for widget, x, y in CUSTOM_PANEL_LAYOUT:
+        QtBind.move(gui, widget, x, y)
+
+
+def hide_custom_pets_clicked():
+    for widget, unused_x, y in CUSTOM_PANEL_LAYOUT:
+        QtBind.move(gui, widget, OFFSCREEN_X, y)
+
+
+def add_custom_pattern_clicked():
+    pattern = normalize_custom_pattern(QtBind.text(gui, txt_custom_pattern))
+    if not pattern:
+        set_custom_status(
+            'Use ITEM_...SCROLL with optional * wildcard; no spaces or ?.',
+            COLOR_ERROR)
+        return
+    if pattern in custom_pet_patterns:
+        set_custom_status('This pattern is already configured.', COLOR_WARNING)
+        return
+    custom_pet_patterns.append(pattern)
+    settings['custom_pet_patterns'] = list(custom_pet_patterns)
+    QtBind.clear(gui, txt_custom_pattern)
+    refresh_custom_pattern_list()
+    set_custom_status('Pattern added. Save Settings to keep it.', COLOR_SUCCESS)
+
+
+def remove_custom_pattern_clicked():
+    index = QtBind.currentIndex(gui, lst_custom_patterns)
+    if index < 0 or index >= len(custom_pet_patterns):
+        set_custom_status('Select a configured pattern to remove.', COLOR_WARNING)
+        return
+    removed = custom_pet_patterns.pop(index)
+    settings['custom_pet_patterns'] = list(custom_pet_patterns)
+    refresh_custom_pattern_list()
+    set_custom_status('Removed %s. Save Settings to keep the change.' % removed,
+                      COLOR_SUCCESS)
+
+
 def monitor_changed(checked):
     if settings_loading:
         return
@@ -705,6 +1222,9 @@ def setting_changed(checked):
     if settings_loading:
         return
     settings.update(read_gui_settings())
+    if not settings.get('detect_expired_by_summon', False):
+        summon_test_states.clear()
+    refresh_custom_pattern_list()
 
 
 def save_clicked():
@@ -721,6 +1241,39 @@ def scan_clicked():
         plugin_log('Manual scan error: %s' % error)
 
 
+def test_pets_clicked():
+    global paused
+    try:
+        if pending_operation or summon_test:
+            set_status('AN OPERATION IS ALREADY ACTIVE', COLOR_WARNING)
+            return
+        if not get_character_key():
+            set_status('JOIN THE GAME BEFORE TESTING', COLOR_WARNING)
+            return
+        settings['detect_expired_by_summon'] = True
+        QtBind.setChecked(gui, chk_summon_test, True)
+        pets, clocks = scan_inventory()
+        last_snapshot['pets'] = pets
+        last_snapshot['clocks'] = clocks
+        refresh_snapshot_gui(pets, clocks)
+        if not pets:
+            set_status('NO PICK PETS FOUND', COLOR_WARNING)
+            return
+        summon_test_states.clear()
+        if not begin_summon_test_cycle(pets, True):
+            set_status('PET TEST COULD NOT START', COLOR_WARNING)
+            set_current('Check active Pick Pet detection', COLOR_WARNING)
+            add_activity(
+                'Manual pet test could not start because the active Pick Pet cannot be restored safely.')
+            return
+        paused = True
+        QtBind.setText(gui, btn_pause, 'Resume')
+        add_activity('Manual pet test started. Clock use is disabled for this test.')
+    except Exception as error:
+        set_status('PET TEST FAILED', COLOR_ERROR)
+        plugin_log('Manual pet test error: %s' % error)
+
+
 def pause_clicked():
     global paused
     paused = not paused
@@ -735,17 +1288,23 @@ def pause_clicked():
 
 
 def joined_game():
-    global settings_loaded_for, last_scan_time, pending_operation
+    global settings_loaded_for, last_scan_time, pending_operation, summon_test
     settings_loaded_for = None
     last_scan_time = 0.0
     pending_operation = None
+    summon_test = None
+    summon_test_states.clear()
+    clock_verification_targets.clear()
     set_status('WAITING FOR CHARACTER', COLOR_WARNING)
 
 
 def disconnected():
-    global settings_loaded_for, pending_operation, last_scan_time
+    global settings_loaded_for, pending_operation, last_scan_time, summon_test
     settings_loaded_for = None
     pending_operation = None
+    summon_test = None
+    summon_test_states.clear()
+    clock_verification_targets.clear()
     last_scan_time = 0.0
     failed_targets.clear()
     set_status('WAITING FOR CONNECTION', COLOR_MUTED)
@@ -755,9 +1314,9 @@ def disconnected():
 def handle_silkroad(opcode, data):
     if opcode == 0x704C and data:
         raw = bytes(data)
-        clock_slots = set(
-            int(item['slot']) for item in scan_inventory()[1]
-            if 0 <= int(item['slot']) <= 255)
+        pets, clocks = scan_inventory()
+        clock_slots = set(int(item['slot']) for item in clocks
+                          if 0 <= int(item['slot']) <= 255)
         if raw[0] in clock_slots:
             add_activity('MANUAL CLOCK CAPTURE 0x704C: %s' % packet_hex(raw))
     return True
@@ -779,6 +1338,16 @@ def handle_joymax(opcode, data):
         if (pending_operation['phase'] == 'waiting-response'
                 and response_matches):
             if raw[0] == 1:
+                if settings.get('detect_expired_by_summon', False):
+                    clock_verification_targets.add(
+                        pending_operation['target_key'])
+                    summon_test_states.pop(
+                        pending_operation['target_key'], None)
+                    finish_operation(
+                        True,
+                        'Server accepted the Clock for %s; summon verification queued.' %
+                        pending_operation['pet_name'])
+                    return True
                 pending_operation['phase'] = 'verifying'
                 pending_operation['deadline'] = time.time() + VERIFY_TIMEOUT_SECONDS
                 set_status('VERIFYING PET DURATION', COLOR_WARNING)
@@ -801,6 +1370,10 @@ def event_loop():
         if settings_loaded_for != character_key:
             load_settings(character_key)
             last_scan_time = 0.0
+
+        if summon_test:
+            process_summon_test()
+            return
 
         if pending_operation:
             if pending_operation['phase'] == 'waiting-response':
@@ -829,6 +1402,7 @@ def event_loop():
 
 
 apply_settings_to_gui()
+refresh_custom_pattern_list()
 QtBind.append(gui, lst_pets, 'Join the game to inspect Pick Pets.')
 QtBind.append(gui, lst_activity, 'Automatic monitoring is disabled by default.')
 log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

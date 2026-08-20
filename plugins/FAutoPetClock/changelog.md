@@ -1,5 +1,56 @@
 # FAutoPetClock Changelog
 
+## v1.4.1
+
+### Fixed
+- Fixed locale 22 Clock requests failing with `Unregistered type : pstr` by using the manually verified `ED 66` item-use TID without querying static item data.
+
+## v1.4.0
+
+### Improved
+- Removed per-pet manual summon learning and now use the verified common locale 22 Pick Pet summon request for all standard and explicitly allowed custom pets.
+- Enabled summon-test expiry verification by default for new character settings.
+- Simplified manual test results to alive and expired totals because every recognized pet can now be tested automatically.
+
+## v1.3.1
+
+### Added
+- Added a one-click `Test Pets Now` action that verifies learned pets and reports alive, expired, and unlearned totals without consuming a Clock.
+
+### Improved
+- Manual pet testing restores the initially active pet and leaves automatic processing paused so the user can review the results before allowing Clock use.
+
+## v1.3.0
+
+### Added
+- Added optional summon-test expiry verification with two attempts per learned Pick Pet.
+- Added automatic capture and per-character storage of manually observed Pick Pet summon packet data.
+- Added automatic closing and restoration of the Pick Pet that was active before a verification cycle.
+
+### Improved
+- Limited Clock use to summon-verified expired pets when summon-test mode is enabled, ignoring unreliable inventory expiration values.
+- Added post-Clock summon verification and a safety pause if revival cannot be confirmed.
+- Added explicit `UNTESTED`, `ALIVE`, `EXPIRED`, and `NEEDS LEARNING` inventory states for summon-test mode.
+
+## v1.2.0
+
+### Added
+- Added an optional per-character custom Pick Pet allowlist with exact servername and limited `*` wildcard patterns.
+- Added a separate `Custom Pets` settings screen for adding, removing, enabling, and saving custom pet patterns.
+
+### Improved
+- Kept nonstandard private-server pets excluded from automatic processing unless they match an explicitly configured pattern.
+- Applied custom patterns to active-pet matching so a configured summoned pet is not mistaken for an expired inventory pet when its active servername omits `_SCROLL`.
+
+## v1.1.1
+
+### Improved
+- Separated expired and near-expiry pets into explicit processing queues so the expired queue is always completed first when priority is enabled.
+- Improved active Pick Pet matching for custom servers by normalizing `COS_P_` server-name families and accepting pets reported with a nonstandard type.
+
+### Fixed
+- Fixed some summoned Pick Pets being classified as expired when their custom-server API type or server-name suffix differed from the inventory scroll.
+
 ## v1.1.0
 
 ### Added

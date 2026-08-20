@@ -32,16 +32,17 @@
                     {
                         "id":  "FAutoPetClock",
                         "name":  "FAutoPetClock",
-                        "version":  "1.0.4",
+                        "version":  "1.1.0",
                         "core":  false,
                         "description":  "FascinaTe phBot plugin.",
                         "changes":  [
-                                        "Changed the empty current-operation status from `None` to the clearer `No active operation` message."
+                                        "Added a saved `Prioritize expired Pets first` option, enabled by default, to guarantee expired pets are processed before near-expiry living pets.",
+                                        "Replaced near-black interface text with a blue-violet color that remains visible in both phBot Light and Dark themes."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/changelog.md",
                         "install_path":  "FAutoPetClock.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/FAutoPetClock.py",
-                        "sha256":  "0413e826c4ab01228afc19cb7de0ed24c1747d6b78b0695548d80eb1eae065e3"
+                        "sha256":  "64be59c533383a774e0c41175c32861afdf997466641c5566399c3a1fb9099d7"
                     },
                     {
                         "id":  "FAutoUnique",

@@ -1,5 +1,13 @@
 # FAutoPetClock Changelog
 
+## v1.1.0
+
+### Added
+- Added a saved `Prioritize expired Pets first` option, enabled by default, to guarantee expired pets are processed before near-expiry living pets.
+
+### Improved
+- Replaced near-black interface text with a blue-violet color that remains visible in both phBot Light and Dark themes.
+
 ## v1.0.4
 
 ### Improved

@@ -10,11 +10,13 @@ import webbrowser
 
 
 pName = 'FAutoPetClock'
-pVersion = '1.0.4'
+pVersion = '1.1.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
-COLOR_TEXT = '#2b3038'
+# Balanced blue-violet chosen instead of near-black so text remains visible on
+# both phBot's Light and Dark themes.
+COLOR_TEXT = '#6976c9'
 COLOR_MUTED = '#9aa0ac'
 COLOR_SUCCESS = '#1f9d63'
 COLOR_WARNING = '#c98a1a'
@@ -23,6 +25,7 @@ COLOR_ERROR = '#d93a4d'
 DEFAULT_SETTINGS = {
     'automatic_monitoring': False,
     'revive_expired_pets': True,
+    'prioritize_expired_pets': True,
     'extend_near_expiry': False,
     'near_expiry_hours': 6,
     'scan_interval_seconds': 10,
@@ -86,6 +89,8 @@ chk_monitor = QtBind.createCheckBox(
     gui, 'monitor_changed', 'Enable automatic monitoring', 12, 65)
 chk_revive = QtBind.createCheckBox(
     gui, 'setting_changed', 'Revive expired Pick Pets', 12, 88)
+chk_expired_first = QtBind.createCheckBox(
+    gui, 'setting_changed', 'Prioritize expired Pets first', 175, 88)
 chk_extend = QtBind.createCheckBox(
     gui, 'setting_changed', 'Extend pets near expiration', 12, 111)
 
@@ -239,6 +244,8 @@ def read_gui_settings():
     return {
         'automatic_monitoring': bool(QtBind.isChecked(gui, chk_monitor)),
         'revive_expired_pets': bool(QtBind.isChecked(gui, chk_revive)),
+        'prioritize_expired_pets': bool(
+            QtBind.isChecked(gui, chk_expired_first)),
         'extend_near_expiry': bool(QtBind.isChecked(gui, chk_extend)),
         'near_expiry_hours': clamp_int(
             QtBind.text(gui, txt_threshold),
@@ -258,6 +265,8 @@ def apply_settings_to_gui():
     try:
         QtBind.setChecked(gui, chk_monitor, settings['automatic_monitoring'])
         QtBind.setChecked(gui, chk_revive, settings['revive_expired_pets'])
+        QtBind.setChecked(
+            gui, chk_expired_first, settings['prioritize_expired_pets'])
         QtBind.setChecked(gui, chk_extend, settings['extend_near_expiry'])
         QtBind.setText(gui, txt_threshold, str(settings['near_expiry_hours']))
         QtBind.setText(gui, txt_scan_interval,
@@ -283,6 +292,8 @@ def load_settings(character_key):
                     settings[key] = loaded[key]
         settings['automatic_monitoring'] = bool(settings['automatic_monitoring'])
         settings['revive_expired_pets'] = bool(settings['revive_expired_pets'])
+        settings['prioritize_expired_pets'] = bool(
+            settings['prioritize_expired_pets'])
         settings['extend_near_expiry'] = bool(settings['extend_near_expiry'])
         settings['near_expiry_hours'] = clamp_int(
             settings['near_expiry_hours'], DEFAULT_SETTINGS['near_expiry_hours'],
@@ -483,7 +494,14 @@ def eligible_targets(pets, now):
             entry = dict(item)
             entry['reason'] = 'near-expiry'
             targets.append(entry)
-    return sorted(targets, key=lambda item: (expiration_value(item), item['slot']))
+    if settings.get('prioritize_expired_pets', True):
+        return sorted(
+            targets,
+            key=lambda item: (
+                0 if item.get('reason') == 'expired' else 1,
+                expiration_value(item),
+                item['slot']))
+    return sorted(targets, key=lambda item: item['slot'])
 
 
 def select_clock(clocks):

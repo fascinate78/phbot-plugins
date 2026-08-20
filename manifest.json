@@ -34,7 +34,7 @@
                         "name":  "FAutoPetClock",
                         "version":  "1.5.0",
                         "core":  false,
-                        "description":  "FascinaTe phBot plugin.",
+                        "description":  "Monitors Pick Pets and safely renews expired or expiring pets with available clocks.",
                         "changes":  [
                                         "Accelerated expired-pet detection by immediately handling the verified locale 22 `02 A4 18` summon rejection instead of waiting for two nine-second timeouts.",
                                         "Kept the two-attempt safety check and `get_pets()` confirmation for successful summons."
@@ -49,7 +49,7 @@
                         "name":  "FAutoUnique V2",
                         "version":  "2.2.3",
                         "core":  false,
-                        "description":  "FascinaTe phBot plugin.",
+                        "description":  "Hunts configured unique monsters through prioritized walk-script queues.",
                         "changes":  [
                                         "Moved packet, event, and chat spawn/death trace messages behind the existing Detailed log option to prevent routine log spam."
                                     ],
@@ -94,7 +94,7 @@
                         "name":  "FCharacterPluginManager",
                         "version":  "1.0.0",
                         "core":  false,
-                        "description":  "FascinaTe phBot plugin.",
+                        "description":  "Loads a separate set of local phBot plugins for each server and character.",
                         "changes":  [
                                         "Added per-server and per-character plugin selection with automatic in-memory loading.",
                                         "Added support for managed single-file plugins and plugin folders.",
@@ -125,7 +125,7 @@
                         "name":  "FInventoryManager",
                         "version":  "3.0.3",
                         "core":  false,
-                        "description":  "FascinaTe phBot plugin.",
+                        "description":  "Sorts character inventory and personal storage with configurable category rules.",
                         "changes":  [
                                         "Blocked Personal Storage sorting unless an active storage NPC interaction has been observed, and clear the captured session when the NPC interaction closes or the client disconnects.",
                                         "Fixed vSRO Personal Storage moves being rejected with B034 `02 03 00` by sending the runtime NPC entity ID captured from the `0x7045`/`0x7046` interaction instead of a fixed session value.",

@@ -50,13 +50,13 @@ downloaded version.
 |---|---:|---|
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Installs and updates FascinaTe phBot plugins from GitHub. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
-| [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | FascinaTe phBot plugin. |
-| [FAutoUnique V2](plugins/FAutoUnique/) | 2.2.3 | FascinaTe phBot plugin. |
+| [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
+| [FAutoUnique V2](plugins/FAutoUnique/) | 2.2.3 | Hunts configured unique monsters through prioritized walk-script queues. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
-| [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | FascinaTe phBot plugin. |
+| [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
 | [FControl](plugins/FControl/) | 1.6.5 | Provides shared control commands, actions, and teleport handling. |
-| [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | FascinaTe phBot plugin. |
+| [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |

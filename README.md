@@ -66,7 +66,7 @@ downloaded version.
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.0.0 | Coordinates party-synchronized trade scripts and job-item handling. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
-| [FWheelManager](plugins/FWheelManager/) | 1.0.0 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
+| [FWheelManager](plugins/FWheelManager/) | 1.0.1 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
 <!-- PLUGIN_TABLE_END -->
 
 Plugin availability, versions, download locations, integrity hashes, and release

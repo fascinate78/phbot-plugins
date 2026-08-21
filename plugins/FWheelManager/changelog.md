@@ -1,5 +1,13 @@
 # FWheelManager Changelog
 
+## v1.0.1
+
+### Added
+- Added context-aware decoding for the verified high-degree weapon Fortune stat-code family.
+
+### Improved
+- Added bounded raw packet diagnostics when a Fortune response contains stats that are unsafe for the selected item.
+
 ## v1.0.0
 
 ### Added

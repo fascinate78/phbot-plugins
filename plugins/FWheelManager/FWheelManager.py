@@ -6,7 +6,7 @@ from threading import Timer
 
 
 pName = 'FWheelManager'
-pVersion = '1.0.0'
+pVersion = '1.0.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -73,6 +73,13 @@ CLASSIC_CODES = {
     0x5F: 'Block Rate', 0x40: 'HP', 0x68: 'HP', 0x41: 'MP', 0x6B: 'MP',
     0x49: 'Stun', 0x4A: 'HP/MP Recovery', 0x4B: 'Combustion',
     0x4C: 'Disease', 0x4D: 'Sleep', 0x4E: 'Fear'
+}
+# High-degree weapon family verified from this server's Fortune responses.
+# These codes overlap with classic meanings, so they must only be applied
+# after the selected item has been classified as a weapon.
+WEAPON_CONTEXT_CODES = {
+    0x69: 'STR', 0x6A: 'INT', 0x6B: 'Durability',
+    0x6C: 'Attack Rate', 0x6D: 'Evade Block', 0x77: 'Critical'
 }
 DG12_CODES = {
     0x0049: 'STR', 0x004F: 'INT', 0x0067: 'Attack Rate',
@@ -537,7 +544,11 @@ def parse_fate(data):
     return (data[4], blue_count) if len(data) >= 43 + blue_count * 8 else None
 
 
-def parse_fortune(data):
+def parse_fortune(data, item=None):
+    classification = None
+    if item is not None:
+        live_item = find_inventory_item(item['slot'])
+        classification = item_classification(live_item) if live_item else None
     candidates = []
     for start in range(max(0, len(data) - 7)):
         cursor = start
@@ -547,7 +558,10 @@ def parse_fortune(data):
             if (group[0] == 0 or group[1] != 2 or group[2] != 0 or group[3] != 0 or
                     group[4] == 0 or group[5] != 0 or group[6] != 0 or group[7] != 0):
                 break
-            options.append({'name': CLASSIC_CODES.get(group[0], 'Unknown code 0x%02X' % group[0]),
+            name = CLASSIC_CODES.get(group[0])
+            if classification and classification[0] == 'Weapon':
+                name = WEAPON_CONTEXT_CODES.get(group[0], name)
+            options.append({'name': name or 'Unknown code 0x%02X' % group[0],
                             'value': group[4]})
             cursor += 8
         if options:
@@ -632,12 +646,15 @@ def process_response(data):
         reached = parsed[1] >= item.get('target', 1)
         set_result(mode, 'Slot %d: %d blue line(s)' % (item['slot'], parsed[1]), COLOR_SUCCESS)
     elif mode == 'fortune':
-        options = parse_fortune(data)
+        options = parse_fortune(data, item)
         if not options:
             stop_operation('Fortune response had no verified stats', COLOR_ERROR)
             return
         valid, reason = normalize_fortune_options(item, options)
         if not valid:
+            plugin_log('Fortune unsafe layout 0xB151 raw (%d bytes): %s%s' % (
+                len(data), ' '.join('%02X' % value for value in data[:512]),
+                ' ...' if len(data) > 512 else ''))
             stop_operation(reason, COLOR_ERROR)
             return
         counts = {}

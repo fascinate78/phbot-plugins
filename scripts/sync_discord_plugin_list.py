@@ -29,7 +29,7 @@ REPOSITORY_URL = (
 
 WEBHOOK_USERNAME = "FascinaTe Plugins"
 
-EMBED_TITLE = "?妝 FascinaTe phBot Plugins"
+EMBED_TITLE = "\U0001f9e9 FascinaTe phBot Plugins"
 
 USER_AGENT = (
     "FascinaTe-phBot-Plugins-GitHub-Action/1.0"
@@ -181,7 +181,7 @@ def build_plugin_entry(
         plugin.get("core", False)
     )
 
-    icon = "潃? if core else "?"
+    icon = "\u2b50" if core else "\U0001f4e6"
 
     lines = [
         f"**{icon} {name}** `v{version}`"
@@ -196,17 +196,17 @@ def build_plugin_entry(
 
     if download_url:
         links.append(
-            f"[漎? Download]({download_url})"
+            f"[\u2b07\ufe0f Download]({download_url})"
         )
 
     if changelog_url:
         links.append(
-            f"[?? Changelog]({changelog_url})"
+            f"[\U0001f4dd Changelog]({changelog_url})"
         )
 
     if links:
         lines.append(
-            " ??".join(links)
+            " \u2022 ".join(links)
         )
 
     return "\n".join(lines)
@@ -306,7 +306,7 @@ def build_embeds_with_description_limit(
 
             embed["author"] = {
                 "name": (
-                    f"Plugin Listesi ??"
+                    f"Plugin Listesi \u2022 "
                     f"{page_index}/{total_pages}"
                 )
             }
@@ -314,7 +314,7 @@ def build_embeds_with_description_limit(
         else:
             embed["author"] = {
                 "name": (
-                    f"Plugin Listesi ??"
+                    f"Plugin Listesi \u2022 "
                     f"{page_index}/{total_pages}"
                 )
             }
@@ -323,9 +323,9 @@ def build_embeds_with_description_limit(
         if page_index == total_pages:
             embed["footer"] = {
                 "text": (
-                    f"{len(plugins)} plugins ??"
-                    f"{core_count} core ??"
-                    f"{normal_count} standard ??"
+                    f"{len(plugins)} plugins \u2022 "
+                    f"{core_count} core \u2022 "
+                    f"{normal_count} standard \u2022 "
                     f"Automatically synced from GitHub"
                 )
             }

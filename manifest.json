@@ -57,7 +57,7 @@
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/572118d/plugins/FAutoUnique/FAutoUniqueV2.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
                         "sha256":  "cd0ba2c53e658931f6a8fa70a2045ba711c2facb3ba2d5aafc1394fa8a9eadf8"
                     },
                     {
@@ -121,6 +121,20 @@
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
                         "sha256":  "8c70bc0a0cd169dde5988807f988526786f2e32cb9cb07a9bdd3ab005d82521d"
+                    },
+                    {
+                        "id":  "FFateManager",
+                        "name":  "FFateManager",
+                        "version":  "1.0.1",
+                        "core":  false,
+                        "description":  "Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count.",
+                        "changes":  [
+                                        "Excluded the response\u0027s internal magic-option record from the visible blue-line count."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFateManager/changelog.md",
+                        "install_path":  "FFateManager.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFateManager/FFateManager.py",
+                        "sha256":  "52e92c6f605bfe9b1c6162b2d812f6ed4004103348096dc1f590ca712ca44e45"
                     },
                     {
                         "id":  "FFortuneManager",

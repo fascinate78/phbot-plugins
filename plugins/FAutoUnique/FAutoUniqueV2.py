@@ -1,9 +1,10 @@
-import phBot
+﻿import phBot
 from phBot import *
 import QtBind
 import time
 import os
 import json
+import math
 import struct
 import threading
 import sys
@@ -11,7 +12,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.2.3'
+pVersion = '2.4.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -47,6 +48,8 @@ def getConfig():
 
 # ================= DATA & STATE =================
 unique_script_map = {}
+unique_coordinate_map = {}
+unique_route_modes = {}
 pending_uniques = []
 alive_uniques = {}
 last_check_time = 0
@@ -57,9 +60,24 @@ loot_timer = None
 current_active_unique = None
 unique_queue = []
 plugin_active = False
-# grind slotunun training area bilgisi — av bitince buraya geri donmek icin
+# grind slotunun training area bilgisi â€” av bitince buraya geri donmek icin
 # (get_training_area()'dan yakalanir: region,x,y,z,radius,path)
 saved_slot = None
+auto_learn_coordinates = False
+learned_unique_ids = set()
+
+# Coordinate hunt settings. generate_script() itself is limited by phBot to one
+# pathfinding request every five seconds.
+COORDINATE_SEARCH_SEC = 2.0
+COORDINATE_SCAN_INTERVAL_SEC = 0.25
+COORDINATE_ARRIVAL_DISTANCE = 10.0
+COORDINATE_DUPLICATE_DISTANCE = 30.0
+UNIQUE_TRAINING_RADIUS = 50.0
+PATHFINDING_COOLDOWN_SEC = 5.2
+coordinate_hunt = None
+coordinate_timer = None
+last_pathfinding_time = 0.0
+coordinate_run_token = 0
 
 # Protect unique_queue / alive_uniques / pending_uniques from race conditions
 # between the network event thread and threading.Timer callbacks.
@@ -77,7 +95,7 @@ unique_not_found_count = 0
 script_finished = False
 _in_town_state = True  # Manually tracked town state.
 
-# Town region'lari — hem _is_in_town hem capture_slot kullaniyor
+# Town region'lari â€” hem _is_in_town hem capture_slot kullaniyor
 # (slot'u yanlislikla town sanmamak icin)
 TOWN_REGIONS = {
     25000, 25001, 25002, 25003,  # Jangan
@@ -137,8 +155,20 @@ COMMON_UNIQUES = [
 
 discovered_uniques = set()
 
+# GUI-only selection and activity state. Backend collections remain authoritative.
+selected_unique_name = ''
+unique_browser_items = []
+activity_entries = []
+ACTIVITY_LIMIT = 100
+_last_activity_state = {
+    'plugin': None, 'target': None, 'queue': None, 'bot': None, 'action': None
+}
+_recent_activity_events = {}
+_last_dashboard_snapshot = None
+
 # ================= CONFIG & FILE HELPERS =================
 def add_manual_unique():
+    global selected_unique_name
     try:
         name = QtBind.text(gui, txt_unique).strip()
         if not name:
@@ -148,6 +178,8 @@ def add_manual_unique():
             discovered_uniques.add(name)
             refresh_unique_dropdown()
             save_config()
+        selected_unique_name = name
+        refresh_selected_unique_details()
         QtBind.setText(gui, txt_unique, "")
         log(f"Added manual unique: {name}")
     except Exception as e:
@@ -174,15 +206,86 @@ def scan_nearby_uniques():
 
 def is_known_unique(name):
     if not name: return False
-    # substring yerine _is_unique_match (exact / "name " / "name(" prefix) kullanıyoruz
-    # ki 'Spider', 'Monkey', 'Goon' gibi genel isimler sıradan moblarla yanlışlıkla eşleşmesin
+    # substring yerine _is_unique_match (exact / "name " / "name(" prefix) kullanÄ±yoruz
+    # ki 'Spider', 'Monkey', 'Goon' gibi genel isimler sÄ±radan moblarla yanlÄ±ÅŸlÄ±kla eÅŸleÅŸmesin
     return any(_is_unique_match(u, name) for u in COMMON_UNIQUES)
 
 def is_unique(name):
     if not name: return False
     if name in discovered_uniques: return True
     if name in unique_script_map: return True
+    if name in unique_coordinate_map: return True
     return is_known_unique(name)
+
+def has_hunt_route(unique_name):
+    """Return True when a unique has either coordinates or a walk script."""
+    mode = get_route_mode(unique_name)
+    if mode == 'coordinates':
+        return bool(unique_coordinate_map.get(unique_name))
+    return unique_name in unique_script_map
+
+def get_route_mode(unique_name):
+    mode = unique_route_modes.get(unique_name)
+    if mode == 'script':
+        if unique_name in unique_script_map:
+            return 'script'
+        if unique_coordinate_map.get(unique_name):
+            return 'coordinates'
+        return None
+    if mode == 'coordinates':
+        if unique_coordinate_map.get(unique_name):
+            return 'coordinates'
+        if unique_name in unique_script_map:
+            return 'script'
+        return None
+    if unique_name in unique_script_map:
+        return 'script'
+    if unique_coordinate_map.get(unique_name):
+        return 'coordinates'
+    return None
+
+def _distance_2d(x1, y1, x2, y2):
+    return math.sqrt((float(x1) - float(x2)) ** 2 + (float(y1) - float(y2)) ** 2)
+
+def _normalise_point(point, source='Manual'):
+    return {
+        'region': int(point.get('region', 0) or 0),
+        'x': float(point.get('x', 0) or 0),
+        'y': float(point.get('y', 0) or 0),
+        'z': float(point.get('z', 0) or 0),
+        'source': point.get('source', source) or source,
+    }
+
+def _add_coordinate(unique_name, point, source='Manual'):
+    """Add a spawn point unless the same-region list already has one within 30m."""
+    if not unique_name:
+        return False, 'Select a unique first'
+    try:
+        point = _normalise_point(point, source)
+    except (TypeError, ValueError):
+        return False, 'Invalid coordinate values'
+    if point['region'] == 0 or (point['x'] == 0 and point['y'] == 0):
+        return False, 'Region and coordinates are required'
+    points = unique_coordinate_map.setdefault(unique_name, [])
+    for saved in points:
+        if int(saved.get('region', 0) or 0) != point['region']:
+            continue
+        if _distance_2d(saved.get('x', 0), saved.get('y', 0), point['x'], point['y']) <= COORDINATE_DUPLICATE_DISTANCE:
+            return False, 'A saved point is already within 30m'
+    points.append(point)
+    # Explicit manual capture selects coordinate mode. Automatic learning only
+    # selects it when the unique did not already have a script route.
+    if source != 'Learned' or unique_name not in unique_script_map:
+        unique_route_modes[unique_name] = 'coordinates'
+    discovered_uniques.add(unique_name)
+    with _state_lock:
+        if unique_name in pending_uniques:
+            pending_uniques.remove(unique_name)
+    save_config()
+    refresh_mapping_list()
+    refresh_coordinate_list()
+    refresh_pending_list()
+    return True, 'Coordinate saved'
 
 def get_scripts():
     try:
@@ -203,9 +306,12 @@ def save_config():
             os.makedirs(path)
         data = {
             'mappings': unique_script_map,
+            'coordinate_mappings': unique_coordinate_map,
+            'route_modes': unique_route_modes,
             'discovered_uniques': sorted(list(discovered_uniques)),
             'plugin_active': plugin_active,
             'auto_return_enabled': auto_return_enabled,
+            'auto_learn_coordinates': auto_learn_coordinates,
             'saved_slot': saved_slot,
         }
         with open(cfg, 'w', encoding='utf-8') as f:
@@ -215,23 +321,38 @@ def save_config():
 
 def load_config():
     """Load settings from the current character's JSON file."""
-    global unique_script_map, discovered_uniques, plugin_active, auto_return_enabled, saved_slot
+    global unique_script_map, unique_coordinate_map, unique_route_modes, discovered_uniques
+    global plugin_active, auto_return_enabled, auto_learn_coordinates, saved_slot
     try:
         cfg = getConfig()
         if cfg and os.path.exists(cfg):
             with open(cfg, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             unique_script_map = data.get('mappings', {})
+            unique_route_modes = data.get('route_modes', {})
+            raw_coordinate_map = data.get('coordinate_mappings', {})
+            unique_coordinate_map = {}
+            for unique_name, points in raw_coordinate_map.items():
+                valid_points = []
+                for point in points if isinstance(points, list) else []:
+                    try:
+                        valid_points.append(_normalise_point(point))
+                    except (TypeError, ValueError, AttributeError):
+                        pass
+                if valid_points:
+                    unique_coordinate_map[unique_name] = valid_points
             saved_uniques = data.get('discovered_uniques', [])
             discovered_uniques = set(saved_uniques)
             auto_return_enabled = data.get('auto_return_enabled', False)
+            auto_learn_coordinates = data.get('auto_learn_coordinates', False)
             saved_slot = data.get('saved_slot', None)
             try:
                 QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
+                QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
             except: pass
             was_active = data.get('plugin_active', False)
             if was_active:
-                log("Plugin was ENABLED → Auto-resuming...")
+                log("Plugin was ENABLED â†’ Auto-resuming...")
                 plugin_active = True
                 try:
                     QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
@@ -242,6 +363,7 @@ def load_config():
         discovered_uniques.update(COMMON_UNIQUES)
         refresh_mapping_list()
         refresh_unique_dropdown()
+        refresh_coordinate_list()
         update_plugin_status()
     except Exception as e:
         log(f"load_config error: {e}")
@@ -253,6 +375,7 @@ def refresh_unique_dropdown():
         all_uniques = sorted(list(discovered_uniques) + [u for u in COMMON_UNIQUES if u not in discovered_uniques])
         for unique in all_uniques:
             QtBind.append(gui, dropdown_unique, unique)
+        refresh_unique_browser()
     except Exception as e:
         log(f"refresh_unique_dropdown error: {e}")
 
@@ -267,40 +390,69 @@ def refresh_scripts():
 def refresh_mapping_list():
     try:
         QtBind.clear(gui, mappings_list)
-        for unique, script in unique_script_map.items():
-            QtBind.append(gui, mappings_list, f"{unique} --> {script}")
+        all_mapped = sorted(set(unique_script_map) | set(unique_coordinate_map))
+        for unique in all_mapped:
+            points = unique_coordinate_map.get(unique, [])
+            mode = get_route_mode(unique)
+            if mode == 'coordinates' and points:
+                route = 'Coordinates (%d)' % len(points)
+            else:
+                route = unique_script_map.get(unique, '')
+            QtBind.append(gui, mappings_list, f"{unique} --> {route}")
+        refresh_unique_browser()
+        refresh_selected_unique_details()
+        refresh_configuration_health()
     except Exception as e:
         log(f"refresh_mapping_list error: {e}")
 
 def refresh_pending_list():
     try:
         QtBind.clear(gui, pending_list)
-        for unique in pending_uniques:
-            QtBind.append(gui, pending_list, f"{unique} --> [No Script]")
+        if pending_uniques:
+            for unique in pending_uniques:
+                QtBind.append(gui, pending_list, f"{unique}    [NO ROUTE]")
+        else:
+            QtBind.append(gui, pending_list, "No uniques need setup.")
+        refresh_unique_browser()
+        refresh_configuration_health()
     except Exception as e:
         log(f"refresh_pending_list error: {e}")
 
 def set_script():
     try:
-        unique = QtBind.text(gui, dropdown_unique)
+        unique = _selected_unique()
         script = QtBind.text(gui, dropdown_script)
         if not unique or not script: return
         unique_script_map[unique] = script
+        unique_route_modes[unique] = 'script'
+        with _state_lock:
+            if unique in pending_uniques:
+                pending_uniques.remove(unique)
         save_config()
         refresh_mapping_list()
+        refresh_pending_list()
+        set_manager_status('Script route assigned.', COLOR_SUCCESS)
         log(f"Mapped: {unique} -> {script}")
     except Exception as e:
         log(f"set_script error: {e}")
 
 def delete_selected_mapping():
     try:
-        selected = QtBind.text(gui, mappings_list)
-        if not selected: return
-        unique = selected.split(' --> ')[0].strip()
-        if unique in unique_script_map:
+        unique = _selected_unique()
+        if not unique: return
+        changed = False
+        if get_route_mode(unique) == 'coordinates' and unique_coordinate_map.get(unique):
+            del unique_coordinate_map[unique]
+            unique_route_modes.pop(unique, None)
+            changed = True
+        elif unique in unique_script_map:
             del unique_script_map[unique]
+            unique_route_modes.pop(unique, None)
+            changed = True
+        if changed:
             save_config()
             refresh_mapping_list()
+            refresh_coordinate_list()
     except Exception as e:
         log(f"delete_selected_mapping error: {e}")
 
@@ -308,13 +460,148 @@ def delete_pending():
     try:
         selected = QtBind.text(gui, pending_list)
         if not selected: return
-        unique = selected.split(' --> ')[0].strip()
+        if selected == 'No uniques need setup.': return
+        unique = selected.rsplit('    [NO ROUTE]', 1)[0].strip()
         with _state_lock:
             if unique in pending_uniques:
                 pending_uniques.remove(unique)
         refresh_pending_list()
     except Exception as e:
         log(f"delete_pending error: {e}")
+
+def _selected_unique():
+    return selected_unique_name.strip()
+
+def refresh_coordinate_list():
+    try:
+        QtBind.clear(gui, coordinate_list)
+        unique_name = _selected_unique()
+        for index, point in enumerate(unique_coordinate_map.get(unique_name, []), 1):
+            QtBind.append(
+                gui, coordinate_list,
+                '%d. R%d | %.0f, %.0f, %.0f | %s' % (
+                    index, point['region'], point['x'], point['y'], point.get('z', 0),
+                    point.get('source', 'Manual')
+                )
+            )
+    except Exception as error:
+        if debug_enabled: log('refresh_coordinate_list error: %s' % error)
+
+def coordinate_unique_changed(*args):
+    refresh_coordinate_list()
+
+def add_coordinate_fields():
+    unique_name = _selected_unique()
+    try:
+        point = {
+            'region': QtBind.text(gui, txt_coord_region).strip(),
+            'x': QtBind.text(gui, txt_coord_x).strip(),
+            'y': QtBind.text(gui, txt_coord_y).strip(),
+            'z': QtBind.text(gui, txt_coord_z).strip() or '0',
+        }
+        added, message = _add_coordinate(unique_name, point, 'Manual')
+        log('[Coordinates] %s: %s' % (unique_name or 'No unique', message))
+        if added:
+            QtBind.setText(gui, txt_coord_x, '')
+            QtBind.setText(gui, txt_coord_y, '')
+    except Exception as error:
+        log('[Coordinates] Could not add point: %s' % error)
+
+def add_my_current_position():
+    unique_name = _selected_unique()
+    try:
+        position = phBot.get_position()
+        if not position:
+            log('[Coordinates] Character position is unavailable')
+            return
+        added, message = _add_coordinate(unique_name, position, 'Manual')
+        log('[Coordinates] %s: %s' % (unique_name or 'No unique', message))
+    except Exception as error:
+        log('[Coordinates] Could not save current position: %s' % error)
+
+def _find_visible_unique(unique_name):
+    best = None
+    character_position = phBot.get_position() or {}
+    px = float(character_position.get('x', 0) or 0)
+    py = float(character_position.get('y', 0) or 0)
+    for monster_id, monster in (phBot.get_monsters() or {}).items():
+        if not _is_unique_match(unique_name, monster.get('name', '')):
+            continue
+        distance = _distance_2d(px, py, monster.get('x', 0), monster.get('y', 0))
+        if best is None or distance < best[0]:
+            best = (distance, monster_id, monster)
+    return best
+
+def add_nearby_unique_position():
+    unique_name = _selected_unique()
+    if not unique_name:
+        log('[Coordinates] Select a unique first')
+        return
+    try:
+        found = _find_visible_unique(unique_name)
+        if not found:
+            log('[Coordinates] Selected unique is not nearby')
+            return
+        monster = found[2]
+        point = {
+            'region': monster.get('region', 0), 'x': monster.get('x', 0),
+            'y': monster.get('y', 0), 'z': monster.get('z', 0),
+        }
+        added, message = _add_coordinate(unique_name, point, 'Manual')
+        log('[Coordinates] %s: %s' % (unique_name, message))
+    except Exception as error:
+        log('[Coordinates] Could not save nearby unique: %s' % error)
+
+def remove_coordinate():
+    unique_name = _selected_unique()
+    try:
+        index = QtBind.currentIndex(gui, coordinate_list)
+        points = unique_coordinate_map.get(unique_name, [])
+        if index < 0 or index >= len(points):
+            log('[Coordinates] Select a saved point first')
+            return
+        points.pop(index)
+        if not points:
+            unique_coordinate_map.pop(unique_name, None)
+            if unique_name in unique_script_map:
+                unique_route_modes[unique_name] = 'script'
+            else:
+                unique_route_modes.pop(unique_name, None)
+        save_config()
+        refresh_mapping_list()
+        refresh_coordinate_list()
+        refresh_pending_list()
+        log('[Coordinates] Removed selected point for %s' % unique_name)
+    except Exception as error:
+        log('[Coordinates] Could not remove point: %s' % error)
+
+def toggle_auto_learn(checked=None):
+    global auto_learn_coordinates
+    auto_learn_coordinates = bool(checked)
+    save_config()
+    log('[Coordinates] Automatic learning is %s' % ('ON' if auto_learn_coordinates else 'OFF'))
+
+def use_coordinate_route():
+    unique_name = _selected_unique()
+    if not unique_name or not unique_coordinate_map.get(unique_name):
+        log('[Coordinates] Add at least one point for the selected unique first')
+        return
+    unique_route_modes[unique_name] = 'coordinates'
+    save_config()
+    refresh_mapping_list()
+    set_manager_status('Coordinate route selected.', COLOR_SUCCESS)
+    log('[Coordinates] %s will use its coordinate list' % unique_name)
+
+def use_script_route():
+    unique_name = _selected_unique()
+    if not unique_name or unique_name not in unique_script_map:
+        log('[Coordinates] Assign a script to the selected unique first')
+        return
+    unique_route_modes[unique_name] = 'script'
+    save_config()
+    refresh_mapping_list()
+    set_manager_status('Script route selected.', COLOR_SUCCESS)
+    log('[Coordinates] %s will use its assigned script' % unique_name)
 
 # ================= AUTO RETURN LOGIC =================
 def do_auto_return(unique_name):
@@ -324,9 +611,9 @@ def do_auto_return(unique_name):
     """
     if not auto_return_enabled: return
     if _is_in_town() or just_returned:
-        log(f"[AutoReturn] {unique_name} has no script → Already in town, no action needed.")
+        log(f"[AutoReturn] {unique_name} has no script â†’ Already in town, no action needed.")
         return
-    log(f"[AutoReturn] {unique_name} has no script → Outside town! Returning...")
+    log(f"[AutoReturn] {unique_name} has no script â†’ Outside town! Returning...")
     _trigger_return_to_town()
 
 def _wait_for_town(on_arrived, label="Return", max_attempts=30):
@@ -336,13 +623,13 @@ def _wait_for_town(on_arrived, label="Return", max_attempts=30):
     def _check(attempts=0):
         # disable edilirse bekleyen town-varis zincirini durdur
         if not plugin_active:
-            if debug_enabled: log(f"[{label}] Plugin disabled → town-wait iptal.")
+            if debug_enabled: log(f"[{label}] Plugin disabled â†’ town-wait iptal.")
             return
         if _is_in_town():
             on_arrived()
             return
         if attempts >= max_attempts:
-            log(f"[{label}] Town arrival timeout — stopping anyway.")
+            log(f"[{label}] Town arrival timeout â€” stopping anyway.")
             on_arrived()
             return
         threading.Timer(1.0, _check, [attempts + 1]).start()
@@ -378,9 +665,20 @@ def start_script_btn():
     global force_stopped
     try:
         force_stopped = False
-        selected = QtBind.text(gui, mappings_list)
-        if selected:
-            unique = selected.split(' --> ')[0].strip()
+        unique = _selected_unique()
+        if unique:
+            if get_route_mode(unique) == 'coordinates' and unique_coordinate_map.get(unique):
+                if not plugin_active:
+                    log('[Coordinates] Start Monitoring before starting a manual coordinate hunt')
+                    return
+                alive_uniques[unique] = {
+                    'spawn_time': time.time(), 'alive': True,
+                    'handled': False, 'last_seen': time.time()
+                }
+                run_mapped_script(unique, 'spawn')
+                if current_active_unique == unique:
+                    log(f"Manual Coordinate Hunt: {unique}")
+                return
             script_name = unique_script_map.get(unique)
             if script_name:
                 script_path = os.path.join(scripts_folder, script_name)
@@ -389,13 +687,15 @@ def start_script_btn():
                         script_content = f.read()
                     script_content = script_content.replace('{unique}', unique).replace('{event}', 'manual')
                     phBot.start_script(script_content)
+                    append_activity_once('manual-route:%s' % unique,
+                                         'Manual route started: %s' % unique)
                     with _state_lock:
                         if unique in unique_queue:
                             unique_queue.remove(unique)
                     update_queue_label()
                     log(f"Manual Start: {unique}")
                     return
-        found_alive = [n for n, d in alive_uniques.items() if d.get('alive', False) and n in unique_script_map]
+        found_alive = [n for n, d in alive_uniques.items() if d.get('alive', False) and has_hunt_route(n)]
         if found_alive:
             with _state_lock:
                 for uname in found_alive:
@@ -416,7 +716,7 @@ def check_alive_uniques():
             log("No tracked alive uniques")
             return
         for name in tracked_alive:
-            status = "Script" if name in unique_script_map else "No Script"
+            status = "Coordinates" if get_route_mode(name) == 'coordinates' else ("Script" if name in unique_script_map else "No Route")
             log(f"   * {name} ({status})")
     except Exception as e:
         log(f"check_alive_uniques error: {e}")
@@ -426,6 +726,7 @@ def stop_script_btn():
     try:
         stop_attack_loop()
         stop_loot_timer()
+        stop_coordinate_hunt()
         try: stop_script()
         except: pass
         try: stop_bot()
@@ -440,12 +741,12 @@ def stop_script_btn():
 # ================= LOOT SYSTEM =================
 def wait_for_loot_async(remaining_sec, total_sec=None):
     """
-    unique öldükten sonra loot_wait_sec kadar KOŞULSUZ bekler.
-    Eskiden get_drops() boş dönerse (pick filter'a uymayan bir item düştüyse,
-    ya da server drop paketini henüz işlememişse) anında şehre dönüyordu —
-    yani ayarlanan bekleme süresi hiç işlemiyordu. Artık get_drops() sadece
-    bilgi amaçlı (yerde ne göründüğünü loglamak için) kullanılıyor, bekleme
-    süresini KISALTMIYOR/KESMİYOR.
+    unique Ã¶ldÃ¼kten sonra loot_wait_sec kadar KOÅULSUZ bekler.
+    Eskiden get_drops() boÅŸ dÃ¶nerse (pick filter'a uymayan bir item dÃ¼ÅŸtÃ¼yse,
+    ya da server drop paketini henÃ¼z iÅŸlememiÅŸse) anÄ±nda ÅŸehre dÃ¶nÃ¼yordu â€”
+    yani ayarlanan bekleme sÃ¼resi hiÃ§ iÅŸlemiyordu. ArtÄ±k get_drops() sadece
+    bilgi amaÃ§lÄ± (yerde ne gÃ¶rÃ¼ndÃ¼ÄŸÃ¼nÃ¼ loglamak iÃ§in) kullanÄ±lÄ±yor, bekleme
+    sÃ¼resini KISALTMIYOR/KESMÄ°YOR.
     """
     global loot_timer
     if not plugin_active: return
@@ -457,7 +758,7 @@ def wait_for_loot_async(remaining_sec, total_sec=None):
                 names = ', '.join(d.get('name', '?') for d in drops.values())
                 log(f"[Loot] Dusen itemler: {names}")
             else:
-                log(f"[Loot] get_drops() bos (pick filter disinda olabilir) — yine de {total_sec}s bekleniyor...")
+                log(f"[Loot] get_drops() bos (pick filter disinda olabilir) â€” yine de {total_sec}s bekleniyor...")
         except Exception as e:
             log(f"[Loot] get_drops() error: {e}")
 
@@ -477,7 +778,13 @@ def finish_hunt_and_return():
     global current_active_unique, bot_state
     if not plugin_active: return
     try:
+        append_activity_once('hunt-complete', 'Hunt completed')
         stop_attack_loop()
+        stop_coordinate_hunt()
+        try: stop_script()
+        except: pass
+        try: stop_bot()
+        except: pass
         current_active_unique = None
         update_active_unique_label()
         bot_state = 'RETURNING'
@@ -491,10 +798,12 @@ def _trigger_return_to_town():
     """Central entry point for returning to town."""
     global bot_state, just_returned
     just_returned = False
+    append_activity_once('return-town', 'Returning to town')
     bot_state = 'RETURNING'
     _set_in_town(False)  # The character has not reached town yet.
     stop_attack_loop()
     stop_loot_timer()
+    stop_coordinate_hunt()
     try: stop_script()
     except: pass
     try: stop_bot()
@@ -537,23 +846,25 @@ def check_next_unique_after_return():
     if plugin_active and unique_queue:
         with _state_lock:
             for uname in list(unique_queue):
-                if uname in unique_script_map and alive_uniques.get(uname, {}).get('alive', False):
-                    log(f"[Town] Next unique: {uname} → Starting in 1s...")
+                if has_hunt_route(uname) and alive_uniques.get(uname, {}).get('alive', False):
+                    log(f"[Town] Next unique: {uname} â†’ Starting in 1s...")
                     threading.Timer(1.0, auto_start_next_unique).start()
                     return
-                elif uname not in unique_script_map:
+                elif not has_hunt_route(uname):
                     unique_queue.remove(uname)
-                    log(f"[Town] {uname} has no script → removed from queue.")
+                    log(f"[Town] {uname} has no script â†’ removed from queue.")
         update_queue_label()
 
-    # Islenecek alive+scriptli unique yok → TOWNDA BEKLEME, grind slotuna geri don
+    # No queued hunt remains. Monitoring stays active, but the bot must remain
+    # stopped in town instead of restoring the previous grind slot.
     if plugin_active:
-        if restore_slot():
-            pass  # restore_slot kendi logunu basiyor
-        else:
-            log("[Town] Kayitli slot yok → townda bekleniyor. (Slot icin plugini slotta enable et)")
+        try: stop_script()
+        except: pass
+        try: stop_bot()
+        except: pass
+        log("[Town] Hunt queue empty; monitoring active and bot stopped in town.")
     else:
-        log("[Town] Plugin disabled → standing by in town.")
+        log("[Town] Plugin disabled â†’ standing by in town.")
 
 def get_loot_wait_seconds():
     try:
@@ -581,12 +892,178 @@ def _find_mapped_name(spawn_name: str) -> str:
     Resolve a spawn variant such as Tiger Girl (INT) to its mapped base name.
     Return the original spawn name when no mapping matches.
     """
-    if spawn_name in unique_script_map:
+    if has_hunt_route(spawn_name):
         return spawn_name
-    for mapped in unique_script_map:
+    for mapped in set(unique_script_map) | set(unique_coordinate_map):
         if _is_unique_match(mapped, spawn_name):
             return mapped
     return spawn_name
+
+def stop_coordinate_hunt():
+    """Cancel coordinate navigation and invalidate every pending callback."""
+    global coordinate_hunt, coordinate_timer, coordinate_run_token
+    coordinate_run_token += 1
+    coordinate_hunt = None
+    if coordinate_timer:
+        coordinate_timer.cancel()
+        coordinate_timer = None
+
+def _schedule_coordinate_tick(token, delay=COORDINATE_SCAN_INTERVAL_SEC):
+    global coordinate_timer
+    if token != coordinate_run_token:
+        return
+    coordinate_timer = threading.Timer(delay, _coordinate_tick_guarded, [token])
+    coordinate_timer.start()
+
+def _coordinate_tick_guarded(token):
+    """Keep the coordinate monitor alive after transient phBot API errors."""
+    try:
+        _coordinate_tick(token)
+    except Exception as error:
+        if token != coordinate_run_token or not coordinate_hunt or not plugin_active:
+            return
+        log('[Coordinates] Search monitor error: %s; retrying' % error)
+        _schedule_coordinate_tick(token, 0.5)
+
+def _engage_coordinate_target(unique_name, monster_id, monster):
+    """Stop navigation and immediately start botting at the visible unique."""
+    global coordinate_hunt, bot_state
+    try: stop_script()
+    except: pass
+    try: stop_bot()
+    except: pass
+    region = int(monster.get('region', 0) or 0)
+    if region == 0:
+        position = phBot.get_position() or {}
+        region = int(position.get('region', 0) or 0)
+    x = float(monster.get('x', 0) or 0)
+    y = float(monster.get('y', 0) or 0)
+    if region == 0 or (x == 0 and y == 0):
+        log('[Coordinates] Visible unique position is invalid')
+        handle_unique_timeout()
+        return
+    position_set = set_training_position(region, x, y, 0.0)
+    set_training_radius(UNIQUE_TRAINING_RADIUS)
+    if position_set is False:
+        log('[Coordinates] Training position could not be set; select an active Training Area')
+    phBot.start_bot()
+    stop_coordinate_hunt()
+    start_attack_loop()
+    bot_state = 'HUNTING'
+    log('[Coordinates] Found %s at (%.0f, %.0f); training area set and bot started' % (unique_name, x, y))
+
+def _coordinate_hunt_exhausted(unique_name):
+    global current_active_unique, bot_state, unique_not_found_count
+    stop_coordinate_hunt()
+    try: stop_script()
+    except: pass
+    with _state_lock:
+        if unique_name in alive_uniques:
+            alive_uniques[unique_name]['alive'] = False
+            alive_uniques[unique_name]['handled'] = False
+    current_active_unique = None
+    unique_not_found_count = 0
+    update_active_unique_label()
+    bot_state = 'RETURNING'
+    log('[Coordinates] %s was not found at any saved point' % unique_name)
+    _trigger_return_to_town()
+
+def _start_coordinate_point(token):
+    global coordinate_hunt, last_pathfinding_time
+    if token != coordinate_run_token or not coordinate_hunt or not plugin_active:
+        return
+    unique_name = coordinate_hunt['unique']
+    points = coordinate_hunt['points']
+    index = coordinate_hunt['index']
+    if index >= len(points):
+        _coordinate_hunt_exhausted(unique_name)
+        return
+    visible = _find_visible_unique(unique_name)
+    if visible:
+        _engage_coordinate_target(unique_name, visible[1], visible[2])
+        return
+    elapsed = time.time() - last_pathfinding_time
+    if elapsed < PATHFINDING_COOLDOWN_SEC:
+        wait_seconds = PATHFINDING_COOLDOWN_SEC - elapsed
+        log('[Coordinates] Pathfinding cooldown; next point starts in %.1fs' % wait_seconds)
+        _schedule_coordinate_tick(token, wait_seconds)
+        coordinate_hunt['phase'] = 'pathfinding_wait'
+        return
+    point = points[index]
+    last_pathfinding_time = time.time()
+    try:
+        commands = generate_script(point['region'], point['x'], point['y'], point.get('z', 0.0))
+    except Exception as error:
+        log('[Coordinates] Route generation failed for point %d: %s' % (index + 1, error))
+        coordinate_hunt['index'] += 1
+        _schedule_coordinate_tick(token)
+        return
+    if not isinstance(commands, list) or not commands:
+        if commands is False:
+            coordinate_hunt['phase'] = 'pathfinding_wait'
+            _schedule_coordinate_tick(token, PATHFINDING_COOLDOWN_SEC)
+            return
+        log('[Coordinates] No route for point %d; trying the next point' % (index + 1))
+        coordinate_hunt['index'] += 1
+        _schedule_coordinate_tick(token)
+        return
+    try:
+        start_script('\n'.join(commands))
+        coordinate_hunt['phase'] = 'walking'
+        coordinate_hunt['route_started'] = time.time()
+        log('[Coordinates] Walking to point %d/%d: R%d (%.0f, %.0f)' % (
+            index + 1, len(points), point['region'], point['x'], point['y']))
+        _schedule_coordinate_tick(token)
+    except Exception as error:
+        log('[Coordinates] Could not start route for point %d: %s' % (index + 1, error))
+        coordinate_hunt['index'] += 1
+        _schedule_coordinate_tick(token)
+
+def _coordinate_tick(token):
+    if token != coordinate_run_token or not coordinate_hunt or not plugin_active:
+        return
+    unique_name = coordinate_hunt['unique']
+    visible = _find_visible_unique(unique_name)
+    if visible:
+        _engage_coordinate_target(unique_name, visible[1], visible[2])
+        return
+    if time.time() - coordinate_hunt['started'] >= get_timeout_seconds():
+        log('[Coordinates] Hunt timeout while searching for %s' % unique_name)
+        handle_unique_timeout()
+        return
+    phase = coordinate_hunt.get('phase')
+    if phase == 'pathfinding_wait':
+        _start_coordinate_point(token)
+        return
+    point = coordinate_hunt['points'][coordinate_hunt['index']]
+    if phase == 'walking':
+        position = phBot.get_position() or {}
+        same_region = int(position.get('region', 0) or 0) == int(point['region'])
+        arrived = same_region and _distance_2d(position.get('x', 0), position.get('y', 0), point['x'], point['y']) <= COORDINATE_ARRIVAL_DISTANCE
+        if arrived:
+            try: stop_script()
+            except: pass
+            coordinate_hunt['phase'] = 'scanning'
+            coordinate_hunt['scan_deadline'] = time.time() + COORDINATE_SEARCH_SEC
+            log('[Coordinates] Point %d reached; scanning for 2 seconds' % (coordinate_hunt['index'] + 1))
+    elif phase == 'scanning' and time.time() >= coordinate_hunt.get('scan_deadline', 0):
+        coordinate_hunt['index'] += 1
+        coordinate_hunt['phase'] = 'pathfinding_wait'
+        _start_coordinate_point(token)
+        return
+    _schedule_coordinate_tick(token)
+
+def start_coordinate_hunt(unique_name):
+    global coordinate_hunt, coordinate_run_token
+    stop_coordinate_hunt()
+    coordinate_run_token += 1
+    token = coordinate_run_token
+    coordinate_hunt = {
+        'unique': unique_name,
+        'points': [dict(point) for point in unique_coordinate_map.get(unique_name, [])],
+        'index': 0, 'phase': 'pathfinding_wait', 'started': time.time()
+    }
+    _start_coordinate_point(token)
 
 # ================= CORE UNIQUE RUNNER =================
 def _on_unique_spawn(unique_name):
@@ -597,10 +1074,11 @@ def _on_unique_spawn(unique_name):
     - Start immediately when already in town.
     """
     global bot_state, current_active_unique, force_stopped, just_returned
+    append_activity_once('detected:%s' % unique_name, 'Detected: %s' % unique_name)
 
     # Keep the current hunt running and queue the new mapped unique.
     if current_active_unique and current_active_unique.lower() != unique_name.lower():
-        if unique_name in unique_script_map:
+        if has_hunt_route(unique_name):
             with _state_lock:
                 if unique_name not in unique_queue:
                     unique_queue.append(unique_name)
@@ -609,23 +1087,41 @@ def _on_unique_spawn(unique_name):
             log(f"[Queue] {unique_name} queued (busy with {current_active_unique}).")
         return
 
+    # A spawn event for the coordinate hunt already in progress must not enter
+    # the generic "outside town" return/queue branch. Check the visible list
+    # immediately and wake the route monitor so engagement cannot be delayed by
+    # a stale or failed timer.
+    if (current_active_unique and coordinate_hunt and
+            current_active_unique.lower() == unique_name.lower()):
+        try:
+            visible = _find_visible_unique(current_active_unique)
+            if visible:
+                _engage_coordinate_target(current_active_unique, visible[1], visible[2])
+                return
+        except Exception as error:
+            log('[Coordinates] Immediate spawn check error: %s' % error)
+        if coordinate_timer:
+            coordinate_timer.cancel()
+        _schedule_coordinate_tick(coordinate_run_token, 0.0)
+        return
+
     # Check the town state before starting any new action.
     # just_returned skips this check once immediately after arrival.
     in_town = just_returned or _is_in_town()
     if not in_town:
-        # --- Script'i OLMAYAN unique → grind'i BOLME ---
+        # --- Script'i OLMAYAN unique â†’ grind'i BOLME ---
         # (eski surumde script olsun olmasin sehre donuyordu; rastgele bir unique
         #  yaninda spawn olunca bot slotu birakip sehre isinlaniyordu = bug)
-        if unique_name not in unique_script_map:
+        if not has_hunt_route(unique_name):
             if auto_return_enabled and bot_state == 'IDLE':
-                log(f"[Spawn] {unique_name} (script yok) → Auto Return acik, donuluyor...")
+                log(f"[Spawn] {unique_name} (script yok) â†’ Auto Return acik, donuluyor...")
                 do_auto_return(unique_name)
             else:
-                log(f"[Spawn] {unique_name} (script yok) → yok sayiliyor, slotta kaliniyor.")
+                log(f"[Spawn] {unique_name} (script yok) â†’ yok sayiliyor, slotta kaliniyor.")
             return
 
-        # --- Script'li unique → slotu kaydet, sehre don, sonra script calissin ---
-        log(f"[Spawn] {unique_name} slotta spawn oldu → slot kaydedilip sehre donuluyor...")
+        # --- Script'li unique â†’ slotu kaydet, sehre don, sonra script calissin ---
+        log(f"[Spawn] {unique_name} slotta spawn oldu â†’ slot kaydedilip sehre donuluyor...")
         with _state_lock:
             if unique_name not in unique_queue:
                 unique_queue.append(unique_name)
@@ -645,8 +1141,6 @@ def _on_unique_spawn(unique_name):
                 m_name = m_data.get('name', '').lower()
                 if _is_unique_match(target_name, m_name):
                     log(f"[INSTANT] Attacking {unique_name} immediately!")
-                    phBot.set_target(m_id)
-                    phBot.attack_monster(m_id)
                     break
     except Exception as e:
         if debug_enabled: log(f"[Spawn] instant attack error: {e}")
@@ -663,6 +1157,7 @@ def run_mapped_script(unique_name, event_type):
                 log(f"{unique_name} DIED. Stopping Bot immediately.")
                 stop_attack_loop()
                 stop_loot_timer()
+                stop_coordinate_hunt()
                 try: stop_script()
                 except: pass
                 try: stop_bot()
@@ -690,7 +1185,7 @@ def run_mapped_script(unique_name, event_type):
                     log(f"{unique_name} removed from queue (Died while waiting).")
                 # Stop the active route and return if its target died.
                 if current_active_unique and current_active_unique.lower() == unique_name.lower():
-                    log(f"{unique_name} died while script was running → stopping script.")
+                    log(f"{unique_name} died while script was running â†’ stopping script.")
                     stop_attack_loop()
                     stop_loot_timer()
                     try: stop_script()
@@ -701,7 +1196,7 @@ def run_mapped_script(unique_name, event_type):
                     update_active_unique_label()
                     bot_state = 'IDLE'
                     if not _is_in_town():
-                        log(f"{unique_name} died outside town → returning to town...")
+                        log(f"{unique_name} died outside town â†’ returning to town...")
                         _trigger_return_to_town()
                     elif unique_queue and plugin_active:
                         threading.Timer(1.0, auto_start_next_unique).start()
@@ -717,12 +1212,12 @@ def run_mapped_script(unique_name, event_type):
         if alive_uniques[unique_name].get('handled', False): return
 
         # Auto-return for an unmapped unique while the bot is idle.
-        if unique_name not in unique_script_map:
+        if not has_hunt_route(unique_name):
             with _state_lock:
                 if unique_name not in pending_uniques:
                     pending_uniques.append(unique_name)
                     refresh_pending_list()
-                    log(f"[Pending] {unique_name} has no script → added to pending.")
+                    log(f"[Pending] {unique_name} has no script â†’ added to pending.")
             if bot_state == 'IDLE' and auto_return_enabled:
                 do_auto_return(unique_name)
             alive_uniques[unique_name]['handled'] = True
@@ -735,13 +1230,13 @@ def run_mapped_script(unique_name, event_type):
                     unique_queue.append(unique_name)
                     sort_queue_by_priority()
                     update_queue_label()
-                    log(f"[Queue] {unique_name} queued (outside town — will run after current).")
+                    log(f"[Queue] {unique_name} queued (outside town â€” will run after current).")
             alive_uniques[unique_name]['handled'] = True
             return
 
         if force_stopped:
             if bot_state == 'IDLE' and plugin_active:
-                log(f"[Town] New spawn: {unique_name} → Releasing force stop...")
+                log(f"[Town] New spawn: {unique_name} â†’ Releasing force stop...")
                 force_stopped = False
             else:
                 log(f"Blocked: Bot is force stopped.")
@@ -760,8 +1255,9 @@ def run_mapped_script(unique_name, event_type):
             return
 
         script_name = unique_script_map.get(unique_name)
-        script_path = os.path.join(scripts_folder, script_name)
-        if not os.path.exists(script_path):
+        script_path = os.path.join(scripts_folder, script_name) if script_name else None
+        coordinate_mode = get_route_mode(unique_name) == 'coordinates'
+        if not coordinate_mode and (not script_path or not os.path.exists(script_path)):
             log(f"Script not found: {script_path}")
             alive_uniques[unique_name]['handled'] = True
             return
@@ -803,6 +1299,13 @@ def run_mapped_script(unique_name, event_type):
 
             bot_state = 'HUNTING'
 
+            # Coordinate routes take priority when at least one point is saved.
+            if coordinate_mode and unique_coordinate_map.get(unique_name):
+                start_coordinate_hunt(unique_name)
+                alive_uniques[unique_name]['handled'] = True
+                log(f"ACTIVE: {current_active_unique}")
+                return
+
             # ===== ENGAGE MODE =====
             # If the unique is nearby, move the training area to it and start the bot.
             if found_coords and target_x != 0:
@@ -815,12 +1318,12 @@ def run_mapped_script(unique_name, event_type):
                 # set_training_position hicbir sey yapmaz. Mevcut area'yi koruyup
                 # koordinat ve radius'u ayri ayri guncelle.
                 position_set = set_training_position(target_region, target_x, target_y, 0.0)
-                radius_set = set_training_radius(120.0)
+                radius_set = set_training_radius(UNIQUE_TRAINING_RADIUS)
                 if position_set is False:
                     log("[Engage] Training position ayarlanamadi; aktif Training Area secili mi?")
                 phBot.start_bot()
                 start_attack_loop()
-                log(f"Started: {unique_name} (Engage Mode — pos set to unique)")
+                log(f"Started: {unique_name} (Engage Mode â€” pos set to unique)")
             else:
                 # If the unique is distant, run the walk script to reach it.
                 set_training_script(script_path)
@@ -829,7 +1332,7 @@ def run_mapped_script(unique_name, event_type):
                 script_content = script_content.replace('{unique}', unique_name).replace('{event}', 'auto')
                 phBot.start_script(script_content)
                 start_attack_loop()
-                log(f"Started: {unique_name} (Script Mode — walking to unique)")
+                log(f"Started: {unique_name} (Script Mode â€” walking to unique)")
 
             alive_uniques[unique_name]['handled'] = True
             log(f"ACTIVE: {current_active_unique}")
@@ -879,7 +1382,7 @@ def _set_in_town(value: bool):
 def capture_slot():
     """
     Mevcut training area'yi (grind slotu) kaydeder ki av bitince geri donebilelim.
-    - Sadece av DISINDA cagrilmali (current_active_unique None) — yoksa training area
+    - Sadece av DISINDA cagrilmali (current_active_unique None) â€” yoksa training area
       unique'in koordinatina bakiyor olur, onu slot sanmayalim.
     - Town'u slot sanmamak icin region town ise kaydetmez.
     get_training_area() kalici bir ayar dondurur (karakter fiziksel olarak town'da olsa
@@ -929,7 +1432,7 @@ def restore_slot():
             log("[Slot] Training position geri yuklenemedi; aktif Training Area secili mi?")
             return False
         phBot.start_bot()
-        log(f"[Slot] Slota geri donuluyor ({s['x']:.0f},{s['y']:.0f}) region={s['region']} → grind devam.")
+        log(f"[Slot] Slota geri donuluyor ({s['x']:.0f},{s['y']:.0f}) region={s['region']} â†’ grind devam.")
         return True
     except Exception as e:
         log(f"restore_slot error: {e}")
@@ -937,7 +1440,7 @@ def restore_slot():
 
 def _return_then_enable():
     """Use a return scroll and poll until the character reaches town."""
-    log("Plugin ENABLED - Not in town → Using return scroll first...")
+    log("Plugin ENABLED - Not in town â†’ Using return scroll first...")
     try: use_return_scroll()
     except: pass
     threading.Timer(1.0, lambda: _wait_for_town(_after_return_enable, label="Enable")).start()
@@ -950,7 +1453,7 @@ def _after_return_enable():
     force_stopped = False
     just_returned = False
     _set_in_town(True)
-    log("Arrived in town → Plugin ready.")
+    log("Arrived in town â†’ Plugin ready.")
     if not current_active_unique and unique_queue:
         log("Auto-starting first unique from saved queue...")
         auto_start_next_unique()
@@ -977,7 +1480,7 @@ def _check_town_on_enable():
     if _is_in_town():
         just_returned = True
         _set_in_town(True)
-        log("Plugin ENABLED — In town, ready.")
+        log("Plugin ENABLED â€” In town, ready.")
         if not current_active_unique and unique_queue:
             log("Auto-starting first unique from saved queue...")
             threading.Timer(1.0, auto_start_next_unique).start()
@@ -988,19 +1491,20 @@ def _check_town_on_enable():
         _set_in_town(False)
         # Slotta grind ediyoruz. Kuyrukta islenmeyi bekleyen alive+scriptli unique varsa
         # once sehre donup onu avla; yoksa grind'i BOLME, slotta beklemeye devam et.
-        has_ready = any(u in unique_script_map and alive_uniques.get(u, {}).get('alive', False)
+        has_ready = any(has_hunt_route(u) and alive_uniques.get(u, {}).get('alive', False)
                         for u in list(unique_queue))
         if has_ready:
-            log("Plugin ENABLED — Bekleyen scriptli unique var → sehre donup avlaniyor.")
+            log("Plugin ENABLED â€” Bekleyen scriptli unique var â†’ sehre donup avlaniyor.")
             _trigger_return_to_town()
         else:
-            log("Plugin ENABLED — Slotta grind. Scriptli unique spawn olunca avlanacak.")
+            log("Plugin ENABLED â€” Slotta grind. Scriptli unique spawn olunca avlanacak.")
 
 def disable_plugin_monitoring():
     global plugin_active, current_active_unique, bot_state
     if not plugin_active: return
     stop_attack_loop()
     stop_loot_timer()
+    stop_coordinate_hunt()
     if current_active_unique:
         try: stop_bot()
         except: pass
@@ -1023,29 +1527,49 @@ def update_active_unique_label():
         color = COLOR_SUCCESS if current_active_unique else COLOR_MUTED
         QtBind.setText(
             gui, lbl_active_unique,
-            fixed_width_text('<font color="%s"><b>%s</b></font>' % (color, value), 205)
+            fixed_width_text('<font color="%s"><b>%s</b></font>' % (color, value), 250)
         )
+        if _last_activity_state['target'] != value:
+            _last_activity_state['target'] = value
+            append_activity('Current target: %s' % value)
+        refresh_runtime_dashboard()
     except: pass
 
 def update_plugin_status():
     """Keep the live status row synchronized with the plugin state."""
     try:
         if plugin_active:
-            status = '<font color="%s"><b>ACTIVE - MONITORING UNIQUE SPAWNS</b></font>' % COLOR_SUCCESS
+            status = '<font color="%s"><b>ACTIVE</b></font>' % COLOR_SUCCESS
         else:
-            status = '<font color="%s"><b>INACTIVE - AUTOMATION STOPPED</b></font>' % COLOR_MUTED
-        QtBind.setText(gui, lbl_plugin_status, fixed_width_text(status, 300))
+            status = '<font color="%s"><b>DISABLED</b></font>' % COLOR_MUTED
+        QtBind.setText(gui, lbl_plugin_status, fixed_width_text(status, 250))
+        if _last_activity_state['plugin'] != plugin_active:
+            _last_activity_state['plugin'] = plugin_active
+            append_activity('Monitoring %s' % ('enabled' if plugin_active else 'disabled'))
+        refresh_runtime_dashboard()
     except: pass
 
 def update_queue_label():
     try:
         if lbl_queue is None: return
-        queue_text = f"({len(unique_queue)}) {', '.join(unique_queue[:3])}" if unique_queue else "Empty"
+        queue_text = f"({len(unique_queue)}) {', '.join(unique_queue[:3])}" if unique_queue else "Queue is empty."
         QtBind.setText(
             gui, lbl_queue,
             fixed_width_text('<font color="%s">%s</font>' % (COLOR_TEXT, queue_text), 300)
         )
         refresh_queue_list()
+        queue_state = tuple(unique_queue)
+        previous_queue = _last_activity_state['queue']
+        if previous_queue != queue_state:
+            _last_activity_state['queue'] = queue_state
+            previous_names = set(previous_queue or ())
+            for unique_name in queue_state:
+                if unique_name not in previous_names:
+                    append_activity_once('queued:%s' % unique_name,
+                                         'Queued: %s' % unique_name)
+            if previous_queue is not None and not queue_state and previous_queue:
+                append_activity('Queue is empty')
+        refresh_configuration_health()
     except: pass
 
 def refresh_queue_list():
@@ -1055,10 +1579,10 @@ def refresh_queue_list():
         if unique_queue:
             for i, unique in enumerate(unique_queue, 1):
                 priority = get_unique_priority(unique)
-                script = unique_script_map.get(unique, "[No Script]")
-                QtBind.append(gui, queue_list, f"{i}. [{priority}] {unique} -> {script}")
+                route = ('Coordinates (%d)' % len(unique_coordinate_map[unique])) if get_route_mode(unique) == 'coordinates' else unique_script_map.get(unique, "[No Route]")
+                QtBind.append(gui, queue_list, f"{i}. [{priority}] {unique} -> {route}")
         else:
-            QtBind.append(gui, queue_list, "Empty")
+            QtBind.append(gui, queue_list, "Queue is empty.")
     except: pass
 
 def clear_queue_btn():
@@ -1090,7 +1614,7 @@ def auto_start_next_unique():
 
         # Return first when outside town and not immediately after arrival.
         if not just_returned and not _is_in_town():
-            log("[AutoReturn] auto_start_next_unique: Not in town → Returning first!")
+            log("[AutoReturn] auto_start_next_unique: Not in town â†’ Returning first!")
             if bot_state == 'IDLE':
                 _trigger_return_to_town()
             return
@@ -1109,8 +1633,8 @@ def auto_start_next_unique():
 
 def add_to_queue_btn():
     try:
-        selected = QtBind.text(gui, dropdown_unique)
-        if not selected or selected not in unique_script_map:
+        selected = _selected_unique()
+        if not selected or not has_hunt_route(selected):
             log("Select a mapped unique first")
             return
         with _state_lock:
@@ -1159,7 +1683,7 @@ def start_attack_loop():
                         if not engaged[0]:
                             engaged[0] = True
                             script_finished = True
-                            log(f"[Engage] Found {monster.get('name')} → stop script, set training pos, start bot")
+                            log(f"[Engage] Found {monster.get('name')} â†’ stop script, set training pos, start bot")
                             try: phBot.stop_script()
                             except: pass
                             try: phBot.stop_bot()
@@ -1175,7 +1699,7 @@ def start_attack_loop():
                                     # Bos training script vermek area'yi resetledigi icin
                                     # burada yalnizca koordinat ve radius degistirilir.
                                     position_set = set_training_position(region, mx, my, 0.0)
-                                    radius_set = set_training_radius(120.0)
+                                    radius_set = set_training_radius(UNIQUE_TRAINING_RADIUS)
                                     if position_set is False:
                                         log("[Engage] Training position ayarlanamadi; aktif Training Area secili mi?")
                                     phBot.start_bot()
@@ -1183,16 +1707,15 @@ def start_attack_loop():
                             except Exception as e:
                                 if debug_enabled: log(f"[Engage] error: {e}")
 
-                        # Continue attacking the target.
-                        phBot.set_target(monster_id)
-                        phBot.attack_monster(monster_id)
-                        if debug_enabled: log(f"Attacking {monster.get('name')}")
+                        # phBot selects the unique through its own target settings.
+                        # There is no public set_target/attack_monster plugin API.
+                        if debug_enabled: log(f"Tracking {monster.get('name')}")
                         break
 
             if not unique_found:
-                # ===== GENEL TIMEOUT: script_finished şartı olmadan hunt başından beri sayar =====
-                # (Eskiden bu sayaç sadece unique bir kere bulunduktan sonra işliyordu; script
-                #  hedefe hiç ulaşamazsa hiçbir zaman tetiklenmiyordu → bot HUNTING'de kilitli kalıyordu)
+                # ===== GENEL TIMEOUT: script_finished ÅŸartÄ± olmadan hunt baÅŸÄ±ndan beri sayar =====
+                # (Eskiden bu sayaÃ§ sadece unique bir kere bulunduktan sonra iÅŸliyordu; script
+                #  hedefe hiÃ§ ulaÅŸamazsa hiÃ§bir zaman tetiklenmiyordu â†’ bot HUNTING'de kilitli kalÄ±yordu)
                 unique_not_found_count += 1
                 timeout_seconds = get_timeout_seconds()
                 max_attempts = timeout_seconds / 0.1
@@ -1202,14 +1725,14 @@ def start_attack_loop():
                     return
 
                 # ===== HIZLI FALLBACK: engage edildikten sonra unique aniden kayboldu =====
-                # (muhtemelen öldü ama chat/packet death tespiti bunu yakalamadı) → tam
-                # timeout süresini (dakikalarca) beklemeden kısa bir grace period sonunda
-                # ölmüş gibi davranıp loot bekle + şehre dön akışını tetikle.
+                # (muhtemelen Ã¶ldÃ¼ ama chat/packet death tespiti bunu yakalamadÄ±) â†’ tam
+                # timeout sÃ¼resini (dakikalarca) beklemeden kÄ±sa bir grace period sonunda
+                # Ã¶lmÃ¼ÅŸ gibi davranÄ±p loot bekle + ÅŸehre dÃ¶n akÄ±ÅŸÄ±nÄ± tetikle.
                 if engaged[0]:
                     lost_after_engage[0] += 1
                     grace_attempts = LOST_TARGET_GRACE_SEC / 0.1
                     if lost_after_engage[0] >= grace_attempts:
-                        log(f"[LostTarget] {current_active_unique} disappeared after engage → assuming dead, returning.")
+                        log(f"[LostTarget] {current_active_unique} disappeared after engage â†’ assuming dead, returning.")
                         handle_presumed_death()
                         return
         except: pass
@@ -1224,15 +1747,16 @@ def start_attack_loop():
 def handle_presumed_death():
     """
     unique engage edildikten sonra get_monsters() listesinden kayboldu ve
-    kısa grace period içinde geri gelmedi → muhtemelen öldü (chat/packet
-    death event'i yakalayamamış olabilir). Normal ölüm akışıyla aynı şekilde
-    loot bekle + şehre dön.
+    kÄ±sa grace period iÃ§inde geri gelmedi â†’ muhtemelen Ã¶ldÃ¼ (chat/packet
+    death event'i yakalayamamÄ±ÅŸ olabilir). Normal Ã¶lÃ¼m akÄ±ÅŸÄ±yla aynÄ± ÅŸekilde
+    loot bekle + ÅŸehre dÃ¶n.
     """
     global current_active_unique, bot_state, unique_not_found_count
     try:
         name = current_active_unique
         if not name: return
         stop_attack_loop()
+        stop_coordinate_hunt()
         with _state_lock:
             if name in unique_queue:
                 unique_queue.remove(name)
@@ -1264,8 +1788,11 @@ def handle_unique_timeout():
     global current_active_unique, unique_not_found_count, bot_state, just_returned
     try:
         timeout_unique = current_active_unique
+        append_activity_once('timeout:%s' % timeout_unique,
+                             'Hunt timeout: %s' % (timeout_unique or 'Unknown'))
         log(f"Timeout: {timeout_unique}")
         stop_attack_loop()
+        stop_coordinate_hunt()
         try: stop_script()
         except: pass
         try: stop_bot()
@@ -1318,17 +1845,24 @@ def discord_clicked():
 
 
 OFFSCREEN_X = 3000
-monitor_widgets = []
-settings_widgets = []
+dashboard_widgets = []
+manager_widgets = []
+hunt_settings_widgets = []
+logs_widgets = []
 screen_widgets = []
 
 
-def _screen_widget(widget, monitor_position=None, settings_position=None):
+def _screen_widget(widget, dashboard_position=None, manager_position=None,
+                   settings_position=None, logs_position=None):
     screen_widgets.append(widget)
-    if monitor_position:
-        monitor_widgets.append((widget, monitor_position[0], monitor_position[1]))
+    if dashboard_position:
+        dashboard_widgets.append((widget, dashboard_position[0], dashboard_position[1]))
+    if manager_position:
+        manager_widgets.append((widget, manager_position[0], manager_position[1]))
     if settings_position:
-        settings_widgets.append((widget, settings_position[0], settings_position[1]))
+        hunt_settings_widgets.append((widget, settings_position[0], settings_position[1]))
+    if logs_position:
+        logs_widgets.append((widget, logs_position[0], logs_position[1]))
     return widget
 
 
@@ -1339,12 +1873,233 @@ def _show_screen(visible_widgets):
         QtBind.move(gui, widget, x, y)
 
 
+def _all_unique_names():
+    return sorted(set(COMMON_UNIQUES) | set(discovered_uniques) |
+                  set(unique_script_map) | set(unique_coordinate_map))
+
+
+def _unique_status(unique_name):
+    if not has_hunt_route(unique_name):
+        return 'NO ROUTE'
+    mode = get_route_mode(unique_name)
+    if mode == 'coordinates':
+        return 'COORD'
+    if mode == 'script':
+        return 'SCRIPT'
+    return 'NO ROUTE'
+
+
+def refresh_unique_browser():
+    global unique_browser_items
+    try:
+        if unique_browser_list is None: return
+        query = QtBind.text(gui, txt_unique_search).strip().lower()
+        selected_filter = QtBind.text(gui, cmb_unique_filter).strip() or 'All'
+        unique_browser_items = []
+        QtBind.clear(gui, unique_browser_list)
+        for unique_name in _all_unique_names():
+            status = _unique_status(unique_name)
+            if query and query not in unique_name.lower():
+                continue
+            if selected_filter == 'Ready' and status == 'NO ROUTE':
+                continue
+            if selected_filter == 'Needs Setup' and status != 'NO ROUTE':
+                continue
+            if selected_filter == 'Script Route' and status != 'SCRIPT':
+                continue
+            if selected_filter == 'Coordinate Route' and status != 'COORD':
+                continue
+            unique_browser_items.append(unique_name)
+            QtBind.append(gui, unique_browser_list, '%s    [%s]' % (unique_name, status))
+        if not unique_browser_items:
+            QtBind.append(gui, unique_browser_list, 'No uniques match this search.')
+    except Exception as error:
+        if debug_enabled: log('refresh_unique_browser error: %s' % error)
+
+
+def apply_unique_filter():
+    refresh_unique_browser()
+
+
+def select_unique_from_browser():
+    global selected_unique_name
+    try:
+        index = QtBind.currentIndex(gui, unique_browser_list)
+        if index < 0 or index >= len(unique_browser_items):
+            set_manager_status('Select a unique from the list first.', COLOR_WARNING)
+            return
+        selected_unique_name = unique_browser_items[index]
+        refresh_selected_unique_details()
+        refresh_coordinate_list()
+        set_manager_status('Selected %s' % selected_unique_name, COLOR_SUCCESS)
+    except Exception as error:
+        set_manager_status('Could not select the unique.', COLOR_ERROR)
+        if debug_enabled: log('select_unique_from_browser error: %s' % error)
+
+
+def set_manager_status(message, color=COLOR_MUTED):
+    try:
+        QtBind.setText(gui, lbl_manager_status, fixed_width_text(
+            '<font color="%s">%s</font>' % (color, message), 380))
+    except: pass
+
+
+def refresh_selected_unique_details():
+    try:
+        unique_name = _selected_unique()
+        if not unique_name:
+            name, status, route, priority, script = 'None selected', 'Needs Setup', 'None', '-', 'No script assigned.'
+        else:
+            marker = _unique_status(unique_name)
+            status = 'Needs Setup' if marker == 'NO ROUTE' else 'Ready'
+            route = {'SCRIPT': 'Script Route', 'COORD': 'Coordinate Route'}.get(marker, 'None')
+            name = unique_name
+            priority = str(get_unique_priority(unique_name))
+            script = unique_script_map.get(unique_name, 'No script assigned.')
+        QtBind.setText(gui, lbl_selected_unique, fixed_width_text(
+            '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, name), 380))
+        QtBind.setText(gui, lbl_detail_status, fixed_width_text(status, 100))
+        QtBind.setText(gui, lbl_detail_route, fixed_width_text(route, 100))
+        QtBind.setText(gui, lbl_detail_priority, fixed_width_text(priority, 28))
+        QtBind.setText(gui, lbl_assigned_script, fixed_width_text(
+            '<font color="%s">%s</font>' % (COLOR_TEXT, script), 280))
+        refresh_coordinate_list()
+    except Exception as error:
+        if debug_enabled: log('refresh_selected_unique_details error: %s' % error)
+
+
+def remove_script_mapping():
+    unique_name = _selected_unique()
+    if not unique_name or unique_name not in unique_script_map:
+        set_manager_status('No script mapping to remove.', COLOR_WARNING)
+        return
+    del unique_script_map[unique_name]
+    if unique_coordinate_map.get(unique_name):
+        unique_route_modes[unique_name] = 'coordinates'
+    else:
+        unique_route_modes.pop(unique_name, None)
+    save_config()
+    refresh_mapping_list()
+    refresh_pending_list()
+    set_manager_status('Script mapping removed.', COLOR_SUCCESS)
+
+
+def refresh_configuration_health():
+    try:
+        names = _all_unique_names()
+        script_count = sum(1 for name in names if _unique_status(name) == 'SCRIPT')
+        coord_count = sum(1 for name in names if _unique_status(name) == 'COORD')
+        ready_count = sum(1 for name in names if _unique_status(name) != 'NO ROUTE')
+        needs_count = len(names) - ready_count
+        summary = ('<b>Total:</b> %d  |  <b>Ready:</b> %d  |  '
+                   '<b>Script:</b> %d  |  <b>Coord:</b> %d  |  '
+                   '<b>Needs Setup:</b> %d') % (
+                       len(names), ready_count, script_count, coord_count, needs_count)
+        QtBind.setText(gui, lbl_config_summary, fixed_width_text(summary, 700))
+    except: pass
+
+
+def _current_action_text():
+    if bot_state == 'RETURNING': return 'Returning to town'
+    if bot_state == 'HUNTING':
+        if coordinate_hunt: return 'Searching saved spawn points'
+        return 'Running hunt route'
+    return 'Waiting for a unique' if plugin_active else 'Monitoring is disabled'
+
+
+def refresh_runtime_dashboard(force=False):
+    global _last_dashboard_snapshot
+    try:
+        route = 'None'
+        if current_active_unique:
+            route = 'Coordinates' if get_route_mode(current_active_unique) == 'coordinates' else 'Script'
+        action = _current_action_text()
+        snapshot = (bot_state, current_active_unique, route, action)
+        if not force and snapshot == _last_dashboard_snapshot:
+            return
+        _last_dashboard_snapshot = snapshot
+        state_color = COLOR_SUCCESS if bot_state == 'HUNTING' else (
+            COLOR_WARNING if bot_state == 'RETURNING' else COLOR_MUTED)
+        QtBind.setText(gui, lbl_bot_state, fixed_width_text(
+            '<font color="%s"><b>%s</b></font>' % (state_color, bot_state), 180))
+        QtBind.setText(gui, lbl_active_route, fixed_width_text(route, 180))
+        QtBind.setText(gui, lbl_current_action, fixed_width_text(action, 250))
+        if _last_activity_state['bot'] != bot_state:
+            _last_activity_state['bot'] = bot_state
+            append_activity('Bot state: %s' % bot_state)
+        if _last_activity_state['action'] != action:
+            _last_activity_state['action'] = action
+            if bot_state == 'HUNTING' and current_active_unique:
+                if coordinate_hunt:
+                    append_activity_once('coordinate-start:%s' % current_active_unique,
+                                         'Coordinate search started: %s' % current_active_unique)
+                else:
+                    append_activity_once('route-start:%s' % current_active_unique,
+                                         'Hunt route started: %s' % current_active_unique)
+    except: pass
+
+
+def append_activity(message):
+    try:
+        entry = '%s  %s' % (time.strftime('%H:%M:%S'), message)
+        activity_entries.append(entry)
+        if len(activity_entries) > ACTIVITY_LIMIT:
+            del activity_entries[0]
+        if activity_list is not None:
+            QtBind.clear(gui, activity_list)
+            for item in activity_entries:
+                QtBind.append(gui, activity_list, item)
+    except: pass
+
+
+def append_activity_once(key, message, cooldown=2.0):
+    now = time.time()
+    if now - _recent_activity_events.get(key, 0.0) < cooldown:
+        return
+    _recent_activity_events[key] = now
+    append_activity(message)
+
+
+def clear_activity_log():
+    del activity_entries[:]
+    try: QtBind.clear(gui, activity_list)
+    except: pass
+
+
+def show_dashboard():
+    _show_screen(dashboard_widgets)
+    update_plugin_status()
+    update_active_unique_label()
+    update_queue_label()
+    refresh_runtime_dashboard(True)
+    refresh_pending_list()
+    refresh_configuration_health()
+
+
+def show_unique_manager():
+    _show_screen(manager_widgets)
+    refresh_scripts()
+    refresh_unique_browser()
+    refresh_selected_unique_details()
+
+
+def show_hunt_settings():
+    _show_screen(hunt_settings_widgets)
+
+
+def show_logs():
+    _show_screen(logs_widgets)
+
+
 def show_settings():
-    _show_screen(settings_widgets)
+    show_hunt_settings()
 
 
 def show_monitor():
-    _show_screen(monitor_widgets)
+    show_dashboard()
+
+def show_coordinates():
+    show_unique_manager()
 
 
 gui = QtBind.init(__name__, pName)
@@ -1359,170 +2114,183 @@ QtBind.createLabel(
     565, 11)
 QtBind.createLineEdit(gui, '', 12, 30, 716, 1)
 
-# Navigation
-btn_show_settings = _screen_widget(
-    QtBind.createButton(gui, 'show_settings', 'Settings', 638, 39),
-    monitor_position=(638, 39))
-btn_show_monitor = _screen_widget(
-    QtBind.createButton(gui, 'show_monitor', 'Back to Monitor', OFFSCREEN_X, 39),
-    settings_position=(610, 39))
+# Four logical pages continue to use the native QtBind.move/OFFSCREEN_X model.
+QtBind.createButton(gui, 'show_dashboard', 'Dashboard', 12, 38)
+QtBind.createButton(gui, 'show_unique_manager', 'Unique Manager', 102, 38)
+QtBind.createButton(gui, 'show_hunt_settings', 'Hunt Settings', 215, 38)
+QtBind.createButton(gui, 'show_logs', 'Logs', 320, 38)
 
-# Monitor: live control
-monitor_live_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>\u25cf LIVE CONTROL</b></font>' % COLOR_PRIMARY, 12, 42),
-    monitor_position=(12, 42))
-monitor_status_title = _screen_widget(
-    QtBind.createLabel(gui, '<font color="#6b7280"><b>Status</b></font>', 12, 69),
-    monitor_position=(12, 69))
-lbl_plugin_status = _screen_widget(QtBind.createLabel(
-    gui,
-    fixed_width_text('<font color="%s"><b>INACTIVE - AUTOMATION STOPPED</b></font>' % COLOR_MUTED, 300),
-    100, 69), monitor_position=(100, 69))
-monitor_active_title = _screen_widget(
-    QtBind.createLabel(gui, '<font color="#6b7280"><b>Active hunt</b></font>', 12, 94),
-    monitor_position=(12, 94))
-lbl_active_unique = _screen_widget(QtBind.createLabel(
-    gui, fixed_width_text('<font color="%s"><b>None</b></font>' % COLOR_MUTED, 205), 100, 94),
-    monitor_position=(100, 94))
-monitor_queue_summary_title = _screen_widget(
-    QtBind.createLabel(gui, '<font color="#6b7280"><b>Queue</b></font>', 12, 119),
-    monitor_position=(12, 119))
-lbl_queue = _screen_widget(QtBind.createLabel(
-    gui, fixed_width_text('<font color="%s">Empty</font>' % COLOR_TEXT, 300), 100, 119),
-    monitor_position=(100, 119))
-btn_plugin_enable = _screen_widget(
-    QtBind.createButton(gui, 'enable_plugin_monitoring', 'Start Monitoring', 445, 67),
-    monitor_position=(445, 67))
-btn_plugin_disable = _screen_widget(
-    QtBind.createButton(gui, 'disable_plugin_monitoring', 'Stop Monitoring', 565, 67),
-    monitor_position=(565, 67))
-monitor_top_line = _screen_widget(
-    QtBind.createLineEdit(gui, '', 12, 132, 716, 1), monitor_position=(12, 132))
+# Legacy controls remain off-screen so old refresh helpers retain valid widget objects.
+dropdown_unique = QtBind.createCombobox(gui, OFFSCREEN_X, 0, 1, 1)
+mappings_list = QtBind.createList(gui, OFFSCREEN_X, 0, 1, 1)
 
-# Settings: behavior
-settings_behavior_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>BEHAVIOR SETTINGS</b></font>' % COLOR_PRIMARY,
-    OFFSCREEN_X, 40), settings_position=(12, 40))
-cbx_loot_wait = _screen_widget(QtBind.createCheckBox(
-    gui, 'do_nothing', 'Wait for loot after death', OFFSCREEN_X, 62),
-    settings_position=(12, 62))
+# Dashboard
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>LIVE HUNT STATUS</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), dashboard_position=(12, 65))
+lbl_plugin_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s"><b>DISABLED</b></font>' % COLOR_MUTED, 250), OFFSCREEN_X, 86),
+    dashboard_position=(100, 86))
+_screen_widget(QtBind.createLabel(gui, '<b>Plugin</b>', OFFSCREEN_X, 86), dashboard_position=(12, 86))
+lbl_bot_state = _screen_widget(QtBind.createLabel(gui, fixed_width_text('IDLE', 180), OFFSCREEN_X, 107),
+                               dashboard_position=(100, 107))
+_screen_widget(QtBind.createLabel(gui, '<b>Bot state</b>', OFFSCREEN_X, 107), dashboard_position=(12, 107))
+lbl_active_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 250), OFFSCREEN_X, 128),
+                                   dashboard_position=(100, 128))
+_screen_widget(QtBind.createLabel(gui, '<b>Current target</b>', OFFSCREEN_X, 128), dashboard_position=(12, 128))
+lbl_active_route = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 180), OFFSCREEN_X, 149),
+                                  dashboard_position=(100, 149))
+_screen_widget(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 149), dashboard_position=(12, 149))
+lbl_current_action = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Monitoring is disabled', 250),
+                                                       OFFSCREEN_X, 170), dashboard_position=(100, 170))
+_screen_widget(QtBind.createLabel(gui, '<b>Action</b>', OFFSCREEN_X, 170), dashboard_position=(12, 170))
+lbl_queue = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Queue is empty.', 300), OFFSCREEN_X, 191),
+                           dashboard_position=(100, 191))
+_screen_widget(QtBind.createLabel(gui, '<b>Queue</b>', OFFSCREEN_X, 191), dashboard_position=(12, 191))
+btn_plugin_enable = _screen_widget(QtBind.createButton(gui, 'enable_plugin_monitoring', 'Start Monitoring',
+                                                       OFFSCREEN_X, 84), dashboard_position=(445, 84))
+btn_plugin_disable = _screen_widget(QtBind.createButton(gui, 'disable_plugin_monitoring', 'Stop Monitoring',
+                                                        OFFSCREEN_X, 84), dashboard_position=(565, 84))
+btn_stop = _screen_widget(QtBind.createButton(gui, 'stop_script_btn', 'Stop Current Hunt', OFFSCREEN_X, 112),
+                          dashboard_position=(565, 112))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 210, 716, 1), dashboard_position=(12, 210))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>HUNT QUEUE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 216), dashboard_position=(12, 216))
+queue_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 233, 350, 42), dashboard_position=(12, 233))
+btn_start_next = _screen_widget(QtBind.createButton(gui, 'auto_start_next_unique', 'Hunt Next', OFFSCREEN_X, 277),
+                                dashboard_position=(12, 277))
+btn_remove_from_queue = _screen_widget(QtBind.createButton(gui, 'remove_from_queue_btn', 'Remove Selected',
+                                                           OFFSCREEN_X, 277), dashboard_position=(105, 277))
+btn_clear_queue = _screen_widget(QtBind.createButton(gui, 'clear_queue_btn', 'Clear Queue', OFFSCREEN_X, 277),
+                                 dashboard_position=(225, 277))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>NEEDS SETUP</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 216), dashboard_position=(378, 216))
+pending_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 233, 350, 42), dashboard_position=(378, 233))
+btn_pending_assign = _screen_widget(QtBind.createButton(gui, 'show_unique_manager', 'Configure Uniques',
+                                                        OFFSCREEN_X, 277), dashboard_position=(378, 277))
+btn_delete_pending = _screen_widget(QtBind.createButton(gui, 'delete_pending', 'Remove Entry', OFFSCREEN_X, 277),
+                                    dashboard_position=(500, 277))
+lbl_config_summary = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<b>Total:</b> 0  |  <b>Ready:</b> 0  |  <b>Script:</b> 0  |  '
+    '<b>Coord:</b> 0  |  <b>Needs Setup:</b> 0', 700), OFFSCREEN_X, 299),
+    dashboard_position=(12, 299))
+
+# Unique Manager: browser owns selection; detail controls own mapping and coordinate actions.
+txt_unique_search = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 65, 145, 22),
+                                   manager_position=(12, 65))
+cmb_unique_filter = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 65, 100, 22),
+                                   manager_position=(162, 65))
+for filter_name in ('All', 'Ready', 'Needs Setup', 'Script Route', 'Coordinate Route'):
+    QtBind.append(gui, cmb_unique_filter, filter_name)
+_screen_widget(QtBind.createButton(gui, 'apply_unique_filter', 'Apply', OFFSCREEN_X, 64),
+               manager_position=(267, 64))
+unique_browser_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 92, 300, 128),
+                                     manager_position=(12, 92))
+_screen_widget(QtBind.createButton(gui, 'select_unique_from_browser', 'Load Selected', OFFSCREEN_X, 223),
+               manager_position=(12, 223))
+btn_scan = _screen_widget(QtBind.createButton(gui, 'scan_nearby_uniques', 'Scan Nearby', OFFSCREEN_X, 223),
+                          manager_position=(112, 223))
+_screen_widget(QtBind.createLabel(gui, 'Custom', OFFSCREEN_X, 257), manager_position=(12, 257))
+txt_unique = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 252, 145, 22), manager_position=(62, 252))
+btn_add_unique = _screen_widget(QtBind.createButton(gui, 'add_manual_unique', 'Add Unique', OFFSCREEN_X, 251),
+                                manager_position=(212, 251))
+btn_add_queue = _screen_widget(QtBind.createButton(gui, 'add_to_queue_btn', 'Queue Selected', OFFSCREEN_X, 280),
+                               manager_position=(12, 280))
+btn_start = _screen_widget(QtBind.createButton(gui, 'start_script_btn', 'Hunt Selected', OFFSCREEN_X, 280),
+                           manager_position=(120, 280))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 65, 1, 245), manager_position=(325, 65))
+lbl_selected_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text('<b>None selected</b>', 380),
+                                                        OFFSCREEN_X, 65), manager_position=(345, 65))
+_screen_widget(QtBind.createLabel(gui, '<b>Status</b>', OFFSCREEN_X, 88), manager_position=(345, 88))
+lbl_detail_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Needs Setup', 100), OFFSCREEN_X, 88),
+                                   manager_position=(395, 88))
+_screen_widget(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 88), manager_position=(500, 88))
+lbl_detail_route = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 100), OFFSCREEN_X, 88),
+                                  manager_position=(540, 88))
+_screen_widget(QtBind.createLabel(gui, '<b>Priority</b>', OFFSCREEN_X, 88), manager_position=(645, 88))
+lbl_detail_priority = _screen_widget(QtBind.createLabel(gui, fixed_width_text('-', 28), OFFSCREEN_X, 88),
+                                     manager_position=(700, 88))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>SCRIPT ROUTE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 110), manager_position=(345, 110))
+lbl_assigned_script = _screen_widget(QtBind.createLabel(gui, fixed_width_text('No script assigned.', 280),
+                                                        OFFSCREEN_X, 110), manager_position=(445, 110))
+dropdown_script = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 128, 220, 22), manager_position=(345, 128))
+btn_refresh = _screen_widget(QtBind.createButton(gui, 'refresh_scripts', 'Refresh', OFFSCREEN_X, 127),
+                             manager_position=(570, 127))
+btn_set = _screen_widget(QtBind.createButton(gui, 'set_script', 'Assign Script', OFFSCREEN_X, 153),
+                         manager_position=(345, 153))
+btn_use_script = _screen_widget(QtBind.createButton(gui, 'use_script_route', 'Use Script Route', OFFSCREEN_X, 153),
+                                manager_position=(445, 153))
+btn_remove_script = _screen_widget(QtBind.createButton(gui, 'remove_script_mapping', 'Remove Script', OFFSCREEN_X, 153),
+                                   manager_position=(565, 153))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE ROUTE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 180), manager_position=(345, 180))
+coordinate_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 196, 260, 38), manager_position=(345, 196))
+btn_remove_coordinate = _screen_widget(QtBind.createButton(gui, 'remove_coordinate', 'Remove Point', OFFSCREEN_X, 195),
+                                       manager_position=(610, 195))
+btn_use_coordinates = _screen_widget(QtBind.createButton(gui, 'use_coordinate_route', 'Use Coordinate Route',
+                                                         OFFSCREEN_X, 220), manager_position=(610, 220))
+for text_value, x in (('R', 345), ('X', 438), ('Y', 531), ('Z', 624)):
+    _screen_widget(QtBind.createLabel(gui, text_value, OFFSCREEN_X, 242), manager_position=(x, 242))
+txt_coord_region = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(365, 238))
+txt_coord_x = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(458, 238))
+txt_coord_y = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(551, 238))
+txt_coord_z = _screen_widget(QtBind.createLineEdit(gui, '0', OFFSCREEN_X, 238, 68, 22), manager_position=(644, 238))
+btn_add_coordinate = _screen_widget(QtBind.createButton(gui, 'add_coordinate_fields', 'Add Manual', OFFSCREEN_X, 263),
+                                    manager_position=(345, 263))
+btn_add_current = _screen_widget(QtBind.createButton(gui, 'add_my_current_position', 'Capture Current', OFFSCREEN_X, 263),
+                                 manager_position=(440, 263))
+btn_add_nearby = _screen_widget(QtBind.createButton(gui, 'add_nearby_unique_position', 'Capture Nearby', OFFSCREEN_X, 263),
+                                manager_position=(548, 263))
+lbl_manager_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 380), OFFSCREEN_X, 290),
+    manager_position=(345, 290))
+
+# Hunt Settings
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>LOOT BEHAVIOR</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), settings_position=(12, 65))
+cbx_loot_wait = _screen_widget(QtBind.createCheckBox(gui, 'do_nothing', 'Wait after unique death', OFFSCREEN_X, 86),
+                               settings_position=(12, 86))
 QtBind.setChecked(gui, cbx_loot_wait, True)
-tbx_loot_wait = _screen_widget(
-    QtBind.createLineEdit(gui, '60', OFFSCREEN_X, 58, 48, 22), settings_position=(190, 58))
-lbl_loot_unit = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s">sec</font>' % COLOR_MUTED, OFFSCREEN_X, 63),
-    settings_position=(244, 63))
-cbx_unique_timeout = _screen_widget(QtBind.createCheckBox(
-    gui, 'do_nothing', 'Hunt timeout', OFFSCREEN_X, 88), settings_position=(12, 88))
+tbx_loot_wait = _screen_widget(QtBind.createLineEdit(gui, '60', OFFSCREEN_X, 82, 55, 22), settings_position=(190, 82))
+_screen_widget(QtBind.createLabel(gui, 'seconds', OFFSCREEN_X, 87), settings_position=(250, 87))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 110, 716, 1), settings_position=(12, 110))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>HUNT TIMEOUT</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 119), settings_position=(12, 119))
+cbx_unique_timeout = _screen_widget(QtBind.createCheckBox(gui, 'do_nothing', 'Enable hunt timeout', OFFSCREEN_X, 140),
+                                    settings_position=(12, 140))
 QtBind.setChecked(gui, cbx_unique_timeout, True)
-tbx_unique_timeout = _screen_widget(
-    QtBind.createCombobox(gui, OFFSCREEN_X, 84, 90, 22), settings_position=(190, 84))
-QtBind.append(gui, tbx_unique_timeout, '10min')
-QtBind.append(gui, tbx_unique_timeout, '20min')
-QtBind.append(gui, tbx_unique_timeout, '30min')
-chk_auto_return = _screen_widget(QtBind.createCheckBox(
-    gui, 'toggle_auto_return', 'Return to town when an unmapped unique appears', OFFSCREEN_X, 114),
-    settings_position=(12, 114))
+tbx_unique_timeout = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 136, 90, 22), settings_position=(190, 136))
+for timeout_value in ('10min', '20min', '30min'): QtBind.append(gui, tbx_unique_timeout, timeout_value)
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 164, 716, 1), settings_position=(12, 164))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>AUTOMATION</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 173), settings_position=(12, 173))
+chk_auto_return = _screen_widget(QtBind.createCheckBox(gui, 'toggle_auto_return',
+    'Return to town for an unconfigured unique', OFFSCREEN_X, 194), settings_position=(12, 194))
 QtBind.setChecked(gui, chk_auto_return, False)
-settings_mapping_line = _screen_widget(
-    QtBind.createLineEdit(gui, '', OFFSCREEN_X, 136, 716, 1), settings_position=(12, 136))
-settings_mapping_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>UNIQUE / SCRIPT MAPPING</b></font>' % COLOR_PRIMARY,
-    OFFSCREEN_X, 146), settings_position=(12, 146))
+chk_auto_learn = _screen_widget(QtBind.createCheckBox(gui, 'toggle_auto_learn',
+    'Automatically learn unique coordinates', OFFSCREEN_X, 218), settings_position=(12, 218))
+QtBind.setChecked(gui, chk_auto_learn, False)
+_screen_widget(QtBind.createLabel(gui, '<font color="%s">Points within 30m of a saved point are ignored.</font>' % COLOR_MUTED,
+                                  OFFSCREEN_X, 240), settings_position=(32, 240))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 716, 1), settings_position=(12, 258))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>DIAGNOSTICS</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 267), settings_position=(12, 267))
+chk_debug = _screen_widget(QtBind.createCheckBox(gui, 'toggle_debug', 'Detailed debug logging', OFFSCREEN_X, 290),
+                           settings_position=(12, 290))
+btn_force_scan = _screen_widget(QtBind.createButton(gui, 'force_scan_alive_uniques', 'Refresh Nearby Alive Status',
+                                                    OFFSCREEN_X, 286), settings_position=(210, 286))
+btn_check_alive = _screen_widget(QtBind.createButton(gui, 'check_alive_uniques', 'Log Tracked Uniques', OFFSCREEN_X, 286),
+                                 settings_position=(375, 286))
 
-# Shared selectors keep the same widget objects for mapping and manual queue actions.
-lbl_unique = _screen_widget(QtBind.createLabel(gui, 'Unique', OFFSCREEN_X, 211),
-                            monitor_position=(12, 267), settings_position=(12, 171))
-dropdown_unique = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 207, 190, 22),
-                                 monitor_position=(65, 263), settings_position=(65, 167))
-lbl_script = _screen_widget(QtBind.createLabel(gui, 'Script', OFFSCREEN_X, 211),
-                            settings_position=(268, 171))
-dropdown_script = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 207, 210, 22),
-                                 settings_position=(310, 167))
-btn_set = _screen_widget(QtBind.createButton(gui, 'set_script', 'Assign Script', OFFSCREEN_X, 205),
-                         settings_position=(530, 165))
-btn_refresh = _screen_widget(QtBind.createButton(
-    gui, 'refresh_scripts', 'Refresh Script List', OFFSCREEN_X, 205),
-    settings_position=(580, 193))
+# Logs
+_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>RECENT PLUGIN ACTIVITY</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), logs_position=(12, 65))
+_screen_widget(QtBind.createLabel(gui, '<font color="%s">Shows the latest 100 important GUI-visible state changes.</font>' % COLOR_MUTED,
+                                  OFFSCREEN_X, 84), logs_position=(12, 84))
+activity_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 102, 716, 176), logs_position=(12, 102))
+_screen_widget(QtBind.createButton(gui, 'clear_activity_log', 'Clear Activity', OFFSCREEN_X, 282), logs_position=(12, 282))
 
-lbl_custom_unique = _screen_widget(QtBind.createLabel(gui, 'Custom unique', OFFSCREEN_X, 273),
-                                   settings_position=(12, 199))
-txt_unique = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 269, 220, 22),
-                            settings_position=(105, 195))
-btn_add_unique = _screen_widget(QtBind.createButton(gui, 'add_manual_unique', 'Add Unique', OFFSCREEN_X, 267),
-                                settings_position=(335, 193))
-btn_scan = _screen_widget(QtBind.createButton(
-    gui, 'scan_nearby_uniques', 'Discover Nearby Uniques', OFFSCREEN_X, 267),
-    settings_position=(435, 193))
-
-# The mappings list is shared: mapping management uses it on Settings and
-# manual hunting keeps using the exact same selection on Monitor.
-monitor_manual_line = _screen_widget(
-    QtBind.createLineEdit(gui, '', OFFSCREEN_X, 240, 716, 1), monitor_position=(12, 240))
-lbl_mappings = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>MAPPED UNIQUES</b></font>' % COLOR_PRIMARY, OFFSCREEN_X, 307),
-    monitor_position=(300, 246), settings_position=(12, 229))
-mappings_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 246, 428, 25),
-                               monitor_position=(300, 263), settings_position=(12, 246))
-btn_delete = _screen_widget(QtBind.createButton(
-    gui, 'delete_selected_mapping', 'Remove Mapping', OFFSCREEN_X, 276),
-    settings_position=(12, 276))
-
-# Monitor: queue and unmapped lists
-monitor_queue_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>HUNT QUEUE</b></font>' % COLOR_PRIMARY, OFFSCREEN_X, 142),
-    monitor_position=(12, 142))
-queue_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 159, 350, 55),
-                            monitor_position=(12, 159))
-btn_start_next = _screen_widget(QtBind.createButton(
-    gui, 'auto_start_next_unique', 'Hunt Next in Queue', OFFSCREEN_X, 216),
-    monitor_position=(12, 216))
-btn_remove_from_queue = _screen_widget(QtBind.createButton(
-    gui, 'remove_from_queue_btn', 'Remove from Queue', OFFSCREEN_X, 216),
-    monitor_position=(145, 216))
-btn_clear_queue = _screen_widget(QtBind.createButton(gui, 'clear_queue_btn', 'Clear Queue', OFFSCREEN_X, 216),
-                                 monitor_position=(275, 216))
-
-monitor_pending_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>UNMAPPED UNIQUES</b></font>' % COLOR_PRIMARY, OFFSCREEN_X, 142),
-    monitor_position=(378, 142))
-pending_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 159, 350, 55),
-                              monitor_position=(378, 159))
-btn_pending_assign = _screen_widget(QtBind.createButton(gui, 'show_settings', 'Assign Script', OFFSCREEN_X, 216),
-                                    monitor_position=(378, 216))
-btn_delete_pending = _screen_widget(QtBind.createButton(
-    gui, 'delete_pending', 'Remove Entry', OFFSCREEN_X, 216),
-    monitor_position=(480, 216))
-
-monitor_manual_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>MANUAL HUNT</b></font>' % COLOR_PRIMARY, OFFSCREEN_X, 246),
-    monitor_position=(12, 246))
-btn_add_queue = _screen_widget(QtBind.createButton(
-    gui, 'add_to_queue_btn', 'Queue Selected Unique', OFFSCREEN_X, 290),
-    monitor_position=(65, 290))
-btn_start = _screen_widget(QtBind.createButton(
-    gui, 'start_script_btn', 'Hunt Selected Unique', OFFSCREEN_X, 290),
-    monitor_position=(300, 290))
-btn_stop = _screen_widget(QtBind.createButton(
-    gui, 'stop_script_btn', 'Stop Current Hunt', OFFSCREEN_X, 290),
-    monitor_position=(610, 290))
-
-# Settings: secondary diagnostics
-settings_diagnostics_line = _screen_widget(
-    QtBind.createLineEdit(gui, '', OFFSCREEN_X, 219, 716, 1), settings_position=(12, 219))
-settings_diagnostics_title = _screen_widget(QtBind.createLabel(
-    gui, '<font color="%s"><b>DIAGNOSTICS</b></font>' % COLOR_MUTED, OFFSCREEN_X, 229),
-    settings_position=(455, 229))
-chk_debug = _screen_widget(QtBind.createCheckBox(gui, 'toggle_debug', 'Detailed log', OFFSCREEN_X, 280),
-                           settings_position=(455, 250))
-btn_force_scan = _screen_widget(QtBind.createButton(
-    gui, 'force_scan_alive_uniques', 'Refresh Nearby Alive Status', OFFSCREEN_X, 276),
-    settings_position=(455, 276))
-btn_check_alive = _screen_widget(QtBind.createButton(
-    gui, 'check_alive_uniques', 'Log Tracked Uniques', OFFSCREEN_X, 276),
-    settings_position=(610, 276))
-
-show_monitor()
+show_dashboard()
 
 # ================= INITIALIZATION =================
 try:
@@ -1544,6 +2312,7 @@ except Exception as e:
 def joined_game():
     """Called automatically after the character enters the game."""
     try:
+        learned_unique_ids.clear()
         # joined_game aninda character data henuz hazir olmayabilir. Config dosya
         # adi server+character'a bagli oldugu icin yuklemeyi kisa sure ertele.
         log(f"[{pName}] Character joined - config load scheduled...")
@@ -1564,7 +2333,7 @@ def _load_config_after_join(attempt=0):
         load_config()
         refresh_scripts()
         if plugin_active:
-            log(f"[{pName}] Plugin was ENABLED → Checking location...")
+            log(f"[{pName}] Plugin was ENABLED â†’ Checking location...")
             _check_location_on_join()
     except Exception as e:
         log(f"_load_config_after_join error: {e}")
@@ -1574,13 +2343,13 @@ def _check_location_on_join():
     if not plugin_active: return
     if not _is_in_town():
         _set_in_town(False)
-        log(f"[{pName}] Not in town → Using return scroll...")
+        log(f"[{pName}] Not in town â†’ Using return scroll...")
         try: use_return_scroll()
         except: pass
         threading.Timer(1.0, lambda: _wait_for_town(_after_return_enable, label="Join")).start()
     else:
         _set_in_town(True)
-        log(f"[{pName}] In town → Ready and waiting for uniques...")
+        log(f"[{pName}] In town â†’ Ready and waiting for uniques...")
 
 # ================= EVENTS =================
 UNIQUE_OBJ_CACHE = {}
@@ -1596,9 +2365,9 @@ def _kill_unwanted_bot():
 
 def teleported():
     """
-    phBot bu event'i 'teleport_accepted' değil 'teleported' adıyla tetikliyor
-    (bkz. docs/phbot-api/events.md) — eski isim hiç çağrılmıyordu, bu yüzden
-    teleport sonrası şehir state güncellemesi çalışmıyordu.
+    phBot bu event'i 'teleport_accepted' deÄŸil 'teleported' adÄ±yla tetikliyor
+    (bkz. docs/phbot-api/events.md) â€” eski isim hiÃ§ Ã§aÄŸrÄ±lmÄ±yordu, bu yÃ¼zden
+    teleport sonrasÄ± ÅŸehir state gÃ¼ncellemesi Ã§alÄ±ÅŸmÄ±yordu.
     """
     threading.Timer(1.5, _update_town_state_after_teleport).start()
 
@@ -1606,13 +2375,47 @@ def _update_town_state_after_teleport():
     """Refresh the region-based town state shortly after teleporting."""
     _set_in_town(_is_in_town())
 
-# phBot'un native unique-spawn event'i (bkz. docs/phbot-api/events.md → handle_event türleri).
-# Chat metni parse etmekten ve ham paket (0x300C) sniff etmekten daha güvenilir — server'ın
-# chat mesaj formatı/paket yapısı farklı olsa bile bu event doğrudan monster adını veriyor.
+def event_loop():
+    """Learn one spawn point per visible unique instance when enabled."""
+    # Keep GUI-only runtime labels synchronized without changing hunt state.
+    refresh_runtime_dashboard()
+    if not auto_learn_coordinates:
+        return
+    try:
+        monsters = phBot.get_monsters() or {}
+        for monster_id, monster in monsters.items():
+            if monster_id in learned_unique_ids:
+                continue
+            name = (monster.get('name') or '').strip()
+            if not name or not is_unique(name):
+                continue
+            mapped_name = _find_mapped_name(name)
+            learned_unique_ids.add(monster_id)
+            point = {
+                'region': monster.get('region', 0), 'x': monster.get('x', 0),
+                'y': monster.get('y', 0), 'z': monster.get('z', 0),
+            }
+            added, message = _add_coordinate(mapped_name, point, 'Learned')
+            if added:
+                log('[Coordinates] Automatically learned %s at R%d (%.0f, %.0f)' % (
+                    mapped_name, int(point['region']), float(point['x']), float(point['y'])))
+            elif debug_enabled:
+                log('[Coordinates] %s learning skipped: %s' % (mapped_name, message))
+    except Exception as error:
+        if debug_enabled: log('[Coordinates] Auto-learning error: %s' % error)
+
+def disconnected():
+    stop_attack_loop()
+    stop_loot_timer()
+    stop_coordinate_hunt()
+
+# phBot'un native unique-spawn event'i (bkz. docs/phbot-api/events.md â†’ handle_event tÃ¼rleri).
+# Chat metni parse etmekten ve ham paket (0x300C) sniff etmekten daha gÃ¼venilir â€” server'Ä±n
+# chat mesaj formatÄ±/paket yapÄ±sÄ± farklÄ± olsa bile bu event doÄŸrudan monster adÄ±nÄ± veriyor.
 EVENT_UNIQUE_SPAWN = 0
 
 def handle_event(t, data):
-    """EVENT_UNIQUE_SPAWN geldiğinde data = unique canavarın adı (string)."""
+    """EVENT_UNIQUE_SPAWN geldiÄŸinde data = unique canavarÄ±n adÄ± (string)."""
     try:
         if t != EVENT_UNIQUE_SPAWN or not data:
             return
@@ -1628,18 +2431,23 @@ def handle_event(t, data):
                     'handled': False, 'last_seen': time.time()
                 }
                 is_new = True
-            if unique_name not in unique_script_map:
+            if not has_hunt_route(unique_name):
                 if unique_name not in pending_uniques:
                     pending_uniques.append(unique_name)
                     refresh_pending_list()
-                    log(f"[Pending] {unique_name} has no script → added to pending (Event).")
+                    log(f"[Pending] {unique_name} has no script â†’ added to pending (Event).")
             else:
-                if unique_name not in unique_queue:
+                is_active_target = bool(current_active_unique and current_active_unique.lower() == unique_name.lower())
+                if not is_active_target and unique_name not in unique_queue:
                     unique_queue.append(unique_name)
                     sort_queue_by_priority()
                     update_queue_label()
                     log(f"[Auto-Saved] {unique_name} added to queue (Event).")
 
+        if (plugin_active and current_active_unique and coordinate_hunt and
+                current_active_unique.lower() == unique_name.lower()):
+            _on_unique_spawn(unique_name)
+            return
         if plugin_active and is_new:
             if debug_enabled:
                 log(f"Event Spawn: {unique_name} (Executing)")
@@ -1652,14 +2460,15 @@ def handle_event(t, data):
 
 def _handle_unique_death_notification(unique_name, source_tag):
     """
-    Chat metni ya da 0xAA6B paketinden gelen 'unique öldü' bilgisini tek yerden işler.
-    Ham isim variant/farklı case olabilir (örn. 'Tiger girl' vs mapped 'Tiger Girl') —
-    _find_mapped_name ile normalize edilip run_mapped_script'e mapped isim geçiliyor,
-    yoksa current_active_unique ile eşleşmeyip ölüm sinyali sessizce kaybolabiliyordu.
+    Chat metni ya da 0xAA6B paketinden gelen 'unique Ã¶ldÃ¼' bilgisini tek yerden iÅŸler.
+    Ham isim variant/farklÄ± case olabilir (Ã¶rn. 'Tiger girl' vs mapped 'Tiger Girl') â€”
+    _find_mapped_name ile normalize edilip run_mapped_script'e mapped isim geÃ§iliyor,
+    yoksa current_active_unique ile eÅŸleÅŸmeyip Ã¶lÃ¼m sinyali sessizce kaybolabiliyordu.
     """
     if not unique_name or not is_unique(unique_name):
         return
     mapped_name = _find_mapped_name(unique_name)
+    append_activity_once('killed:%s' % mapped_name, 'Killed: %s' % mapped_name)
     if debug_enabled:
         log(f"{source_tag}: {unique_name} -> {mapped_name}")
     with _state_lock:
@@ -1675,9 +2484,9 @@ def _handle_unique_death_notification(unique_name, source_tag):
 
 def _parse_unique_kill_message(msg):
     """
-    '[Killer] killed UniqueName from Region. (x/y)' formatını ayrıştırır — 0xAA6B
-    paketinden gelen düz metin bildirimi için (bkz. docs/phbot-api/sro-opcodes.md,
-    canlı capture'dan doğrulandı). Başarısız olursa (None, None) döner.
+    '[Killer] killed UniqueName from Region. (x/y)' formatÄ±nÄ± ayrÄ±ÅŸtÄ±rÄ±r â€” 0xAA6B
+    paketinden gelen dÃ¼z metin bildirimi iÃ§in (bkz. docs/phbot-api/sro-opcodes.md,
+    canlÄ± capture'dan doÄŸrulandÄ±). BaÅŸarÄ±sÄ±z olursa (None, None) dÃ¶ner.
     """
     try:
         if not msg.startswith('[') or ' killed ' not in msg or ' from ' not in msg:
@@ -1730,22 +2539,22 @@ def handle_joymax(opcode, data):
                                 'handled': False, 'last_seen': time.time(), 'obj_id': obj_id
                             }
                             is_new = True
-                        if mapped_name not in unique_script_map:
+                        if not has_hunt_route(mapped_name):
                             if mapped_name not in pending_uniques:
                                 pending_uniques.append(mapped_name)
                                 refresh_pending_list()
-                                log(f"[Pending] {name} has no script → added to pending.")
+                                log(f"[Pending] {name} has no script â†’ added to pending.")
                             # Unmapped uniques do not enter the hunt queue.
                         else:
                             if mapped_name not in unique_queue:
                                 unique_queue.append(mapped_name)
                                 sort_queue_by_priority()
                                 update_queue_label()
-                                log(f"[Auto-Saved] {name} → using mapping [{mapped_name}] added to queue.")
+                                log(f"[Auto-Saved] {name} â†’ using mapping [{mapped_name}] added to queue.")
                     if is_new:
                         if plugin_active:
                             if debug_enabled:
-                                log(f"Packet Spawn: {name} → mapped as [{mapped_name}] (Executing)")
+                                log(f"Packet Spawn: {name} â†’ mapped as [{mapped_name}] (Executing)")
                             _on_unique_spawn(mapped_name)
                         else:
                             if debug_enabled:
@@ -1766,8 +2575,8 @@ def handle_chat(t, player, msg):
         msg_lower = msg.lower()
 
         # --- SPAWN ---
-        # 'has spawned' bazı serverlarda hiç kullanılmıyor — bu server 'has appeared on <region>'
-        # diyor (bkz. docs/phbot-api/sro-opcodes.md, canlı doğrulandı). İkisi de destekleniyor.
+        # 'has spawned' bazÄ± serverlarda hiÃ§ kullanÄ±lmÄ±yor â€” bu server 'has appeared on <region>'
+        # diyor (bkz. docs/phbot-api/sro-opcodes.md, canlÄ± doÄŸrulandÄ±). Ä°kisi de destekleniyor.
         if 'has spawned' in msg_lower or 'has appeared' in msg_lower:
             split_word = 'has spawned' if 'has spawned' in msg_lower else 'has appeared'
             unique_name = msg.split(split_word)[0].strip()
@@ -1780,11 +2589,11 @@ def handle_chat(t, player, msg):
                             'handled': False, 'last_seen': time.time()
                         }
                         is_new = True
-                    if unique_name not in unique_script_map:
+                    if not has_hunt_route(unique_name):
                         if unique_name not in pending_uniques:
                             pending_uniques.append(unique_name)
                             refresh_pending_list()
-                            log(f"[Pending] {unique_name} has no script → added to pending (Chat).")
+                            log(f"[Pending] {unique_name} has no script â†’ added to pending (Chat).")
                         # Unmapped uniques do not enter the hunt queue.
                     else:
                         if unique_name not in unique_queue:
@@ -1802,8 +2611,8 @@ def handle_chat(t, player, msg):
             unique_name = msg.split('has been killed')[0].split('has died')[0].strip()
             _handle_unique_death_notification(unique_name, "CHAT DEATH")
 
-        # Bu server 'has been killed'/'has died' demiyor — '[Killer] killed Unique from
-        # Region. (x/y)' formatını kullanıyor (bkz. sro-opcodes.md, canlı doğrulandı).
+        # Bu server 'has been killed'/'has died' demiyor â€” '[Killer] killed Unique from
+        # Region. (x/y)' formatÄ±nÄ± kullanÄ±yor (bkz. sro-opcodes.md, canlÄ± doÄŸrulandÄ±).
         elif ' killed ' in msg and ' from ' in msg and msg.strip().startswith('['):
             killer_name, unique_name = _parse_unique_kill_message(msg.strip())
             if unique_name:
@@ -1812,3 +2621,4 @@ def handle_chat(t, player, msg):
 
 
 log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)
+

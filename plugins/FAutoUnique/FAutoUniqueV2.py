@@ -1,4 +1,4 @@
-﻿import phBot
+import phBot
 from phBot import *
 import QtBind
 import time

@@ -111,6 +111,7 @@ TOWN_REGIONS = {
 # ================= AUTO RETURN STATE =================
 # Return to town when an unmapped unique appears while the bot is idle.
 auto_return_enabled = False
+town_return_pending = False
 
 unique_priorities = {
     'Demon Shaitan': 10, 'DemonShiten': 10,
@@ -352,7 +353,7 @@ def load_config():
             except: pass
             was_active = data.get('plugin_active', False)
             if was_active:
-                log("Plugin was ENABLED â†’ Auto-resuming...")
+                log("Plugin was ENABLED -> Auto-resuming...")
                 plugin_active = True
                 try:
                     QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
@@ -611,29 +612,45 @@ def do_auto_return(unique_name):
     """
     if not auto_return_enabled: return
     if _is_in_town() or just_returned:
-        log(f"[AutoReturn] {unique_name} has no script â†’ Already in town, no action needed.")
+        log(f"[AutoReturn] {unique_name} has no script -> Already in town, no action needed.")
         return
-    log(f"[AutoReturn] {unique_name} has no script â†’ Outside town! Returning...")
+    log(f"[AutoReturn] {unique_name} has no script -> Outside town! Returning...")
     _trigger_return_to_town()
 
 def _wait_for_town(on_arrived, label="Return", max_attempts=30):
     """
     Poll once per second until the character reaches town or the attempt limit.
     """
+    global town_return_pending
+    town_return_pending = True
+
     def _check(attempts=0):
+        global town_return_pending
         # disable edilirse bekleyen town-varis zincirini durdur
         if not plugin_active:
-            if debug_enabled: log(f"[{label}] Plugin disabled â†’ town-wait iptal.")
+            town_return_pending = False
+            if debug_enabled: log(f"[{label}] Plugin disabled -> town wait cancelled.")
             return
         if _is_in_town():
+            town_return_pending = False
             on_arrived()
             return
         if attempts >= max_attempts:
-            log(f"[{label}] Town arrival timeout â€” stopping anyway.")
-            on_arrived()
+            _town_wait_failed(label)
             return
         threading.Timer(1.0, _check, [attempts + 1]).start()
     _check()
+
+
+def _town_wait_failed(label):
+    """Keep the queue pending when a return scroll is cancelled or fails."""
+    global bot_state
+    bot_state = 'RETURNING'
+    _set_in_town(False)
+    append_activity_once('return-failed:%s' % label,
+                         'Return failed; waiting for town')
+    refresh_runtime_dashboard()
+    log('[%s] Town arrival timeout - return failed; queue preserved and waiting for town.' % label)
 
 def toggle_auto_return(checked=None):
     global auto_return_enabled
@@ -758,7 +775,7 @@ def wait_for_loot_async(remaining_sec, total_sec=None):
                 names = ', '.join(d.get('name', '?') for d in drops.values())
                 log(f"[Loot] Dusen itemler: {names}")
             else:
-                log(f"[Loot] get_drops() bos (pick filter disinda olabilir) â€” yine de {total_sec}s bekleniyor...")
+                log(f"[Loot] get_drops() bos (pick filter disinda olabilir) - yine de {total_sec}s bekleniyor...")
         except Exception as e:
             log(f"[Loot] get_drops() error: {e}")
 
@@ -847,12 +864,12 @@ def check_next_unique_after_return():
         with _state_lock:
             for uname in list(unique_queue):
                 if has_hunt_route(uname) and alive_uniques.get(uname, {}).get('alive', False):
-                    log(f"[Town] Next unique: {uname} â†’ Starting in 1s...")
+                    log(f"[Town] Next unique: {uname} -> Starting in 1s...")
                     threading.Timer(1.0, auto_start_next_unique).start()
                     return
                 elif not has_hunt_route(uname):
                     unique_queue.remove(uname)
-                    log(f"[Town] {uname} has no script â†’ removed from queue.")
+                    log(f"[Town] {uname} has no script -> removed from queue.")
         update_queue_label()
 
     # No queued hunt remains. Monitoring stays active, but the bot must remain
@@ -864,7 +881,7 @@ def check_next_unique_after_return():
         except: pass
         log("[Town] Hunt queue empty; monitoring active and bot stopped in town.")
     else:
-        log("[Town] Plugin disabled â†’ standing by in town.")
+        log("[Town] Plugin disabled -> standing by in town.")
 
 def get_loot_wait_seconds():
     try:
@@ -1109,19 +1126,34 @@ def _on_unique_spawn(unique_name):
     # just_returned skips this check once immediately after arrival.
     in_town = just_returned or _is_in_town()
     if not in_town:
+        # A visible coordinate-route target can be engaged from the grind slot
+        # without an unnecessary town round trip. Preserve the grind slot first.
+        if get_route_mode(unique_name) == 'coordinates' and bot_state == 'IDLE':
+            try:
+                visible = _find_visible_unique(unique_name)
+            except Exception as error:
+                visible = None
+                if debug_enabled:
+                    log('[Coordinates] Visible target check error: %s' % error)
+            if visible:
+                log('[Coordinates] %s is already visible -> engaging directly.' % unique_name)
+                capture_slot()
+                run_mapped_script(unique_name, 'spawn', allow_outside_coordinate=True)
+                return
+
         # --- Script'i OLMAYAN unique â†’ grind'i BOLME ---
         # (eski surumde script olsun olmasin sehre donuyordu; rastgele bir unique
         #  yaninda spawn olunca bot slotu birakip sehre isinlaniyordu = bug)
         if not has_hunt_route(unique_name):
             if auto_return_enabled and bot_state == 'IDLE':
-                log(f"[Spawn] {unique_name} (script yok) â†’ Auto Return acik, donuluyor...")
+                log(f"[Spawn] {unique_name} (script yok) -> Auto Return acik, donuluyor...")
                 do_auto_return(unique_name)
             else:
-                log(f"[Spawn] {unique_name} (script yok) â†’ yok sayiliyor, slotta kaliniyor.")
+                log(f"[Spawn] {unique_name} (script yok) -> yok sayiliyor, slotta kaliniyor.")
             return
 
         # --- Script'li unique â†’ slotu kaydet, sehre don, sonra script calissin ---
-        log(f"[Spawn] {unique_name} slotta spawn oldu â†’ slot kaydedilip sehre donuluyor...")
+        log(f"[Spawn] {unique_name} slotta spawn oldu -> slot kaydedilip sehre donuluyor...")
         with _state_lock:
             if unique_name not in unique_queue:
                 unique_queue.append(unique_name)
@@ -1148,7 +1180,7 @@ def _on_unique_spawn(unique_name):
     # Start the mapped script flow.
     run_mapped_script(unique_name, 'spawn')
 
-def run_mapped_script(unique_name, event_type):
+def run_mapped_script(unique_name, event_type, allow_outside_coordinate=False):
     global current_active_unique, unique_queue, bot_state, force_stopped, just_returned
     try:
         # =================== DEATH EVENT ===================
@@ -1185,7 +1217,7 @@ def run_mapped_script(unique_name, event_type):
                     log(f"{unique_name} removed from queue (Died while waiting).")
                 # Stop the active route and return if its target died.
                 if current_active_unique and current_active_unique.lower() == unique_name.lower():
-                    log(f"{unique_name} died while script was running â†’ stopping script.")
+                    log(f"{unique_name} died while script was running -> stopping script.")
                     stop_attack_loop()
                     stop_loot_timer()
                     try: stop_script()
@@ -1196,7 +1228,7 @@ def run_mapped_script(unique_name, event_type):
                     update_active_unique_label()
                     bot_state = 'IDLE'
                     if not _is_in_town():
-                        log(f"{unique_name} died outside town â†’ returning to town...")
+                        log(f"{unique_name} died outside town -> returning to town...")
                         _trigger_return_to_town()
                     elif unique_queue and plugin_active:
                         threading.Timer(1.0, auto_start_next_unique).start()
@@ -1217,26 +1249,27 @@ def run_mapped_script(unique_name, event_type):
                 if unique_name not in pending_uniques:
                     pending_uniques.append(unique_name)
                     refresh_pending_list()
-                    log(f"[Pending] {unique_name} has no script â†’ added to pending.")
+                    log(f"[Pending] {unique_name} has no script -> added to pending.")
             if bot_state == 'IDLE' and auto_return_enabled:
                 do_auto_return(unique_name)
             alive_uniques[unique_name]['handled'] = True
             return
 
         # Queue the unique when the character is outside town.
-        if not just_returned and not _is_in_town():
+        if (not allow_outside_coordinate and not just_returned and
+                not _is_in_town()):
             with _state_lock:
                 if unique_name not in unique_queue:
                     unique_queue.append(unique_name)
                     sort_queue_by_priority()
                     update_queue_label()
-                    log(f"[Queue] {unique_name} queued (outside town â€” will run after current).")
+                    log(f"[Queue] {unique_name} queued (outside town - will run after current).")
             alive_uniques[unique_name]['handled'] = True
             return
 
         if force_stopped:
             if bot_state == 'IDLE' and plugin_active:
-                log(f"[Town] New spawn: {unique_name} â†’ Releasing force stop...")
+                log(f"[Town] New spawn: {unique_name} -> Releasing force stop...")
                 force_stopped = False
             else:
                 log(f"Blocked: Bot is force stopped.")
@@ -1323,7 +1356,7 @@ def run_mapped_script(unique_name, event_type):
                     log("[Engage] Training position ayarlanamadi; aktif Training Area secili mi?")
                 phBot.start_bot()
                 start_attack_loop()
-                log(f"Started: {unique_name} (Engage Mode â€” pos set to unique)")
+                log(f"Started: {unique_name} (Engage Mode - pos set to unique)")
             else:
                 # If the unique is distant, run the walk script to reach it.
                 set_training_script(script_path)
@@ -1332,7 +1365,7 @@ def run_mapped_script(unique_name, event_type):
                 script_content = script_content.replace('{unique}', unique_name).replace('{event}', 'auto')
                 phBot.start_script(script_content)
                 start_attack_loop()
-                log(f"Started: {unique_name} (Script Mode â€” walking to unique)")
+                log(f"Started: {unique_name} (Script Mode - walking to unique)")
 
             alive_uniques[unique_name]['handled'] = True
             log(f"ACTIVE: {current_active_unique}")
@@ -1432,7 +1465,7 @@ def restore_slot():
             log("[Slot] Training position geri yuklenemedi; aktif Training Area secili mi?")
             return False
         phBot.start_bot()
-        log(f"[Slot] Slota geri donuluyor ({s['x']:.0f},{s['y']:.0f}) region={s['region']} â†’ grind devam.")
+        log(f"[Slot] Slota geri donuluyor ({s['x']:.0f},{s['y']:.0f}) region={s['region']} -> grind devam.")
         return True
     except Exception as e:
         log(f"restore_slot error: {e}")
@@ -1440,7 +1473,7 @@ def restore_slot():
 
 def _return_then_enable():
     """Use a return scroll and poll until the character reaches town."""
-    log("Plugin ENABLED - Not in town â†’ Using return scroll first...")
+    log("Plugin ENABLED - Not in town -> Using return scroll first...")
     try: use_return_scroll()
     except: pass
     threading.Timer(1.0, lambda: _wait_for_town(_after_return_enable, label="Enable")).start()
@@ -1453,7 +1486,7 @@ def _after_return_enable():
     force_stopped = False
     just_returned = False
     _set_in_town(True)
-    log("Arrived in town â†’ Plugin ready.")
+    log("Arrived in town -> Plugin ready.")
     if not current_active_unique and unique_queue:
         log("Auto-starting first unique from saved queue...")
         auto_start_next_unique()
@@ -1480,7 +1513,7 @@ def _check_town_on_enable():
     if _is_in_town():
         just_returned = True
         _set_in_town(True)
-        log("Plugin ENABLED â€” In town, ready.")
+        log("Plugin ENABLED - In town, ready.")
         if not current_active_unique and unique_queue:
             log("Auto-starting first unique from saved queue...")
             threading.Timer(1.0, auto_start_next_unique).start()
@@ -1494,13 +1527,13 @@ def _check_town_on_enable():
         has_ready = any(has_hunt_route(u) and alive_uniques.get(u, {}).get('alive', False)
                         for u in list(unique_queue))
         if has_ready:
-            log("Plugin ENABLED â€” Bekleyen scriptli unique var â†’ sehre donup avlaniyor.")
+            log("Plugin ENABLED - Bekleyen scriptli unique var -> sehre donup avlaniyor.")
             _trigger_return_to_town()
         else:
-            log("Plugin ENABLED â€” Slotta grind. Scriptli unique spawn olunca avlanacak.")
+            log("Plugin ENABLED - Slotta grind. Scriptli unique spawn olunca avlanacak.")
 
 def disable_plugin_monitoring():
-    global plugin_active, current_active_unique, bot_state
+    global plugin_active, current_active_unique, bot_state, town_return_pending
     if not plugin_active: return
     stop_attack_loop()
     stop_loot_timer()
@@ -1515,6 +1548,7 @@ def disable_plugin_monitoring():
     current_active_unique = None
     update_active_unique_label()
     bot_state = 'IDLE'
+    town_return_pending = False
     plugin_active = False
     update_plugin_status()
     save_config()
@@ -1614,7 +1648,7 @@ def auto_start_next_unique():
 
         # Return first when outside town and not immediately after arrival.
         if not just_returned and not _is_in_town():
-            log("[AutoReturn] auto_start_next_unique: Not in town â†’ Returning first!")
+            log("[AutoReturn] auto_start_next_unique: Not in town -> Returning first!")
             if bot_state == 'IDLE':
                 _trigger_return_to_town()
             return
@@ -1683,7 +1717,7 @@ def start_attack_loop():
                         if not engaged[0]:
                             engaged[0] = True
                             script_finished = True
-                            log(f"[Engage] Found {monster.get('name')} â†’ stop script, set training pos, start bot")
+                            log(f"[Engage] Found {monster.get('name')} -> stop script, set training pos, start bot")
                             try: phBot.stop_script()
                             except: pass
                             try: phBot.stop_bot()
@@ -1732,7 +1766,7 @@ def start_attack_loop():
                     lost_after_engage[0] += 1
                     grace_attempts = LOST_TARGET_GRACE_SEC / 0.1
                     if lost_after_engage[0] >= grace_attempts:
-                        log(f"[LostTarget] {current_active_unique} disappeared after engage â†’ assuming dead, returning.")
+                        log(f"[LostTarget] {current_active_unique} disappeared after engage -> assuming dead, returning.")
                         handle_presumed_death()
                         return
         except: pass
@@ -2333,7 +2367,7 @@ def _load_config_after_join(attempt=0):
         load_config()
         refresh_scripts()
         if plugin_active:
-            log(f"[{pName}] Plugin was ENABLED â†’ Checking location...")
+            log(f"[{pName}] Plugin was ENABLED -> Checking location...")
             _check_location_on_join()
     except Exception as e:
         log(f"_load_config_after_join error: {e}")
@@ -2343,13 +2377,13 @@ def _check_location_on_join():
     if not plugin_active: return
     if not _is_in_town():
         _set_in_town(False)
-        log(f"[{pName}] Not in town â†’ Using return scroll...")
+        log(f"[{pName}] Not in town -> Using return scroll...")
         try: use_return_scroll()
         except: pass
         threading.Timer(1.0, lambda: _wait_for_town(_after_return_enable, label="Join")).start()
     else:
         _set_in_town(True)
-        log(f"[{pName}] In town â†’ Ready and waiting for uniques...")
+        log(f"[{pName}] In town -> Ready and waiting for uniques...")
 
 # ================= EVENTS =================
 UNIQUE_OBJ_CACHE = {}
@@ -2373,7 +2407,13 @@ def teleported():
 
 def _update_town_state_after_teleport():
     """Refresh the region-based town state shortly after teleporting."""
-    _set_in_town(_is_in_town())
+    global town_return_pending
+    arrived_in_town = _is_in_town()
+    _set_in_town(arrived_in_town)
+    if town_return_pending and arrived_in_town and plugin_active:
+        town_return_pending = False
+        log('[Return] Town reached after the earlier return timeout; resuming queue.')
+        _stop_after_return()
 
 def event_loop():
     """Learn one spawn point per visible unique instance when enabled."""
@@ -2405,6 +2445,8 @@ def event_loop():
         if debug_enabled: log('[Coordinates] Auto-learning error: %s' % error)
 
 def disconnected():
+    global town_return_pending
+    town_return_pending = False
     stop_attack_loop()
     stop_loot_timer()
     stop_coordinate_hunt()
@@ -2435,7 +2477,7 @@ def handle_event(t, data):
                 if unique_name not in pending_uniques:
                     pending_uniques.append(unique_name)
                     refresh_pending_list()
-                    log(f"[Pending] {unique_name} has no script â†’ added to pending (Event).")
+                    log(f"[Pending] {unique_name} has no script -> added to pending (Event).")
             else:
                 is_active_target = bool(current_active_unique and current_active_unique.lower() == unique_name.lower())
                 if not is_active_target and unique_name not in unique_queue:
@@ -2543,18 +2585,18 @@ def handle_joymax(opcode, data):
                             if mapped_name not in pending_uniques:
                                 pending_uniques.append(mapped_name)
                                 refresh_pending_list()
-                                log(f"[Pending] {name} has no script â†’ added to pending.")
+                                log(f"[Pending] {name} has no script -> added to pending.")
                             # Unmapped uniques do not enter the hunt queue.
                         else:
                             if mapped_name not in unique_queue:
                                 unique_queue.append(mapped_name)
                                 sort_queue_by_priority()
                                 update_queue_label()
-                                log(f"[Auto-Saved] {name} â†’ using mapping [{mapped_name}] added to queue.")
+                                log(f"[Auto-Saved] {name} -> using mapping [{mapped_name}] added to queue.")
                     if is_new:
                         if plugin_active:
                             if debug_enabled:
-                                log(f"Packet Spawn: {name} â†’ mapped as [{mapped_name}] (Executing)")
+                                log(f"Packet Spawn: {name} -> mapped as [{mapped_name}] (Executing)")
                             _on_unique_spawn(mapped_name)
                         else:
                             if debug_enabled:
@@ -2593,7 +2635,7 @@ def handle_chat(t, player, msg):
                         if unique_name not in pending_uniques:
                             pending_uniques.append(unique_name)
                             refresh_pending_list()
-                            log(f"[Pending] {unique_name} has no script â†’ added to pending (Chat).")
+                            log(f"[Pending] {unique_name} has no script -> added to pending (Chat).")
                         # Unmapped uniques do not enter the hunt queue.
                     else:
                         if unique_name not in unique_queue:

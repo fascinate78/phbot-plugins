@@ -20,6 +20,9 @@
 - Compressed every page to keep all interactive controls within the real phBot plugin viewport without scrolling or additional windows.
 
 ### Fixed
+- Fixed visible coordinate-route uniques unnecessarily triggering a town return; targets already visible at the grind slot are now engaged directly after preserving the saved slot.
+- Fixed cancelled or failed return scrolls being treated as successful town arrivals; the queue now remains pending until a real town teleport is detected.
+- Fixed corrupted arrow and dash characters in user-facing plugin log messages.
 - Fixed active coordinate hunts not reacting to repeated native spawn events and protected the route monitor from stopping after transient API errors.
 - Fixed manual coordinate hunts reporting a successful start while monitoring was disabled.
 - Removed unsupported direct-target API calls and now lets phBot select and attack the unique after configuring its real position as the training area.

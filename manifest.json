@@ -64,6 +64,9 @@
                                         "Separated script-mapping removal from coordinate-point removal while preserving inactive route data when switching route modes.",
                                         "Reduced unchanged Dashboard updates during the high-frequency event loop by refreshing QtBind labels only when runtime state changes.",
                                         "Compressed every page to keep all interactive controls within the real phBot plugin viewport without scrolling or additional windows.",
+                                        "Fixed visible coordinate-route uniques unnecessarily triggering a town return; targets already visible at the grind slot are now engaged directly after preserving the saved slot.",
+                                        "Fixed cancelled or failed return scrolls being treated as successful town arrivals; the queue now remains pending until a real town teleport is detected.",
+                                        "Fixed corrupted arrow and dash characters in user-facing plugin log messages.",
                                         "Fixed active coordinate hunts not reacting to repeated native spawn events and protected the route monitor from stopping after transient API errors.",
                                         "Fixed manual coordinate hunts reporting a successful start while monitoring was disabled.",
                                         "Removed unsupported direct-target API calls and now lets phBot select and attack the unique after configuring its real position as the training area.",
@@ -78,7 +81,7 @@
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "b4dfe6dcc7e1ca6bcf90f22b03049f8822ff4876df67877d2db77fee99145897"
+                        "sha256":  "81217354d003318202789d7a55c306ec2232f5b67d08a15a324973e6b620b169"
                     },
                     {
                         "id":  "FCaravanNavigator",

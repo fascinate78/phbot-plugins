@@ -139,16 +139,16 @@
                     {
                         "id":  "FFortuneManager",
                         "name":  "FFortuneManager",
-                        "version":  "1.2.6",
+                        "version":  "1.2.7",
                         "core":  false,
                         "description":  "Automatically rolls eligible equipment until every configured per-stat line target is reached.",
                         "changes":  [
-                                        "Added the live-verified shield code `0x19` as Block and aligned the selectable shield target name with the game log."
+                                        "Added context-aware decoding for the live-verified high-degree weapon code family (`0x69`, `0x6A`, `0x6B`, `0x6C`, `0x6D`, `0x77`) without changing armor/accessory interpretations of overlapping codes."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/changelog.md",
                         "install_path":  "FFortuneManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/FFortuneManager.py",
-                        "sha256":  "1d04f78715b62125e067066cd9c6d124167879f060c45084fc67f151a9b78354"
+                        "sha256":  "ce317732f984fd09788e6b5545cb049ec90e59c0c1183599a81a42bde54d29bd"
                     },
                     {
                         "id":  "FInventoryManager",

@@ -8,7 +8,7 @@ from threading import Timer
 
 
 pName = 'FFortuneManager'
-pVersion = '1.2.6'
+pVersion = '1.2.7'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_FORTUNE_REQUEST = 0x7151
@@ -127,6 +127,14 @@ CLASSIC_CODES = {
     0x40: 'HP', 0x68: 'HP', 0x41: 'MP', 0x6B: 'MP',
     0x49: 'Stun', 0x4A: 'HP/MP Recovery', 0x4B: 'Combustion',
     0x4C: 'Disease', 0x4D: 'Sleep', 0x4E: 'Fear'
+}
+WEAPON_CONTEXT_CODES = {
+    0x69: 'STR',
+    0x6A: 'INT',
+    0x6B: 'Durability',
+    0x6C: 'Attack Rate',
+    0x6D: 'Evade Block',
+    0x77: 'Critical'
 }
 IGNORED_RESPONSE_STATS = {
     'Athanasia', 'Solid', 'Luck', 'Repair'
@@ -538,10 +546,16 @@ def parse_fortune_response(data, item=None):
             value = group[4]
             if value <= 0:
                 break
+            code = group[0]
+            name = CLASSIC_CODES.get(code)
+            if item is not None:
+                live_item = find_inventory_item(item['slot'])
+                classification = item_classification(live_item) if live_item else None
+                if classification and classification[0] == 'Weapon':
+                    name = WEAPON_CONTEXT_CODES.get(code, name)
             options.append({
                 'code': group[0],
-                'name': CLASSIC_CODES.get(
-                    group[0], 'Unknown code 0x%02X' % group[0]),
+                'name': name or 'Unknown code 0x%02X' % group[0],
                 'value': value, 'format': 'classic-scan', 'offset': cursor
             })
             cursor += 8

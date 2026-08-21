@@ -1,5 +1,10 @@
 # FFortuneManager Changelog
 
+## v1.2.7
+
+### Fixed
+- Added context-aware decoding for the live-verified high-degree weapon code family (`0x69`, `0x6A`, `0x6B`, `0x6C`, `0x6D`, `0x77`) without changing armor/accessory interpretations of overlapping codes.
+
 ## v1.2.6
 
 ### Fixed

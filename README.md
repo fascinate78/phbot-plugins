@@ -59,12 +59,14 @@ downloaded version.
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
 | [FFortuneManager](plugins/FFortuneManager/) | 1.2.6 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |
+| [FPenManager](plugins/FPenManager/) | 1.0.0 | Automatically applies Feather Pen of Fortune until each queued equipment item reaches its configured total stat values. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.0.0 | Coordinates party-synchronized trade scripts and job-item handling. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
+| [FWheelManager](plugins/FWheelManager/) | 1.0.0 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
 <!-- PLUGIN_TABLE_END -->
 
 Plugin availability, versions, download locations, integrity hashes, and release

@@ -29,20 +29,25 @@ REPOSITORY_URL = (
 
 WEBHOOK_USERNAME = "FascinaTe Plugins"
 
-EMBED_TITLE = "🧩 FascinaTe phBot Plugins"
+EMBED_TITLE = "?妝 FascinaTe phBot Plugins"
 
 USER_AGENT = (
     "FascinaTe-phBot-Plugins-GitHub-Action/1.0"
 )
 
-# Her embed'de kaç plugin gösterilecek.
+# Her embed'de ka癟 plugin g繹sterilecek.
 PLUGINS_PER_EMBED = 6
 
 # Discord bir mesajda en fazla 10 embed kabul eder.
 MAX_EMBEDS = 10
 
-# Plugin açıklaması çok uzunsa kısaltılır.
+# Plugin a癟覺klamas覺 癟ok uzunsa k覺salt覺l覺r.
 MAX_PLUGIN_DESCRIPTION = 220
+
+# Discord limits the combined text of all embeds in one message to 6000
+# characters. Keep a small margin so future metadata changes do not put the
+# payload exactly on the API boundary.
+MAX_TOTAL_EMBED_CHARACTERS = 5900
 
 
 # ============================================================
@@ -58,7 +63,7 @@ def fail(message: str, exit_code: int = 1):
 
 
 def truncate(text: str, max_length: int) -> str:
-    if not text:
+    if not text or max_length <= 0:
         return ""
 
     text = str(text).strip()
@@ -79,7 +84,7 @@ def truncate(text: str, max_length: int) -> str:
 def load_manifest():
     if not MANIFEST_PATH.exists():
         fail(
-            f"{MANIFEST_PATH} bulunamadı."
+            f"{MANIFEST_PATH} bulunamad覺."
         )
 
     try:
@@ -91,12 +96,12 @@ def load_manifest():
 
     except json.JSONDecodeError as exc:
         fail(
-            f"manifest.json geçerli JSON değil: {exc}"
+            f"manifest.json ge癟erli JSON de?il: {exc}"
         )
 
     except Exception as exc:
         fail(
-            f"manifest.json okunamadı: {exc}"
+            f"manifest.json okunamad覺: {exc}"
         )
 
 
@@ -113,18 +118,18 @@ def get_plugins(manifest):
     else:
         fail(
             "manifest.json beklenmeyen "
-            "bir yapıya sahip."
+            "bir yap覺ya sahip."
         )
 
     if not isinstance(plugins, list):
         fail(
-            "manifest.json içindeki "
-            "'plugins' alanı liste değil."
+            "manifest.json i癟indeki "
+            "'plugins' alan覺 liste de?il."
         )
 
     if not plugins:
         fail(
-            "manifest.json içinde plugin bulunamadı."
+            "manifest.json i癟inde plugin bulunamad覺."
         )
 
     return plugins
@@ -142,7 +147,10 @@ def plugin_sort_key(plugin):
 # PLUGIN FORMAT
 # ============================================================
 
-def build_plugin_entry(plugin):
+def build_plugin_entry(
+    plugin,
+    max_description=MAX_PLUGIN_DESCRIPTION
+):
     name = (
         plugin.get("name")
         or plugin.get("id")
@@ -156,7 +164,7 @@ def build_plugin_entry(plugin):
 
     description = truncate(
         plugin.get("description") or "",
-        MAX_PLUGIN_DESCRIPTION
+        max_description
     )
 
     download_url = (
@@ -173,7 +181,7 @@ def build_plugin_entry(plugin):
         plugin.get("core", False)
     )
 
-    icon = "⭐" if core else "📦"
+    icon = "潃? if core else "?"
 
     lines = [
         f"**{icon} {name}** `v{version}`"
@@ -188,17 +196,17 @@ def build_plugin_entry(plugin):
 
     if download_url:
         links.append(
-            f"[⬇️ Download]({download_url})"
+            f"[漎? Download]({download_url})"
         )
 
     if changelog_url:
         links.append(
-            f"[📝 Changelog]({changelog_url})"
+            f"[?? Changelog]({changelog_url})"
         )
 
     if links:
         lines.append(
-            " • ".join(links)
+            " ??".join(links)
         )
 
     return "\n".join(lines)
@@ -225,14 +233,33 @@ def split_plugins_into_groups(plugins):
     return groups
 
 
-def build_embeds(plugins):
+def count_embed_characters(embeds):
+    total = 0
+
+    for embed in embeds:
+        total += len(embed.get("title", ""))
+        total += len(embed.get("description", ""))
+        total += len(embed.get("author", {}).get("name", ""))
+        total += len(embed.get("footer", {}).get("text", ""))
+
+        for field in embed.get("fields", []):
+            total += len(field.get("name", ""))
+            total += len(field.get("value", ""))
+
+    return total
+
+
+def build_embeds_with_description_limit(
+    plugins,
+    max_description
+):
     groups = split_plugins_into_groups(
         plugins
     )
 
     if len(groups) > MAX_EMBEDS:
         fail(
-            f"{len(plugins)} plugin için "
+            f"{len(plugins)} plugin i癟in "
             f"{len(groups)} embed gerekiyor. "
             f"Discord tek mesajda en fazla "
             f"{MAX_EMBEDS} embed kabul ediyor."
@@ -257,7 +284,10 @@ def build_embeds(plugins):
         start=1
     ):
         entries = [
-            build_plugin_entry(plugin)
+            build_plugin_entry(
+                plugin,
+                max_description
+            )
             for plugin in group
         ]
 
@@ -269,14 +299,14 @@ def build_embeds(plugins):
             "description": description
         }
 
-        # İlk embed
+        # 襤lk embed
         if page_index == 1:
             embed["title"] = EMBED_TITLE
             embed["url"] = REPOSITORY_URL
 
             embed["author"] = {
                 "name": (
-                    f"Plugin Listesi • "
+                    f"Plugin Listesi ??"
                     f"{page_index}/{total_pages}"
                 )
             }
@@ -284,7 +314,7 @@ def build_embeds(plugins):
         else:
             embed["author"] = {
                 "name": (
-                    f"Plugin Listesi • "
+                    f"Plugin Listesi ??"
                     f"{page_index}/{total_pages}"
                 )
             }
@@ -293,9 +323,9 @@ def build_embeds(plugins):
         if page_index == total_pages:
             embed["footer"] = {
                 "text": (
-                    f"{len(plugins)} plugins • "
-                    f"{core_count} core • "
-                    f"{normal_count} standard • "
+                    f"{len(plugins)} plugins ??"
+                    f"{core_count} core ??"
+                    f"{normal_count} standard ??"
                     f"Automatically synced from GitHub"
                 )
             }
@@ -305,6 +335,47 @@ def build_embeds(plugins):
         )
 
     return embeds
+
+
+def build_embeds(plugins):
+    # Find the longest description limit that keeps the combined embed text
+    # below Discord's per-message limit. A binary search avoids relying on a
+    # fixed plugin count or today's manifest contents.
+    minimum_embeds = build_embeds_with_description_limit(
+        plugins,
+        0
+    )
+
+    if (
+        count_embed_characters(minimum_embeds)
+        > MAX_TOTAL_EMBED_CHARACTERS
+    ):
+        fail(
+            "Plugin adlari ve baglantilari, aciklamalar olmadan bile "
+            "Discord embed karakter sinirini asiyor."
+        )
+
+    low = 0
+    high = MAX_PLUGIN_DESCRIPTION
+    best_embeds = minimum_embeds
+
+    while low <= high:
+        candidate_limit = (low + high) // 2
+        candidate_embeds = build_embeds_with_description_limit(
+            plugins,
+            candidate_limit
+        )
+
+        if (
+            count_embed_characters(candidate_embeds)
+            <= MAX_TOTAL_EMBED_CHARACTERS
+        ):
+            best_embeds = candidate_embeds
+            low = candidate_limit + 1
+        else:
+            high = candidate_limit - 1
+
+    return best_embeds
 
 
 # ============================================================
@@ -418,30 +489,30 @@ def send_request(
 
         if exc.code == 401:
             print(
-                "Webhook authentication başarısız. "
+                "Webhook authentication ba?ar覺s覺z. "
                 "Webhook URL/token kontrol et.",
                 file=sys.stderr
             )
 
         elif exc.code == 403:
             print(
-                "Discord isteği Forbidden (403) "
+                "Discord iste?i Forbidden (403) "
                 "olarak reddetti.",
                 file=sys.stderr
             )
 
         elif exc.code == 404:
             print(
-                "Webhook veya Discord mesajı "
-                "bulunamadı. "
+                "Webhook veya Discord mesaj覺 "
+                "bulunamad覺. "
                 "DISCORD_PLUGIN_MESSAGE_ID "
-                "yanlış olabilir.",
+                "yanl覺? olabilir.",
                 file=sys.stderr
             )
 
         elif exc.code == 429:
             print(
-                "Discord rate limit uyguladı.",
+                "Discord rate limit uygulad覺.",
                 file=sys.stderr
             )
 
@@ -449,7 +520,7 @@ def send_request(
 
     except urllib.error.URLError as exc:
         print(
-            f"Discord bağlantı hatası: {exc}",
+            f"Discord ba?lant覺 hatas覺: {exc}",
             file=sys.stderr
         )
 
@@ -469,7 +540,7 @@ def create_message(payload):
 
     print(
         "Yeni Discord plugin listesi "
-        "mesajı oluşturuluyor..."
+        "mesaj覺 olu?turuluyor..."
     )
 
     response = send_request(
@@ -489,7 +560,7 @@ def create_message(payload):
                 "========================================"
             )
             print(
-                "Discord mesajı oluşturuldu."
+                "Discord mesaj覺 olu?turuldu."
             )
             print(
                 f"MESSAGE ID: {message_id}"
@@ -524,8 +595,8 @@ def update_message(
     )
 
     print(
-        "Mevcut Discord mesajı "
-        f"güncelleniyor: {message_id}"
+        "Mevcut Discord mesaj覺 "
+        f"g羹ncelleniyor: {message_id}"
     )
 
     return send_request(
@@ -553,7 +624,7 @@ def main():
     if not WEBHOOK_URL:
         fail(
             "DISCORD_PLUGIN_WEBHOOK "
-            "environment variable tanımlı değil."
+            "environment variable tan覺ml覺 de?il."
         )
 
     if not WEBHOOK_URL.startswith(
@@ -564,7 +635,7 @@ def main():
     ):
         fail(
             "DISCORD_PLUGIN_WEBHOOK "
-            "geçerli bir Discord webhook URL'sine "
+            "ge癟erli bir Discord webhook URL'sine "
             "benzemiyor."
         )
 
@@ -580,7 +651,7 @@ def main():
     )
 
     print(
-        f"Bulunan plugin sayısı: "
+        f"Bulunan plugin say覺s覺: "
         f"{len(plugins)}"
     )
 
@@ -620,7 +691,7 @@ def main():
 
     print("")
     print(
-        f"Oluşturulacak embed sayısı: "
+        f"Olu?turulacak embed say覺s覺: "
         f"{len(groups)}"
     )
 
@@ -646,7 +717,7 @@ def main():
         print("")
         print(
             "Discord plugin listesi "
-            "başarıyla güncellendi."
+            "ba?ar覺yla g羹ncellendi."
         )
 
     else:
@@ -657,7 +728,7 @@ def main():
         print("")
         print(
             "Discord plugin listesi "
-            "başarıyla oluşturuldu."
+            "ba?ar覺yla olu?turuldu."
         )
 
 

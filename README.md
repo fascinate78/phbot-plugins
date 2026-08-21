@@ -48,7 +48,7 @@ downloaded version.
 <!-- PLUGIN_TABLE_START -->
 | Plugin | Version | Description |
 |---|---:|---|
-| [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Installs and updates FascinaTe phBot plugins from GitHub. |
+| [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
 | [FAutoUnique V2](plugins/FAutoUnique/) | 2.4.1 | Hunts unique monsters through prioritized script or learned coordinate routes. |
@@ -56,6 +56,7 @@ downloaded version.
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
 | [FControl](plugins/FControl/) | 1.6.5 | Provides shared control commands, actions, and teleport handling. |
+| [FFortuneManager](plugins/FFortuneManager/) | 1.2.6 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |

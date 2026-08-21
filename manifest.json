@@ -6,7 +6,7 @@
                         "name":  "FaaUpdater",
                         "version":  "1.2.0",
                         "core":  false,
-                        "description":  "Installs and updates FascinaTe phBot plugins from GitHub.",
+                        "description":  "Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog.",
                         "changes":  [
                                         "Changelog tracking started for the current version."
                                     ],
@@ -121,6 +121,20 @@
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
                         "sha256":  "8c70bc0a0cd169dde5988807f988526786f2e32cb9cb07a9bdd3ab005d82521d"
+                    },
+                    {
+                        "id":  "FFortuneManager",
+                        "name":  "FFortuneManager",
+                        "version":  "1.2.6",
+                        "core":  false,
+                        "description":  "Automatically rolls eligible equipment until every configured per-stat line target is reached.",
+                        "changes":  [
+                                        "Added the live-verified shield code `0x19` as Block and aligned the selectable shield target name with the game log."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/changelog.md",
+                        "install_path":  "FFortuneManager.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/FFortuneManager.py",
+                        "sha256":  "1d04f78715b62125e067066cd9c6d124167879f060c45084fc67f151a9b78354"
                     },
                     {
                         "id":  "FInventoryManager",

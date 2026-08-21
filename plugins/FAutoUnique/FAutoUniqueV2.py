@@ -12,7 +12,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.4.0'
+pVersion = '2.4.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'

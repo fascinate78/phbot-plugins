@@ -29,4 +29,5 @@ jobs:
         env:
           DISCORD_PLUGIN_WEBHOOK: ${{ secrets.DISCORD_PLUGIN_WEBHOOK }}
           DISCORD_PLUGIN_MESSAGE_ID: ${{ secrets.DISCORD_PLUGIN_MESSAGE_ID }}
+          DISCORD_PLUGIN_MESSAGE_ID_2: ${{ secrets.DISCORD_PLUGIN_MESSAGE_ID_2 }}
         run: python scripts/sync_discord_plugin_list.py

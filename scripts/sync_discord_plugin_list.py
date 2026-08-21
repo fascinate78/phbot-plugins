@@ -23,6 +23,11 @@ MESSAGE_ID = os.environ.get(
     ""
 ).strip()
 
+MESSAGE_ID_2 = os.environ.get(
+    "DISCORD_PLUGIN_MESSAGE_ID_2",
+    ""
+).strip()
+
 REPOSITORY_URL = (
     "https://github.com/fascinate78/phbot-plugins"
 )
@@ -382,7 +387,7 @@ def build_embeds(plugins):
 # PAYLOAD
 # ============================================================
 
-def build_payload(plugins):
+def make_payload(embeds):
     return {
         "username": WEBHOOK_USERNAME,
 
@@ -390,10 +395,47 @@ def build_payload(plugins):
             "parse": []
         },
 
-        "embeds": build_embeds(
-            plugins
-        )
+        "embeds": embeds
     }
+
+
+def build_payloads(plugins):
+    embeds = build_embeds_with_description_limit(
+        plugins,
+        MAX_PLUGIN_DESCRIPTION
+    )
+
+    if len(embeds) < 2:
+        return [make_payload(embeds)]
+
+    split_index = (len(embeds) + 1) // 2
+    embed_groups = [
+        embeds[:split_index],
+        embeds[split_index:]
+    ]
+
+    payloads = []
+
+    for message_index, embed_group in enumerate(
+        embed_groups,
+        start=1
+    ):
+        character_count = count_embed_characters(
+            embed_group
+        )
+
+        if character_count > MAX_TOTAL_EMBED_CHARACTERS:
+            fail(
+                f"Discord mesaji {message_index}, "
+                f"{character_count} embed karakteri iceriyor. "
+                f"Sinir {MAX_TOTAL_EMBED_CHARACTERS}."
+            )
+
+        payloads.append(
+            make_payload(embed_group)
+        )
+
+    return payloads
 
 
 # ============================================================
@@ -704,32 +746,54 @@ def main():
             f"{len(group)} plugin"
         )
 
-    payload = build_payload(
+    payloads = build_payloads(
         plugins
     )
 
-    if MESSAGE_ID:
-        update_message(
-            payload,
-            MESSAGE_ID
-        )
+    message_ids = [
+        MESSAGE_ID,
+        MESSAGE_ID_2
+    ]
 
-        print("")
-        print(
-            "Discord plugin listesi "
-            "ba?ar覺yla g羹ncellendi."
-        )
+    print("")
+    print(
+        f"Olusturulacak Discord mesaji: "
+        f"{len(payloads)}"
+    )
 
-    else:
-        create_message(
-            payload
-        )
+    for index, payload in enumerate(
+        payloads,
+        start=1
+    ):
+        message_id = message_ids[index - 1]
 
-        print("")
-        print(
-            "Discord plugin listesi "
-            "ba?ar覺yla olu?turuldu."
-        )
+        if message_id:
+            update_message(
+                payload,
+                message_id
+            )
+
+        else:
+            response = create_message(
+                payload
+            )
+
+            if (
+                index == 2
+                and isinstance(response, dict)
+                and response.get("id")
+            ):
+                print(
+                    "Bu ID'yi DISCORD_PLUGIN_MESSAGE_ID_2 "
+                    "GitHub secret'i olarak kaydedin: "
+                    f"{response['id']}"
+                )
+
+    print("")
+    print(
+        "Discord plugin listesi "
+        "basariyla senkronize edildi."
+    )
 
 
 if __name__ == "__main__":

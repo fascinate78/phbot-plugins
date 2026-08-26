@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.6.5'
+pVersion = '1.7.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +29,78 @@ buttons_widgets = []
 
 btnControlPage = QtBind.createButton(gui, 'show_control_page', 'Control', 300, 5)
 btnButtonsPage = QtBind.createButton(gui, 'show_buttons_page', 'Buttons', 370, 5)
+btnLanguage = QtBind.createButton(gui, 'toggle_language', 'TR', 440, 5)
+
+current_language = 'en'
+
+GUI_TEXT = {
+    'en': {
+        'control': 'Control',
+        'buttons': 'Buttons',
+        'commands_title': 'Available Commands',
+        'show_client_packets': 'Show Client Packets',
+        'show_server_packets': 'Show Server Packets',
+        'ignore_set_leader': 'Ignore SETFCONTROLLEADER command',
+        'leaders': 'Leaders',
+        'add': 'Add',
+        'remove': 'Remove',
+        'announce_tps': 'Auto-announce my own TPs',
+        'announce_channel': 'Announce Channel:',
+        'buttons_title': 'BUTTONS',
+        'chat_type': 'Chat Type:',
+        'job_suit_group': 'EQ/UQ Job Suit',
+        'job_suit': 'Job Suit:',
+        'refresh': 'Refresh',
+        'equip': 'Equip',
+        'unequip': 'Unequip',
+        'set_profile_group': 'Set Profile',
+        'profile_name': 'Profile Name:',
+        'set_profile': 'Set Profile',
+        'job_suit_initial': 'Open Buttons or press Refresh to scan inventory.',
+        'job_suits_found': '%d matching job suit(s) found.',
+        'job_suits_missing': 'No Warrior Outfit or Thief Outfit found.',
+        'select_job_suit': 'Select a job suit first.',
+        'sent_command': 'Sent on %s: %s',
+        'send_failed': 'Could not send: %s',
+        'profile_initial': 'Enter a phBot profile name.',
+        'profile_required': 'Enter a profile name first.',
+    },
+    'tr': {
+        'control': 'Kontrol',
+        'buttons': 'Butonlar',
+        'commands_title': 'Kullanılabilir Komutlar',
+        'show_client_packets': 'İstemci Paketlerini Göster',
+        'show_server_packets': 'Sunucu Paketlerini Göster',
+        'ignore_set_leader': 'SETFCONTROLLEADER komutunu yok say',
+        'leaders': 'Liderler',
+        'add': 'Ekle',
+        'remove': 'Kaldır',
+        'announce_tps': 'Kendi ışınlanmalarımı otomatik duyur',
+        'announce_channel': 'Duyuru Kanalı:',
+        'buttons_title': 'BUTONLAR',
+        'chat_type': 'Sohbet Türü:',
+        'job_suit_group': 'EQ/UQ Meslek Kıyafeti',
+        'job_suit': 'Meslek Kıyafeti:',
+        'refresh': 'Yenile',
+        'equip': 'Kuşan',
+        'unequip': 'Çıkar',
+        'set_profile_group': 'Profil Ayarla',
+        'profile_name': 'Profil Adı:',
+        'set_profile': 'Profili Ayarla',
+        'job_suit_initial': 'Envanteri taramak için Butonlar sayfasını açın veya Yenile\'ye basın.',
+        'job_suits_found': '%d eşleşen meslek kıyafeti bulundu.',
+        'job_suits_missing': 'Warrior Outfit veya Thief Outfit bulunamadı.',
+        'select_job_suit': 'Önce bir meslek kıyafeti seçin.',
+        'sent_command': '%s kanalında gönderildi: %s',
+        'send_failed': 'Gönderilemedi: %s',
+        'profile_initial': 'Bir phBot profil adı girin.',
+        'profile_required': 'Önce bir profil adı girin.',
+    },
+}
+
+
+def _text(key):
+    return GUI_TEXT[current_language][key]
 
 
 def discord_clicked():
@@ -152,58 +224,67 @@ def read_account_from_ini():
 # Commands section - right under title
 _x_cmd = 6
 _y_cmd = 30
-lblCommands = QtBind.createLabel(gui, '<font color="#ffd86b"><b>𝙰𝚟𝚊𝚒𝚕𝚊𝚋𝚕𝚎 𝙲𝚘𝚖𝚖𝚊𝚗𝚍𝚜</b></font>', _x_cmd, _y_cmd)
+lblCommands = QtBind.createLabel(gui, '<font color="#ffd86b"><b>Available Commands</b></font>', _x_cmd, _y_cmd)
 _y_cmd += 18
 lstCommands = QtBind.createList(gui, _x_cmd, _y_cmd, 500, 200)
-commands_list = [
-    "- S : Start the bot",
-    "- SS : Stop the bot",
-    "- T [Player] : Trace the leader or a player",
-    "- N : Stop tracing",
-    "- FL [Player] [Distance] : Follow a party member",
-    "- NF : Stop following",
-    "- M : Mount a transport pet",
-    "- D / DS : Dismount the current pet",
-    "- SIT : Toggle sit or stand",
-    "- ZK : Activate Berserker mode",
-    "- RE : Use a return scroll or revive in town",
-    "- COME : Reverse-return to the leader",
-    "- REVERSE Type [Name] : Reverse to return, death, player, or zone",
-    "- Q1 / Q2 / Q3 : Use a predefined teleport route",
-    "- TP Source DestinationID : Use a standard teleporter",
-    "- TPR Source : Use a runtime portal",
-    "- RC Town : Set recall at a nearby town portal",
-    "- LP : Leave the party",
-    "- DC : Disconnect from the server",
-    "- SP [X Y Region Z] : Set the training position",
-    "- SR [Radius] : Set the training radius",
-    "- !C AreaName/ID : Select a training area and start the bot",
-    "- SETSCRIPT [Path] : Set or clear the training script",
-    "- MOVE X Y [Z] : Move without attacking",
-    "- MOVEATTACK X Y [Z] : Move, set the area, and start botting",
-    "- MOVEON [Radius] : Move to a random nearby point",
-    "- GETPOS : Send the current position by private message",
-    "- EQ ItemName : Equip an inventory item",
-    "- UQ ItemName : Unequip an equipped item",
-    "- USE ItemName : Use an inventory item",
-    "- SORT : Sort the inventory",
-    "- REPAIR : Use one Repair Hammer",
-    "- PA : Pick all nearby drops allowed by the pick filter",
-    "- SPA : Stop Pick All",
-    "- TIS : Claim all available Item Storage items",
-    "- CLOCK : Use exactly one Clock of Reincarnation on the pick pet",
-    "- DEVILEXT : Extend one Devil/Nasrun and restore it if it was equipped",
-    "- CHAT Type Message : Send a chat message",
-    "- INJECT Opcode [Encrypted] [Data] : Inject a packet",
-    "- FSH [true|false] Name : Play an FScriptHelper recording",
-    "- SETPROFILE [Name] : Load a phBot profile",
-    "- PROFILE [Name] : Alias for SETPROFILE",
-    "- ALEADER CharNick : Add an authorized leader",
-    "- RLEADER CharNick : Remove an authorized leader",
-    "- SETFCONTROLLEADER : Request leader access (normally disabled)",
+COMMAND_DESCRIPTIONS = [
+    ('S', 'Start the bot', 'Botu başlat'),
+    ('SS', 'Stop the bot', 'Botu durdur'),
+    ('T [Player]', 'Trace the leader or a player', 'Lideri veya bir oyuncuyu izle'),
+    ('N', 'Stop tracing', 'İzlemeyi durdur'),
+    ('FL [Player] [Distance]', 'Follow a party member', 'Bir parti üyesini takip et'),
+    ('NF', 'Stop following', 'Takip etmeyi durdur'),
+    ('M', 'Mount a transport pet', 'Bir taşıma petine bin'),
+    ('D / DS', 'Dismount the current pet', 'Binili petten in'),
+    ('SIT', 'Toggle sit or stand', 'Oturma veya ayağa kalkma durumunu değiştir'),
+    ('ZK', 'Activate Berserker mode', 'Berserker modunu etkinleştir'),
+    ('RE', 'Use a return scroll or revive in town', 'Return scroll kullan veya şehirde diril'),
+    ('COME', 'Reverse-return to the leader', 'Reverse ile lidere git'),
+    ('REVERSE Type [Name]', 'Reverse to return, death, player, or zone', 'Return, ölüm, oyuncu veya bölge konumuna reverse kullan'),
+    ('Q1 / Q2 / Q3', 'Use a predefined teleport route', 'Önceden tanımlı bir ışınlanma rotası kullan'),
+    ('TP Source DestinationID', 'Use a standard teleporter', 'Standart bir ışınlayıcı kullan'),
+    ('TPR Source', 'Use a runtime portal', 'Runtime portalı kullan'),
+    ('RC Town', 'Set recall at a nearby town portal', 'Yakındaki şehir portalında recall ayarla'),
+    ('LP', 'Leave the party', 'Partiden ayrıl'),
+    ('DC', 'Disconnect from the server', 'Sunucu bağlantısını kes'),
+    ('SP [X Y Region Z]', 'Set the training position', 'Eğitim konumunu ayarla'),
+    ('SR [Radius]', 'Set the training radius', 'Eğitim yarıçapını ayarla'),
+    ('!C AreaName/ID', 'Select a training area and start the bot', 'Eğitim alanını seç ve botu başlat'),
+    ('SETSCRIPT [Path]', 'Set or clear the training script', 'Eğitim scriptini ayarla veya temizle'),
+    ('MOVE X Y [Z]', 'Move without attacking', 'Saldırmadan hareket et'),
+    ('MOVEATTACK X Y [Z]', 'Move, set the area, and start botting', 'Hareket et, alanı ayarla ve botu başlat'),
+    ('MOVEON [Radius]', 'Move to a random nearby point', 'Yakındaki rastgele bir noktaya git'),
+    ('GETPOS', 'Send the current position by private message', 'Mevcut konumu özel mesajla gönder'),
+    ('EQ ItemName', 'Equip an inventory item', 'Envanterdeki bir eşyayı kuşan'),
+    ('UQ ItemName', 'Unequip an equipped item', 'Kuşanılmış bir eşyayı çıkar'),
+    ('USE ItemName', 'Use an inventory item', 'Envanterdeki bir eşyayı kullan'),
+    ('SORT', 'Sort the inventory', 'Envanteri sırala'),
+    ('REPAIR', 'Use one Repair Hammer', 'Bir Repair Hammer kullan'),
+    ('PA', 'Pick all nearby drops allowed by the pick filter', 'Pick filtresinin izin verdiği yakındaki eşyaları topla'),
+    ('SPA', 'Stop Pick All', 'Pick All işlemini durdur'),
+    ('TIS', 'Claim all available Item Storage items', 'Mevcut Item Storage eşyalarının tümünü al'),
+    ('CLOCK', 'Use exactly one Clock of Reincarnation on the pick pet', 'Pick pet üzerinde tam bir Clock of Reincarnation kullan'),
+    ('DEVILEXT', 'Extend one Devil/Nasrun and restore it if it was equipped', 'Bir Devil/Nasrun süresini uzat ve kuşanılmışsa geri kuşan'),
+    ('CHAT Type Message', 'Send a chat message', 'Sohbet mesajı gönder'),
+    ('INJECT Opcode [Encrypted] [Data]', 'Inject a packet', 'Paket enjekte et'),
+    ('FSH [true|false] Name', 'Play an FScriptHelper recording', 'Bir FScriptHelper kaydını oynat'),
+    ('SETPROFILE [Name]', 'Load a phBot profile', 'Bir phBot profili yükle'),
+    ('PROFILE [Name]', 'Alias for SETPROFILE', 'SETPROFILE için alternatif komut'),
+    ('ALEADER CharNick', 'Add an authorized leader', 'Yetkili bir lider ekle'),
+    ('RLEADER CharNick', 'Remove an authorized leader', 'Yetkili bir lideri kaldır'),
+    ('SETFCONTROLLEADER', 'Request leader access (normally disabled)', 'Lider erişimi iste (normalde devre dışı)'),
 ]
-for cmd in commands_list:
-    QtBind.append(gui, lstCommands, cmd)
+
+
+def _refresh_command_list():
+    QtBind.clear(gui, lstCommands)
+    description_index = 1 if current_language == 'en' else 2
+    for command, english, turkish in COMMAND_DESCRIPTIONS:
+        descriptions = (command, english, turkish)
+        QtBind.append(gui, lstCommands, '- %s : %s' % (command, descriptions[description_index]))
+
+
+_refresh_command_list()
 
 # Leaders section data
 lstLeadersData = []
@@ -507,15 +588,15 @@ _x = 720 - 176
 _y = 12
 separatorMain = QtBind.createLineEdit(gui, "", _x - 26, _y, 1, 265)  # Separator line
 
-cbxSro = QtBind.createCheckBox(gui, 'cbxShowClient_checked', 'Show Client Packets', _x + 10, _y)
+cbxSro = QtBind.createCheckBox(gui, 'cbxShowClient_checked', _text('show_client_packets'), _x + 10, _y)
 cbxShowClient = False
 _y += 20
-cbxJmx = QtBind.createCheckBox(gui, 'cbxShowServer_checked', 'Show Server Packets', _x + 10, _y)
+cbxJmx = QtBind.createCheckBox(gui, 'cbxShowServer_checked', _text('show_server_packets'), _x + 10, _y)
 cbxShowServer = False
 cbxIgnoreSetLeader = QtBind.createCheckBox(
     gui,
     'cbxIgnoreSetLeader_clicked',
-    'Ignore SETFCONTROLLEADER command',
+    _text('ignore_set_leader'),
     _x,
     _y + 20
 )
@@ -523,18 +604,18 @@ QtBind.setChecked(gui, cbxIgnoreSetLeader, False)
 
 _y += 40
 # Leaders section
-lblLeaders = QtBind.createLabel(gui, '<font color="#3cff7a"><b>𝙻𝚎𝚊𝚍𝚎𝚛𝚜</b></font>', _x, _y)
+lblLeaders = QtBind.createLabel(gui, '<font color="#3cff7a"><b>Leaders</b></font>', _x, _y)
 _y += 18
 tbxLeaders = QtBind.createLineEdit(gui, "", _x, _y, 100, 20)
-btnAddLeader = QtBind.createButton(gui, 'btnAddLeader_clicked', "Add", _x + 100 + 2, _y - 2)
+btnAddLeader = QtBind.createButton(gui, 'btnAddLeader_clicked', _text('add'), _x + 100 + 2, _y - 2)
 _y += 20
 lstLeaders = QtBind.createList(gui, _x, _y, 176, 80)
-btnRemLeader = QtBind.createButton(gui, 'btnRemLeader_clicked', "Remove", _x + 88 - 32, _y - 1 + 80)
+btnRemLeader = QtBind.createButton(gui, 'btnRemLeader_clicked', _text('remove'), _x + 88 - 32, _y - 1 + 80)
 
 _y += 115  # lstLeaders + btnRemLeader yüksekliği + boşluk (Remove butonunun altında kalmaması için)
-cbxAnnounceOwnTp = QtBind.createCheckBox(gui, 'cbxAnnounceOwnTp_clicked', "Auto-announce my own TPs", _x, _y)
+cbxAnnounceOwnTp = QtBind.createCheckBox(gui, 'cbxAnnounceOwnTp_clicked', _text('announce_tps'), _x, _y)
 _y += 20
-lblAnnounceChannel = QtBind.createLabel(gui, 'Announce Channel:', _x, _y)
+lblAnnounceChannel = QtBind.createLabel(gui, _text('announce_channel'), _x, _y)
 _y += 16
 cbxAnnounceChannel = QtBind.createCombobox(gui, _x, _y, 90, 20)
 for _channel_name in ANNOUNCE_CHANNEL_ORDER:
@@ -573,7 +654,7 @@ lblButtonsTitle = _add_buttons_widget(
     12, 38
 )
 lblButtonsChannel = _add_buttons_widget(
-    QtBind.createLabel(gui, '<b>Chat Type:</b>', 12, 70), 12, 70
+    QtBind.createLabel(gui, '<b>%s</b>' % _text('chat_type'), 12, 70), 12, 70
 )
 cbxButtonsChannel = _add_buttons_widget(
     QtBind.createCombobox(gui, 85, 66, 100, 22), 85, 66
@@ -590,22 +671,22 @@ lineJobSuitGroup = _add_buttons_widget(
     QtBind.createLineEdit(gui, '', 12, 128, 430, 1), 12, 128
 )
 lblJobSuit = _add_buttons_widget(
-    QtBind.createLabel(gui, 'Job Suit:', 12, 148), 12, 148
+    QtBind.createLabel(gui, _text('job_suit'), 12, 148), 12, 148
 )
 cbxJobSuit = _add_buttons_widget(
     QtBind.createCombobox(gui, 75, 144, 300, 22), 75, 144
 )
 btnRefreshJobSuits = _add_buttons_widget(
-    QtBind.createButton(gui, 'refresh_job_suit_list', 'Refresh', 382, 142), 382, 142
+    QtBind.createButton(gui, 'refresh_job_suit_list', _text('refresh'), 382, 142), 382, 142
 )
 btnEquipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', 'Equip', 75, 178), 75, 178
+    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', _text('equip'), 75, 178), 75, 178
 )
 btnUnequipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', 'Unequip', 155, 178), 155, 178
+    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', _text('unequip'), 155, 178), 155, 178
 )
 lblJobSuitStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">Open Buttons or press Refresh to scan inventory.</font>', 12, 216),
+    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('job_suit_initial'), 12, 216),
     12, 216
 )
 
@@ -617,22 +698,77 @@ lineSetProfileGroup = _add_buttons_widget(
     QtBind.createLineEdit(gui, '', 12, 272, 430, 1), 12, 272
 )
 lblProfileName = _add_buttons_widget(
-    QtBind.createLabel(gui, 'Profile Name:', 12, 292), 12, 292
+    QtBind.createLabel(gui, _text('profile_name'), 12, 292), 12, 292
 )
 tbxProfileName = _add_buttons_widget(
     QtBind.createLineEdit(gui, '', 95, 288, 220, 22), 95, 288
 )
 btnSetProfile = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnSetProfile_clicked', 'Set Profile', 322, 286), 322, 286
+    QtBind.createButton(gui, 'btnSetProfile_clicked', _text('set_profile'), 322, 286), 322, 286
 )
 lblSetProfileStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">Enter a phBot profile name.</font>', 12, 324),
-    12, 324
+    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('profile_initial'), 450, 292),
+    450, 292
 )
 
+_job_suit_status = ('job_suit_initial', (), '#9aa0ac')
+_profile_status = ('profile_initial', (), '#9aa0ac')
 
-def _set_job_suit_status(message, color='#9aa0ac'):
-    QtBind.setText(gui, lblJobSuitStatus, '<font color="%s">%s</font>' % (color, message))
+
+def _format_gui_text(key, args=()):
+    value = _text(key)
+    return value % args if args else value
+
+
+def _render_status(widget, status):
+    key, args, color = status
+    QtBind.setText(
+        gui,
+        widget,
+        '<table width="250" cellspacing="0" cellpadding="0"><tr><td>'
+        '<font color="%s">%s</font></td></tr></table>' %
+        (color, _format_gui_text(key, args))
+    )
+
+
+def _apply_gui_language():
+    QtBind.setText(gui, btnControlPage, _text('control'))
+    QtBind.setText(gui, btnButtonsPage, _text('buttons'))
+    QtBind.setText(gui, btnLanguage, 'TR' if current_language == 'en' else 'EN')
+    QtBind.setText(gui, lblCommands, '<font color="#ffd86b"><b>%s</b></font>' % _text('commands_title'))
+    QtBind.setText(gui, cbxSro, _text('show_client_packets'))
+    QtBind.setText(gui, cbxJmx, _text('show_server_packets'))
+    QtBind.setText(gui, cbxIgnoreSetLeader, _text('ignore_set_leader'))
+    QtBind.setText(gui, lblLeaders, '<font color="#3cff7a"><b>%s</b></font>' % _text('leaders'))
+    QtBind.setText(gui, btnAddLeader, _text('add'))
+    QtBind.setText(gui, btnRemLeader, _text('remove'))
+    QtBind.setText(gui, cbxAnnounceOwnTp, _text('announce_tps'))
+    QtBind.setText(gui, lblAnnounceChannel, _text('announce_channel'))
+    QtBind.setText(gui, lblButtonsTitle, '<font color="#00d2ff" size="4"><b>%s</b></font>' % _text('buttons_title'))
+    QtBind.setText(gui, lblButtonsChannel, '<b>%s</b>' % _text('chat_type'))
+    QtBind.setText(gui, lblJobSuitGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('job_suit_group'))
+    QtBind.setText(gui, lblJobSuit, _text('job_suit'))
+    QtBind.setText(gui, btnRefreshJobSuits, _text('refresh'))
+    QtBind.setText(gui, btnEquipJobSuit, _text('equip'))
+    QtBind.setText(gui, btnUnequipJobSuit, _text('unequip'))
+    QtBind.setText(gui, lblSetProfileGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('set_profile_group'))
+    QtBind.setText(gui, lblProfileName, _text('profile_name'))
+    QtBind.setText(gui, btnSetProfile, _text('set_profile'))
+    _refresh_command_list()
+    _render_status(lblJobSuitStatus, _job_suit_status)
+    _render_status(lblSetProfileStatus, _profile_status)
+
+
+def toggle_language():
+    global current_language
+    current_language = 'tr' if current_language == 'en' else 'en'
+    _apply_gui_language()
+
+
+def _set_job_suit_status(key, args=(), color='#9aa0ac'):
+    global _job_suit_status
+    _job_suit_status = (key, args, color)
+    _render_status(lblJobSuitStatus, _job_suit_status)
 
 
 def _is_job_suit_name(name):
@@ -672,16 +808,16 @@ def refresh_job_suit_list():
 
     if suits:
         QtBind.setText(gui, cbxJobSuit, suits[0])
-        _set_job_suit_status('%d matching job suit(s) found.' % len(suits), '#3cff7a')
+        _set_job_suit_status('job_suits_found', (len(suits),), '#3cff7a')
     else:
-        _set_job_suit_status('No Warrior Outfit or Thief Outfit found.', '#ff4b5c')
+        _set_job_suit_status('job_suits_missing', (), '#ff4b5c')
     return suits
 
 
 def _send_job_suit_command(command):
     item_name = (QtBind.text(gui, cbxJobSuit) or '').strip()
     if not item_name:
-        _set_job_suit_status('Select a job suit first.', '#ff4b5c')
+        _set_job_suit_status('select_job_suit', (), '#ff4b5c')
         log('Plugin: Buttons: No Warrior Outfit or Thief Outfit found')
         return False
 
@@ -691,10 +827,10 @@ def _send_job_suit_command(command):
     message = '%s %s' % (command, item_name)
     sent = ANNOUNCE_CHANNELS[channel](message)
     if sent:
-        _set_job_suit_status('Sent on %s: %s' % (channel, message), '#3cff7a')
+        _set_job_suit_status('sent_command', (channel, message), '#3cff7a')
         log('Plugin: Buttons: Sent on %s: %s' % (channel, message))
     else:
-        _set_job_suit_status('Could not send: %s' % message, '#ff4b5c')
+        _set_job_suit_status('send_failed', (message,), '#ff4b5c')
         log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
     return sent
 
@@ -707,13 +843,16 @@ def btnUnequipJobSuit_clicked():
     return _send_job_suit_command('UQ')
 
 
+def _set_profile_status(key, args=(), color='#9aa0ac'):
+    global _profile_status
+    _profile_status = (key, args, color)
+    _render_status(lblSetProfileStatus, _profile_status)
+
+
 def btnSetProfile_clicked():
     profile_name = (QtBind.text(gui, tbxProfileName) or '').strip()
     if not profile_name:
-        QtBind.setText(
-            gui, lblSetProfileStatus,
-            '<font color="#ff4b5c">Enter a profile name first.</font>'
-        )
+        _set_profile_status('profile_required', (), '#ff4b5c')
         log('Plugin: Buttons: Profile name is empty')
         return False
 
@@ -723,18 +862,15 @@ def btnSetProfile_clicked():
     message = 'SETPROFILE ' + profile_name
     sent = ANNOUNCE_CHANNELS[channel](message)
     if sent:
-        QtBind.setText(
-            gui, lblSetProfileStatus,
-            '<font color="#3cff7a">Sent on %s: %s</font>' % (channel, message)
-        )
+        _set_profile_status('sent_command', (channel, message), '#3cff7a')
         log('Plugin: Buttons: Sent on %s: %s' % (channel, message))
     else:
-        QtBind.setText(
-            gui, lblSetProfileStatus,
-            '<font color="#ff4b5c">Could not send: %s</font>' % message
-        )
+        _set_profile_status('send_failed', (message,), '#ff4b5c')
         log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
     return sent
+
+
+_apply_gui_language()
 
 
 def show_control_page():

@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.7.0
+
+### Added
+- Added a TR/EN language toggle for GUI text and command descriptions while preserving command syntax, shortcuts, and channel values.
+
 ## v1.6.5
 
 ### Fixed

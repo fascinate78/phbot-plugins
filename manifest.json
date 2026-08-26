@@ -113,16 +113,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.6.5",
+                        "version":  "1.7.0",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Fixed the `CLOCK` command to build locale-aware targeted item-use packets, including the manually verified locale 22 vSRO format."
+                                        "Added a TR/EN language toggle for GUI text and command descriptions while preserving command syntax, shortcuts, and channel values."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "8c70bc0a0cd169dde5988807f988526786f2e32cb9cb07a9bdd3ab005d82521d"
+                        "sha256":  "ac1a7bd3b23777c6242f06eba2200c623b7d6a61de088f7ae3115ff9e094dedd"
                     },
                     {
                         "id":  "FFateManager",

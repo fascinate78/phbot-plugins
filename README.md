@@ -55,7 +55,7 @@ downloaded version.
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
-| [FControl](plugins/FControl/) | 1.6.5 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
+| [FControl](plugins/FControl/) | 1.7.0 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
 | [FFortuneManager](plugins/FFortuneManager/) | 1.2.7 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |

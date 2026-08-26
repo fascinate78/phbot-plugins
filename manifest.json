@@ -113,16 +113,17 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.7.0",
+                        "version":  "1.8.1",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Added a TR/EN language toggle for GUI text and command descriptions while preserving command syntax, shortcuts, and channel values."
+                                        "Added compact Buttons-page shortcuts for bot control, following, leaving the party, character actions, loot, storage, Clock, and Devil extension commands.",
+                                        "Reorganized the Buttons page into a compact two-column layout with shared channel selection, localized labels, and command-send status feedback."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "ac1a7bd3b23777c6242f06eba2200c623b7d6a61de088f7ae3115ff9e094dedd"
+                        "sha256":  "717cdc8b2d9cecd221f51710e6d5c858c74dce171b9eb75e9529f99eb4d3f8ca"
                     },
                     {
                         "id":  "FFateManager",

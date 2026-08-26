@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.7.0'
+pVersion = '1.8.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -64,6 +64,30 @@ GUI_TEXT = {
         'send_failed': 'Could not send: %s',
         'profile_initial': 'Enter a phBot profile name.',
         'profile_required': 'Enter a profile name first.',
+        'quick_control': 'Quick Control',
+        'actions': 'Actions',
+        'special': 'Special',
+        'start': 'Start',
+        'stop': 'Stop',
+        'trace': 'Trace',
+        'stop_trace': 'Stop Trace',
+        'follow': 'Follow',
+        'stop_follow': 'Stop Follow',
+        'return': 'Return',
+        'come': 'Come',
+        'leave_party': 'Leave Party',
+        'mount': 'Mount',
+        'dismount': 'Dismount',
+        'sit': 'Sit',
+        'berserk': 'Berserk',
+        'pick_all': 'Pick All',
+        'stop_pick': 'Stop Pick',
+        'sort': 'Sort',
+        'repair': 'Repair',
+        'storage': 'Storage',
+        'clock': 'Clock',
+        'devil_ext': 'Devil Ext',
+        'quick_ready': 'Select a channel, then send a quick command.',
     },
     'tr': {
         'control': 'Kontrol',
@@ -95,6 +119,30 @@ GUI_TEXT = {
         'send_failed': 'Gönderilemedi: %s',
         'profile_initial': 'Bir phBot profil adı girin.',
         'profile_required': 'Önce bir profil adı girin.',
+        'quick_control': 'Hızlı Kontrol',
+        'actions': 'İşlemler',
+        'special': 'Özel',
+        'start': 'Başlat',
+        'stop': 'Durdur',
+        'trace': 'İzle',
+        'stop_trace': 'İzlemeyi Durdur',
+        'follow': 'Takip Et',
+        'stop_follow': 'Takibi Durdur',
+        'return': 'Dön',
+        'come': 'Lidere Gel',
+        'leave_party': 'Partiden Ayrıl',
+        'mount': 'Bin',
+        'dismount': 'İn',
+        'sit': 'Otur/Kalk',
+        'berserk': 'Berserk',
+        'pick_all': 'Topla',
+        'stop_pick': 'Toplamayı Durdur',
+        'sort': 'Sırala',
+        'repair': 'Tamir',
+        'storage': 'Depo',
+        'clock': 'Clock',
+        'devil_ext': 'Devil Uzat',
+        'quick_ready': 'Bir kanal seçin ve hızlı komutu gönderin.',
     },
 }
 
@@ -664,55 +712,120 @@ for _channel_name in ANNOUNCE_CHANNEL_ORDER:
 QtBind.setText(gui, cbxButtonsChannel, 'All')
 
 lblJobSuitGroup = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#3cff7a"><b>EQ/UQ Job Suit</b></font>', 12, 108),
-    12, 108
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>EQ/UQ Job Suit</b></font>', 12, 96),
+    12, 96
 )
 lineJobSuitGroup = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 12, 128, 430, 1), 12, 128
+    QtBind.createLineEdit(gui, '', 12, 114, 266, 1), 12, 114
 )
 lblJobSuit = _add_buttons_widget(
-    QtBind.createLabel(gui, _text('job_suit'), 12, 148), 12, 148
+    QtBind.createLabel(gui, _text('job_suit'), 12, 125), 12, 125
 )
 cbxJobSuit = _add_buttons_widget(
-    QtBind.createCombobox(gui, 75, 144, 300, 22), 75, 144
+    QtBind.createCombobox(gui, 92, 121, 118, 22), 92, 121
 )
 btnRefreshJobSuits = _add_buttons_widget(
-    QtBind.createButton(gui, 'refresh_job_suit_list', _text('refresh'), 382, 142), 382, 142
+    QtBind.createButton(gui, 'refresh_job_suit_list', _text('refresh'), 215, 119), 215, 119
 )
 btnEquipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', _text('equip'), 75, 178), 75, 178
+    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', _text('equip'), 92, 148), 92, 148
 )
 btnUnequipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', _text('unequip'), 155, 178), 155, 178
+    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', _text('unequip'), 158, 148), 158, 148
 )
 lblJobSuitStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('job_suit_initial'), 12, 216),
-    12, 216
+    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('job_suit_initial'), 12, 174),
+    12, 174
 )
 
 lblSetProfileGroup = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Profile</b></font>', 12, 252),
-    12, 252
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Profile</b></font>', 12, 205),
+    12, 205
 )
 lineSetProfileGroup = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 12, 272, 430, 1), 12, 272
+    QtBind.createLineEdit(gui, '', 12, 223, 266, 1), 12, 223
 )
 lblProfileName = _add_buttons_widget(
-    QtBind.createLabel(gui, _text('profile_name'), 12, 292), 12, 292
+    QtBind.createLabel(gui, _text('profile_name'), 12, 234), 12, 234
 )
 tbxProfileName = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 95, 288, 220, 22), 95, 288
+    QtBind.createLineEdit(gui, '', 92, 230, 118, 22), 92, 230
 )
 btnSetProfile = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnSetProfile_clicked', _text('set_profile'), 322, 286), 322, 286
+    QtBind.createButton(gui, 'btnSetProfile_clicked', _text('set_profile'), 215, 228), 215, 228
 )
 lblSetProfileStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('profile_initial'), 450, 292),
-    450, 292
+    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('profile_initial'), 12, 260),
+    12, 260
+)
+
+lblQuickControlGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Quick Control</b></font>', 300, 82), 300, 82
+)
+
+QUICK_BUTTON_SPECS = [
+    ('start', 'btnQuickStart_clicked', 'S', 300, 100),
+    ('stop', 'btnQuickStop_clicked', 'SS', 435, 100),
+    ('trace', 'btnQuickTrace_clicked', 'T', 570, 100),
+    ('stop_trace', 'btnQuickStopTrace_clicked', 'N', 300, 122),
+    ('follow', 'btnQuickFollow_clicked', 'FL', 435, 122),
+    ('stop_follow', 'btnQuickStopFollow_clicked', 'NF', 570, 122),
+    ('return', 'btnQuickReturn_clicked', 'RE', 300, 144),
+    ('come', 'btnQuickCome_clicked', 'COME', 435, 144),
+    ('leave_party', 'btnQuickLeaveParty_clicked', 'LP', 570, 144),
+]
+quick_control_buttons = {}
+for _key, _callback, _command, _button_x, _button_y in QUICK_BUTTON_SPECS:
+    quick_control_buttons[_key] = _add_buttons_widget(
+        QtBind.createButton(gui, _callback, _text(_key), _button_x, _button_y),
+        _button_x, _button_y
+    )
+
+lblActionsGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Actions</b></font>', 300, 170), 300, 170
+)
+
+ACTION_BUTTON_SPECS = [
+    ('mount', 'btnQuickMount_clicked', 'M', 300, 188),
+    ('dismount', 'btnQuickDismount_clicked', 'D', 435, 188),
+    ('sit', 'btnQuickSit_clicked', 'SIT', 570, 188),
+    ('berserk', 'btnQuickBerserk_clicked', 'ZK', 300, 210),
+    ('pick_all', 'btnQuickPickAll_clicked', 'PA', 435, 210),
+    ('stop_pick', 'btnQuickStopPick_clicked', 'SPA', 570, 210),
+    ('sort', 'btnQuickSort_clicked', 'SORT', 300, 232),
+    ('repair', 'btnQuickRepair_clicked', 'REPAIR', 435, 232),
+]
+action_buttons = {}
+for _key, _callback, _command, _button_x, _button_y in ACTION_BUTTON_SPECS:
+    action_buttons[_key] = _add_buttons_widget(
+        QtBind.createButton(gui, _callback, _text(_key), _button_x, _button_y),
+        _button_x, _button_y
+    )
+
+lblSpecialGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Special</b></font>', 300, 258), 300, 258
+)
+
+SPECIAL_BUTTON_SPECS = [
+    ('storage', 'btnQuickStorage_clicked', 'TIS', 300, 276),
+    ('clock', 'btnQuickClock_clicked', 'CLOCK', 435, 276),
+    ('devil_ext', 'btnQuickDevilExt_clicked', 'DEVILEXT', 570, 276),
+]
+special_buttons = {}
+for _key, _callback, _command, _button_x, _button_y in SPECIAL_BUTTON_SPECS:
+    special_buttons[_key] = _add_buttons_widget(
+        QtBind.createButton(gui, _callback, _text(_key), _button_x, _button_y),
+        _button_x, _button_y
+    )
+
+lblQuickStatus = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('quick_ready'), 300, 62),
+    300, 62
 )
 
 _job_suit_status = ('job_suit_initial', (), '#9aa0ac')
 _profile_status = ('profile_initial', (), '#9aa0ac')
+_quick_status = ('quick_ready', (), '#9aa0ac')
 
 
 def _format_gui_text(key, args=()):
@@ -720,14 +833,14 @@ def _format_gui_text(key, args=()):
     return value % args if args else value
 
 
-def _render_status(widget, status):
+def _render_status(widget, status, width=250):
     key, args, color = status
     QtBind.setText(
         gui,
         widget,
-        '<table width="250" cellspacing="0" cellpadding="0"><tr><td>'
+        '<table width="%d" cellspacing="0" cellpadding="0"><tr><td>'
         '<font color="%s">%s</font></td></tr></table>' %
-        (color, _format_gui_text(key, args))
+        (width, color, _format_gui_text(key, args))
     )
 
 
@@ -754,9 +867,19 @@ def _apply_gui_language():
     QtBind.setText(gui, lblSetProfileGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('set_profile_group'))
     QtBind.setText(gui, lblProfileName, _text('profile_name'))
     QtBind.setText(gui, btnSetProfile, _text('set_profile'))
+    QtBind.setText(gui, lblQuickControlGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('quick_control'))
+    QtBind.setText(gui, lblActionsGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('actions'))
+    QtBind.setText(gui, lblSpecialGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('special'))
+    for key, widget in quick_control_buttons.items():
+        QtBind.setText(gui, widget, _text(key))
+    for key, widget in action_buttons.items():
+        QtBind.setText(gui, widget, _text(key))
+    for key, widget in special_buttons.items():
+        QtBind.setText(gui, widget, _text(key))
     _refresh_command_list()
     _render_status(lblJobSuitStatus, _job_suit_status)
     _render_status(lblSetProfileStatus, _profile_status)
+    _render_status(lblQuickStatus, _quick_status, 400)
 
 
 def toggle_language():
@@ -868,6 +991,102 @@ def btnSetProfile_clicked():
         _set_profile_status('send_failed', (message,), '#ff4b5c')
         log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
     return sent
+
+
+def _send_button_command(command):
+    global _quick_status
+    channel = QtBind.text(gui, cbxButtonsChannel) or 'All'
+    if channel not in ANNOUNCE_CHANNELS:
+        channel = 'All'
+    sent = ANNOUNCE_CHANNELS[channel](command)
+    if sent:
+        _quick_status = ('sent_command', (channel, command), '#3cff7a')
+        log('Plugin: Buttons: Sent on %s: %s' % (channel, command))
+    else:
+        _quick_status = ('send_failed', (command,), '#ff4b5c')
+        log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, command))
+    _render_status(lblQuickStatus, _quick_status, 400)
+    return sent
+
+
+def btnQuickStart_clicked():
+    return _send_button_command('S')
+
+
+def btnQuickStop_clicked():
+    return _send_button_command('SS')
+
+
+def btnQuickTrace_clicked():
+    return _send_button_command('T')
+
+
+def btnQuickStopTrace_clicked():
+    return _send_button_command('N')
+
+
+def btnQuickFollow_clicked():
+    return _send_button_command('FL')
+
+
+def btnQuickStopFollow_clicked():
+    return _send_button_command('NF')
+
+
+def btnQuickReturn_clicked():
+    return _send_button_command('RE')
+
+
+def btnQuickCome_clicked():
+    return _send_button_command('COME')
+
+
+def btnQuickLeaveParty_clicked():
+    return _send_button_command('LP')
+
+
+def btnQuickMount_clicked():
+    return _send_button_command('M')
+
+
+def btnQuickDismount_clicked():
+    return _send_button_command('D')
+
+
+def btnQuickSit_clicked():
+    return _send_button_command('SIT')
+
+
+def btnQuickBerserk_clicked():
+    return _send_button_command('ZK')
+
+
+def btnQuickPickAll_clicked():
+    return _send_button_command('PA')
+
+
+def btnQuickStopPick_clicked():
+    return _send_button_command('SPA')
+
+
+def btnQuickSort_clicked():
+    return _send_button_command('SORT')
+
+
+def btnQuickRepair_clicked():
+    return _send_button_command('REPAIR')
+
+
+def btnQuickStorage_clicked():
+    return _send_button_command('TIS')
+
+
+def btnQuickClock_clicked():
+    return _send_button_command('CLOCK')
+
+
+def btnQuickDevilExt_clicked():
+    return _send_button_command('DEVILEXT')
 
 
 _apply_gui_language()

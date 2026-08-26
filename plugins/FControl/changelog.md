@@ -1,5 +1,13 @@
 # FControl Changelog
 
+## v1.8.1
+
+### Added
+- Added compact Buttons-page shortcuts for bot control, following, leaving the party, character actions, loot, storage, Clock, and Devil extension commands.
+
+### Improved
+- Reorganized the Buttons page into a compact two-column layout with shared channel selection, localized labels, and command-send status feedback.
+
 ## v1.7.0
 
 ### Added

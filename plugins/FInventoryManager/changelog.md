@@ -1,5 +1,10 @@
 # FInventoryManager Changelog
 
+## v3.0.4
+
+### Fixed
+- Fixed iSRO Personal Storage session detection when the client sends the NPC `0x704B` transition before the matching `0x7046` storage-talk packet.
+
 ## v3.0.3
 
 ### Improved

@@ -8,7 +8,7 @@ import webbrowser
 
 
 pName = 'FInventoryManager'
-pVersion = '3.0.3'
+pVersion = '3.0.4'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 LEGACY_CONFIG_DIRECTORY = 'InventoryManagerV1'
 
@@ -23,6 +23,7 @@ INVENTORY_PACKET_ENCRYPTED = False
 DEFAULT_BAG_START_SLOT = 13
 ISRO_BAG_START_SLOT = 17
 ISRO_LOCALE = 18
+ISRO_STORAGE_TRANSITION_SECONDS = 3.0
 
 QUIET_PERIOD_SECONDS = 1.0
 RESPONSE_TIMEOUT_SECONDS = 3.0
@@ -113,6 +114,8 @@ storage_planned_total = 0
 storage_quick_mode = False
 selected_entity_id = None
 storage_entity_id = None
+isro_storage_transition_id = None
+isro_storage_transition_time = 0.0
 
 
 def fixed_width_text(content, width):
@@ -1520,25 +1523,43 @@ def send_next_operation(snapshot, operation):
 
 def handle_silkroad(opcode, data):
     global selected_entity_id, storage_entity_id
+    global isro_storage_transition_id, isro_storage_transition_time
     raw = bytes(data or b'')
     if opcode == OPCODE_SELECT_ENTITY and len(raw) >= 4:
         selected_entity_id = struct.unpack_from('<I', raw, 0)[0]
+        isro_storage_transition_id = None
+        isro_storage_transition_time = 0.0
     elif opcode == OPCODE_NPC_TALK and len(raw) >= 5:
         entity_id = struct.unpack_from('<I', raw, 0)[0]
-        if raw[4] == 0x03 and entity_id == selected_entity_id:
+        isro_transition_matches = (
+            entity_id == isro_storage_transition_id and
+            time.time() - isro_storage_transition_time <=
+            ISRO_STORAGE_TRANSITION_SECONDS)
+        if (raw[4] == 0x03 and
+                (entity_id == selected_entity_id or isro_transition_matches)):
             storage_entity_id = entity_id
+            isro_storage_transition_id = None
+            isro_storage_transition_time = 0.0
             storage_log('Storage NPC session captured: 0x%08X.' % entity_id)
             set_storage_state(STORAGE_SNAPSHOT_AVAILABLE,
                               'Storage session active.', COLOR_SUCCESS)
     elif opcode == OPCODE_NPC_EXIT and len(raw) >= 4:
         entity_id = struct.unpack_from('<I', raw, 0)[0]
-        if entity_id == storage_entity_id:
+        closing_storage_session = entity_id == storage_entity_id
+        if closing_storage_session:
             storage_entity_id = None
             if storage_pending is not None:
                 fail_storage_run('Storage session ended during sorting.')
             else:
                 set_storage_state(STORAGE_UNKNOWN, 'Open personal storage.', COLOR_MUTED)
         if entity_id == selected_entity_id:
+            try:
+                is_isro = get_locale() == ISRO_LOCALE
+            except Exception:
+                is_isro = False
+            if is_isro and not closing_storage_session:
+                isro_storage_transition_id = entity_id
+                isro_storage_transition_time = time.time()
             selected_entity_id = None
     return True
 
@@ -1696,6 +1717,7 @@ def disconnected():
     global storage_snapshot, storage_pending, storage_preview_snapshot, storage_preview_plan
     global inventory_quick_mode, storage_quick_mode
     global selected_entity_id, storage_entity_id
+    global isro_storage_transition_id, isro_storage_transition_time
     connected_to_game = False
     pending_operation = None
     preview_snapshot = None
@@ -1708,6 +1730,8 @@ def disconnected():
     storage_quick_mode = False
     selected_entity_id = None
     storage_entity_id = None
+    isro_storage_transition_id = None
+    isro_storage_transition_time = 0.0
     set_storage_state(STORAGE_UNKNOWN, 'Disconnected', COLOR_MUTED)
     set_state(STATE_IDLE, 'Disconnected', COLOR_MUTED)
 

@@ -156,18 +156,16 @@
                     {
                         "id":  "FInventoryManager",
                         "name":  "FInventoryManager",
-                        "version":  "3.0.3",
+                        "version":  "3.0.4",
                         "core":  false,
                         "description":  "Sorts character inventory and personal storage with configurable category rules.",
                         "changes":  [
-                                        "Blocked Personal Storage sorting unless an active storage NPC interaction has been observed, and clear the captured session when the NPC interaction closes or the client disconnects.",
-                                        "Fixed vSRO Personal Storage moves being rejected with B034 `02 03 00` by sending the runtime NPC entity ID captured from the `0x7045`/`0x7046` interaction instead of a fixed session value.",
-                                        "Report short B034 failure payloads as server rejections instead of unsupported responses."
+                                        "Fixed iSRO Personal Storage session detection when the client sends the NPC `0x704B` transition before the matching `0x7046` storage-talk packet."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/changelog.md",
                         "install_path":  "FInventoryManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/FInventoryManager.py",
-                        "sha256":  "426ddf035dce0dfad3bd2ab578d4d5d78ab57be90b1774c500cc3205d15a6f7c"
+                        "sha256":  "997abd3b4bda6e843fb79c9cabe22c5bcffe6977a04f118b544db019c513d2d2"
                     },
                     {
                         "id":  "FPenManager",

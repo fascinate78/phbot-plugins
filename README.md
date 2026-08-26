@@ -60,7 +60,7 @@ downloaded version.
 | [FControl](plugins/FControl/) | 1.8.1 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
 | [FFortuneManager](plugins/FFortuneManager/) | 1.2.7 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
-| [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |
+| [FInventoryManager](plugins/FInventoryManager/) | 3.0.4 | Sorts character inventory and personal storage with configurable category rules. |
 | [FPenManager](plugins/FPenManager/) | 1.0.0 | Automatically applies Feather Pen of Fortune until each queued equipment item reaches its configured total stat values. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |

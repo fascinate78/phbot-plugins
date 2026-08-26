@@ -8,6 +8,8 @@ repository is completely free to download and use.
 Join our [Discord server](https://discord.gg/eB9sGSMYBg) for announcements,
 plugin updates, support, and community discussion.
 
+> 📖 **Documentation:** See the [GitHub Wiki](https://github.com/fascinate78/phbot-plugins/wiki) for installation guides, plugin settings, usage instructions, and troubleshooting.
+
 ## Contents
 
 - [Installation with FaaUpdater](#installation-with-faaupdater)

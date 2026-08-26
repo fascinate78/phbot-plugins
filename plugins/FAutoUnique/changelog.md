@@ -1,5 +1,26 @@
 # FAutoUnique V2 Changelog
 
+## v2.7.0
+
+### Added
+- Added persistent English and Turkish language selection for GUI controls, headings, filters, and user-facing status messages.
+
+### Improved
+- Kept technical phBot logs and game-data names unchanged while allowing the visible interface language to update without recreating widgets.
+- Redesigned coordinate-route editing into a dedicated Coordinate Editor screen within the existing QtBind interface.
+- Increased saved-coordinate visibility and replaced the compressed Unique Manager list with a per-unique saved-point summary.
+- Moved manual entry, current-position capture, nearby-unique capture, and point removal controls into the focused editor while keeping script and Reverse settings in Unique Manager.
+
+## v2.5.0
+
+### Added
+- Added per-unique First Reverse settings with a Media-derived location selector for coordinate routes.
+- Added deferred coordinate-route startup after the Reverse teleport completes, including a 30-second failure timeout.
+
+### Improved
+- Kept failed or timed-out Reverse hunts queued and cancelled pending continuations when monitoring stops, the target dies, or the route is otherwise cancelled.
+- Skipped the configured Reverse when the target is already visible, allowing immediate engagement instead of abandoning a nearby unique.
+
 ## v2.4.1
 
 ### Fixed

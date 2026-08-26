@@ -51,11 +51,11 @@ downloaded version.
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
-| [FAutoUnique V2](plugins/FAutoUnique/) | 2.4.1 | Hunts unique monsters through prioritized script or learned coordinate routes. |
+| [FAutoUnique V2](plugins/FAutoUnique/) | 2.7.0 | Hunts unique monsters through prioritized script or learned coordinate routes. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
-| [FControl](plugins/FControl/) | 1.6.5 | Provides shared control commands, actions, and teleport handling. |
+| [FControl](plugins/FControl/) | 1.6.5 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
 | [FFortuneManager](plugins/FFortuneManager/) | 1.2.7 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.3 | Sorts character inventory and personal storage with configurable category rules. |
@@ -65,6 +65,7 @@ downloaded version.
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.0.0 | Coordinates party-synchronized trade scripts and job-item handling. |
+| [FTarget](plugins/FTarget/) | 3.5.1 | Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
 | [FWheelManager](plugins/FWheelManager/) | 1.0.1 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
 <!-- PLUGIN_TABLE_END -->

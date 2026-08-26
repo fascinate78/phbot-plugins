@@ -47,18 +47,20 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "2.4.1",
+                        "version":  "2.7.0",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Fixed visible coordinate-route uniques unnecessarily triggering a town return; targets already visible at the grind slot are now engaged directly after preserving the saved slot.",
-                                        "Fixed cancelled or failed return scrolls being treated as successful town arrivals; the queue now remains pending until a real town teleport is detected.",
-                                        "Fixed corrupted arrow and dash characters in user-facing plugin log messages."
+                                        "Added persistent English and Turkish language selection for GUI controls, headings, filters, and user-facing status messages.",
+                                        "Kept technical phBot logs and game-data names unchanged while allowing the visible interface language to update without recreating widgets.",
+                                        "Redesigned coordinate-route editing into a dedicated Coordinate Editor screen within the existing QtBind interface.",
+                                        "Increased saved-coordinate visibility and replaced the compressed Unique Manager list with a per-unique saved-point summary.",
+                                        "Moved manual entry, current-position capture, nearby-unique capture, and point removal controls into the focused editor while keeping script and Reverse settings in Unique Manager."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "cd0ba2c53e658931f6a8fa70a2045ba711c2facb3ba2d5aafc1394fa8a9eadf8"
+                        "sha256":  "242beb842a2bd9d598419fe825e517518e1211d48c7d548a83b176b7734696cc"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -113,7 +115,7 @@
                         "name":  "FControl",
                         "version":  "1.6.5",
                         "core":  true,
-                        "description":  "Provides shared control commands, actions, and teleport handling.",
+                        "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
                                         "Fixed the `CLOCK` command to build locale-aware targeted item-use packets, including the manually verified locale 22 vSRO format."
                                     ],
@@ -257,6 +259,21 @@
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
                         "sha256":  "a22b468b640333d6bf6754afffb0cc19d08ec6f9cac5b2e7ab31ab0dca16f72d"
+                    },
+                    {
+                        "id":  "FTarget",
+                        "name":  "FTarget",
+                        "version":  "3.5.1",
+                        "core":  false,
+                        "description":  "Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers.",
+                        "changes":  [
+                                        "Fixed the party-message settings and save button being clipped below the visible phBot plugin area.",
+                                        "Reorganized the right panel so every interactive control remains visible at common display scaling levels."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FTarget/changelog.md",
+                        "install_path":  "FTarget.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FTarget/FTarget.py",
+                        "sha256":  "35dd07db972714c50a6284a7771e1faf521b02c7bb52dc8dff3a0f188d6ae195"
                     },
                     {
                         "id":  "FUniqueNotifier",

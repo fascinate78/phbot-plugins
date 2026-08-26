@@ -12,7 +12,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.4.1'
+pVersion = '2.7.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -21,6 +21,172 @@ COLOR_MUTED = '#9aa0ac'
 COLOR_SUCCESS = '#1f9d63'
 COLOR_WARNING = '#c98a1a'
 COLOR_ERROR = '#e74c3c'
+
+UI_LANGUAGE = 'en'
+UI_TEXT = {
+    'en': {
+        'dashboard': 'Dashboard', 'unique_manager': 'Unique Manager',
+        'hunt_settings': 'Hunt Settings', 'logs': 'Logs', 'apply_language': 'Apply',
+        'live_hunt_status': 'LIVE HUNT STATUS', 'plugin': 'Plugin', 'bot_state': 'Bot state',
+        'current_target': 'Current target', 'route': 'Route', 'action': 'Action', 'queue': 'Queue',
+        'start_monitoring': 'Start Monitoring', 'stop_monitoring': 'Stop Monitoring',
+        'stop_current_hunt': 'Stop Current Hunt', 'hunt_queue': 'HUNT QUEUE',
+        'hunt_next': 'Hunt Next', 'remove_selected': 'Remove Selected', 'clear_queue': 'Clear Queue',
+        'needs_setup_heading': 'NEEDS SETUP', 'configure_uniques': 'Configure Uniques',
+        'remove_entry': 'Remove Entry', 'apply': 'Apply', 'load_selected': 'Load Selected',
+        'scan_nearby': 'Scan Nearby', 'custom': 'Custom', 'add_unique': 'Add Unique',
+        'queue_selected': 'Queue Selected', 'hunt_selected': 'Hunt Selected', 'status': 'Status',
+        'priority': 'Priority', 'script_route_heading': 'SCRIPT ROUTE', 'refresh': 'Refresh',
+        'assign_script': 'Assign Script', 'use_script_route': 'Use Script Route',
+        'remove_script': 'Remove Script', 'coordinate_route_heading': 'COORDINATE ROUTE',
+        'edit_coordinates': 'Edit Coordinates', 'use_coord': 'Use Coord',
+        'first_reverse': 'First use Reverse', 'save_reverse': 'Save Reverse',
+        'coordinate_editor': 'COORDINATE EDITOR', 'back': '\u2190 Back',
+        'saved_coordinate_route': 'SAVED COORDINATE ROUTE', 'capture_current': 'Capture Current',
+        'capture_nearby': 'Capture Nearby', 'manual_coordinate': 'MANUAL COORDINATE', 'add': 'Add',
+        'loot_behavior': 'LOOT BEHAVIOR', 'wait_after_death': 'Wait after unique death',
+        'seconds': 'seconds', 'hunt_timeout': 'HUNT TIMEOUT', 'enable_hunt_timeout': 'Enable hunt timeout',
+        'automation': 'AUTOMATION', 'auto_return': 'Return to town for an unconfigured unique',
+        'auto_learn': 'Automatically learn unique coordinates',
+        'duplicate_help': 'Points within 30m of a saved point are ignored.',
+        'diagnostics': 'DIAGNOSTICS', 'debug_logging': 'Detailed debug logging',
+        'refresh_alive': 'Refresh Nearby Alive Status', 'log_tracked': 'Log Tracked Uniques',
+        'recent_activity': 'RECENT PLUGIN ACTIVITY',
+        'activity_help': 'Shows the latest 100 important GUI-visible state changes.',
+        'clear_activity': 'Clear Activity', 'language': 'Language:',
+        'active': 'ACTIVE', 'disabled': 'DISABLED', 'idle': 'IDLE', 'none': 'None',
+        'hunting': 'HUNTING', 'returning': 'RETURNING', 'coordinates': 'Coordinates',
+        'ready': 'Ready', 'no_route': 'Needs Setup', 'script_route': 'Script Route',
+        'coordinate_route': 'Coordinate Route', 'no_script': 'No script assigned.',
+        'monitoring_disabled': 'Monitoring is disabled', 'waiting_unique': 'Waiting for a unique',
+        'running_route': 'Running hunt route', 'searching_points': 'Searching saved spawn points',
+        'waiting_reverse': 'Waiting for Reverse teleport', 'returning_town': 'Returning to town',
+        'queue_empty': 'Queue is empty.', 'no_setup': 'No uniques need setup.',
+        'no_matches': 'No uniques match this search.', 'no_saved_points': 'No saved points',
+        'saved_point': '{count} saved point', 'saved_points': '{count} saved points',
+        'select_unique_configure': 'Select a unique to configure.', 'editor_ready': 'Ready.',
+        'no_unique_selected': 'No unique selected', 'reverse_placeholder': 'Select Reverse location',
+        'opening_discord': 'OPENING DISCORD INVITE...', 'discord_error': 'COULD NOT OPEN DISCORD INVITE',
+        'reverse_enabled_status': 'First Reverse enabled to {location} for {unique}.',
+        'reverse_disabled_status': 'First Reverse disabled for {unique}.',
+    },
+    'tr': {
+        'dashboard': 'Kontrol Paneli', 'unique_manager': 'Unique Yönetimi',
+        'hunt_settings': 'Av Ayarları', 'logs': 'Kayıtlar', 'apply_language': 'Uygula',
+        'live_hunt_status': 'CANLI AV DURUMU', 'plugin': 'Plugin', 'bot_state': 'Bot durumu',
+        'current_target': 'Mevcut hedef', 'route': 'Rota', 'action': 'İşlem', 'queue': 'Kuyruk',
+        'start_monitoring': 'İzlemeyi Başlat', 'stop_monitoring': 'İzlemeyi Durdur',
+        'stop_current_hunt': 'Mevcut Avı Durdur', 'hunt_queue': 'AV KUYRUĞU',
+        'hunt_next': 'Sıradaki', 'remove_selected': 'Seçileni Sil', 'clear_queue': 'Kuyruğu Temizle',
+        'needs_setup_heading': 'AYAR GEREKENLER', 'configure_uniques': 'Uniqueleri Ayarla',
+        'remove_entry': 'Kaydı Sil', 'apply': 'Uygula', 'load_selected': 'Seçileni Yükle',
+        'scan_nearby': 'Yakını Tara', 'custom': 'Özel', 'add_unique': 'Unique Ekle',
+        'queue_selected': 'Kuyruğa Al', 'hunt_selected': 'Seçileni Avla', 'status': 'Durum',
+        'priority': 'Öncelik', 'script_route_heading': 'SCRIPT ROTASI', 'refresh': 'Yenile',
+        'assign_script': 'Script Ata', 'use_script_route': 'Script Rotası',
+        'remove_script': 'Scripti Sil', 'coordinate_route_heading': 'KOORDINAT ROTASI',
+        'edit_coordinates': 'Koordinatları Aç', 'use_coord': 'Rota Seç',
+        'first_reverse': 'Önce Reverse kullan', 'save_reverse': 'Rev Kaydet',
+        'coordinate_editor': 'KOORDİNAT EDİTÖRÜ', 'back': '\u2190 Geri',
+        'saved_coordinate_route': 'KAYITLI KOORDINAT ROTASI', 'capture_current': 'Mevcut Konum',
+        'capture_nearby': 'Yakındaki Unique', 'manual_coordinate': 'MANUEL KOORDİNAT', 'add': 'Ekle',
+        'loot_behavior': 'LOOT DAVRANIŞI', 'wait_after_death': 'Unique ölümünden sonra bekle',
+        'seconds': 'saniye', 'hunt_timeout': 'AV ZAMAN AŞIMI', 'enable_hunt_timeout': 'Av zaman aşımını etkinleştir',
+        'automation': 'OTOMASYON', 'auto_return': 'Ayarsız unique için şehre dön',
+        'auto_learn': 'Unique koordinatlarını otomatik öğren',
+        'duplicate_help': 'Kayıtlı noktaya 30m içindeki noktalar yok sayılır.',
+        'diagnostics': 'TANILAMA', 'debug_logging': 'Ayrıntılı teknik kayıt',
+        'refresh_alive': 'Yakındaki Durumu Yenile', 'log_tracked': 'İzlenenleri Logla',
+        'recent_activity': 'SON PLUGIN HAREKETLERİ',
+        'activity_help': 'Kullanıcıya gösterilen son 100 önemli durum değişikliğini gösterir.',
+        'clear_activity': 'Hareketleri Temizle', 'language': 'Dil:',
+        'active': 'AKTİF', 'disabled': 'DEVRE DIŞI', 'idle': 'BEKLİYOR', 'none': 'Yok',
+        'hunting': 'AVLANIYOR', 'returning': 'DÖNÜYOR', 'coordinates': 'Koordinatlar',
+        'ready': 'Hazır', 'no_route': 'Ayar Gerekli', 'script_route': 'Script Rotası',
+        'coordinate_route': 'Koordinat Rotası', 'no_script': 'Script atanmamış.',
+        'monitoring_disabled': 'İzleme devre dışı', 'waiting_unique': 'Unique bekleniyor',
+        'running_route': 'Av rotası çalışıyor', 'searching_points': 'Kayıtlı noktalar aranıyor',
+        'waiting_reverse': 'Reverse ışınlanması bekleniyor', 'returning_town': 'Şehre dönülüyor',
+        'queue_empty': 'Kuyruk boş.', 'no_setup': 'Ayar bekleyen unique yok.',
+        'no_matches': 'Aramayla eşleşen unique yok.', 'no_saved_points': 'Kayıtlı nokta yok',
+        'saved_point': '{count} kayıtlı nokta', 'saved_points': '{count} kayıtlı nokta',
+        'select_unique_configure': 'Ayarlamak için bir unique seçin.', 'editor_ready': 'Hazır.',
+        'no_unique_selected': 'Unique seçilmedi', 'reverse_placeholder': 'Reverse konumu seçin',
+        'opening_discord': 'DISCORD DAVETİ AÇILIYOR...', 'discord_error': 'DISCORD DAVETİ AÇILAMADI',
+        'reverse_enabled_status': '{unique} için First Reverse konumu {location} olarak etkin.',
+        'reverse_disabled_status': '{unique} için First Reverse devre dışı.',
+    },
+}
+
+
+def tr(key, **values):
+    table = UI_TEXT.get(UI_LANGUAGE, UI_TEXT['en'])
+    text = table.get(key, UI_TEXT['en'].get(key, key))
+    try:
+        return text.format(**values)
+    except Exception:
+        return text
+
+
+UI_MESSAGE_TR = {
+    'Select a unique from the list first.': 'Önce listeden bir unique seçin.',
+    'Could not select the unique.': 'Unique seçilemedi.',
+    'Select a unique before editing coordinates.': 'Koordinatları düzenlemek için bir unique seçin.',
+    'Select a unique before saving Reverse settings.': 'Reverse ayarını kaydetmek için bir unique seçin.',
+    'Choose a Reverse location, then save again.': 'Bir Reverse konumu seçip tekrar kaydedin.',
+    'Select a unique before enabling First Reverse.': 'First Reverse için önce bir unique seçin.',
+    'Script route assigned.': 'Script rotası atandı.',
+    'Coordinate route selected.': 'Koordinat rotası seçildi.',
+    'Script route selected.': 'Script rotası seçildi.',
+    'No script mapping to remove.': 'Silinecek script eşleştirmesi yok.',
+    'Script mapping removed.': 'Script eşleştirmesi silindi.',
+    'Select a unique first.': 'Önce bir unique seçin.',
+    'Selected unique is not nearby.': 'Seçili unique yakında değil.',
+    'Selected coordinate removed.': 'Seçili koordinat silindi.',
+    'Coordinate saved': 'Koordinat kaydedildi',
+    'Select a unique first': 'Once bir unique secin',
+    'Invalid coordinate values': 'Koordinat değerleri geçersiz',
+    'Region and coordinates are required': 'Region ve koordinatlar gerekli',
+    'A saved point is already within 30m': '30m içinde kayıtlı bir nokta zaten var',
+}
+
+
+def translate_ui_message(message):
+    if UI_LANGUAGE != 'tr':
+        return message
+    if message in UI_MESSAGE_TR:
+        return UI_MESSAGE_TR[message]
+    if message.startswith('Bot state: '):
+        state = message[len('Bot state: '):]
+        return 'Bot durumu: %s' % {
+            'IDLE': tr('idle'), 'HUNTING': tr('hunting'),
+            'RETURNING': tr('returning')}.get(state, state)
+    if message == 'Current target: None':
+        return 'Mevcut hedef: %s' % tr('none')
+    replacements = (
+        ('Selected ', 'Seçildi: '), ('Editing saved points for ', 'Kayıtlı noktalar düzenleniyor: '),
+        ('Current target: ', 'Mevcut hedef: '), ('Bot state: ', 'Bot durumu: '),
+        ('Queued: ', 'Kuyruğa eklendi: '), ('Detected: ', 'Tespit edildi: '),
+        ('Killed: ', 'Öldürüldü: '), ('Hunt timeout: ', 'Av zaman aşımı: '),
+        ('Coordinate search started: ', 'Koordinat araması başladı: '),
+        ('Hunt route started: ', 'Av rotası başladı: '),
+        ('Using Reverse for ', 'Reverse kullanılıyor: '),
+        ('Reverse complete: ', 'Reverse tamamlandı: '),
+        ('Language changed to ', 'Dil değiştirildi: '),
+        ('Reverse error for ', 'Reverse hatası: '),
+        ('Reverse could not be used; ', 'Reverse kullanılamadı; '),
+        ('Reverse timed out; ', 'Reverse zaman aşımına uğradı; '),
+    )
+    for source, target in replacements:
+        if message.startswith(source):
+            translated = target + message[len(source):]
+            return translated.replace(' remains queued.', ' kuyrukta tutuluyor.')
+    exact = {
+        'Hunt completed': 'Av tamamlandı', 'Returning to town': 'Şehre dönülüyor',
+        'Queue is empty': 'Kuyruk boş', 'Monitoring enabled': 'İzleme etkin',
+        'Monitoring disabled': 'İzleme devre dışı',
+    }
+    return exact.get(message, message)
 # Eski pluginin mapping ve slot ayarlari kaybolmasin diye mevcut config
 # klasorunu kullanmaya devam et. UI/plugin adi bundan bagimsizdir.
 CONFIG_FOLDER = 'AutoUniuqe'
@@ -50,6 +216,7 @@ def getConfig():
 unique_script_map = {}
 unique_coordinate_map = {}
 unique_route_modes = {}
+unique_reverse_settings = {}
 pending_uniques = []
 alive_uniques = {}
 last_check_time = 0
@@ -78,6 +245,21 @@ coordinate_hunt = None
 coordinate_timer = None
 last_pathfinding_time = 0.0
 coordinate_run_token = 0
+
+REVERSE_LOCATIONS = [
+    'Constantinople', 'Forest of Sorrow', 'Garden of Gods', 'Roc Mountain',
+    'Heart Peak', 'Lost Town', 'Shepherd Town', 'Wind Town', 'Niya Remains',
+    'Mysterious Death Desert', 'Fertility Temple', 'Hotan', 'Grassland Road',
+    'Karakoram Cross Road', 'Ancient Remains', 'Spider Forest',
+    'Black Robber Den', 'Tarim Basin', 'Donwhang', 'Hyungno Homeland',
+    'Jangan', 'Grassland', "Bandit's Mountain Stronghold",
+    'Donwhang Stone Cave', 'Baghdad', 'Kirk', 'Phantom Desert', 'Arabia Coast',
+]
+REVERSE_LOCATION_PLACEHOLDER = 'Select Reverse location'
+REVERSE_TIMEOUT_SEC = 30.0
+reverse_hunt_pending = None
+reverse_timeout_timer = None
+reverse_run_token = 0
 
 # Protect unique_queue / alive_uniques / pending_uniques from race conditions
 # between the network event thread and threading.Timer callbacks.
@@ -309,6 +491,8 @@ def save_config():
             'mappings': unique_script_map,
             'coordinate_mappings': unique_coordinate_map,
             'route_modes': unique_route_modes,
+            'reverse_settings': unique_reverse_settings,
+            'language': UI_LANGUAGE,
             'discovered_uniques': sorted(list(discovered_uniques)),
             'plugin_active': plugin_active,
             'auto_return_enabled': auto_return_enabled,
@@ -322,15 +506,27 @@ def save_config():
 
 def load_config():
     """Load settings from the current character's JSON file."""
-    global unique_script_map, unique_coordinate_map, unique_route_modes, discovered_uniques
-    global plugin_active, auto_return_enabled, auto_learn_coordinates, saved_slot
+    global unique_script_map, unique_coordinate_map, unique_route_modes, unique_reverse_settings, discovered_uniques
+    global plugin_active, auto_return_enabled, auto_learn_coordinates, saved_slot, UI_LANGUAGE
     try:
         cfg = getConfig()
+        UI_LANGUAGE = 'en'
+        unique_reverse_settings = {}
         if cfg and os.path.exists(cfg):
             with open(cfg, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             unique_script_map = data.get('mappings', {})
             unique_route_modes = data.get('route_modes', {})
+            raw_reverse_settings = data.get('reverse_settings', {})
+            if isinstance(raw_reverse_settings, dict):
+                for unique_name, setting in raw_reverse_settings.items():
+                    if not isinstance(setting, dict):
+                        continue
+                    location = str(setting.get('location', '') or '').strip()
+                    unique_reverse_settings[unique_name] = {
+                        'enabled': bool(setting.get('enabled', False)),
+                        'location': location if location in REVERSE_LOCATIONS else '',
+                    }
             raw_coordinate_map = data.get('coordinate_mappings', {})
             unique_coordinate_map = {}
             for unique_name, points in raw_coordinate_map.items():
@@ -347,6 +543,9 @@ def load_config():
             auto_return_enabled = data.get('auto_return_enabled', False)
             auto_learn_coordinates = data.get('auto_learn_coordinates', False)
             saved_slot = data.get('saved_slot', None)
+            UI_LANGUAGE = data.get('language', 'en')
+            if UI_LANGUAGE not in ('en', 'tr'):
+                UI_LANGUAGE = 'en'
             try:
                 QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
                 QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
@@ -366,6 +565,7 @@ def load_config():
         refresh_unique_dropdown()
         refresh_coordinate_list()
         update_plugin_status()
+        apply_language()
     except Exception as e:
         log(f"load_config error: {e}")
 
@@ -411,9 +611,10 @@ def refresh_pending_list():
         QtBind.clear(gui, pending_list)
         if pending_uniques:
             for unique in pending_uniques:
-                QtBind.append(gui, pending_list, f"{unique}    [NO ROUTE]")
+                marker = '[AYAR YOK]' if UI_LANGUAGE == 'tr' else '[NO ROUTE]'
+                QtBind.append(gui, pending_list, f"{unique}    {marker}")
         else:
-            QtBind.append(gui, pending_list, "No uniques need setup.")
+            QtBind.append(gui, pending_list, tr('no_setup'))
         refresh_unique_browser()
         refresh_configuration_health()
     except Exception as e:
@@ -461,8 +662,8 @@ def delete_pending():
     try:
         selected = QtBind.text(gui, pending_list)
         if not selected: return
-        if selected == 'No uniques need setup.': return
-        unique = selected.rsplit('    [NO ROUTE]', 1)[0].strip()
+        if selected in (UI_TEXT['en']['no_setup'], UI_TEXT['tr']['no_setup']): return
+        unique = selected.rsplit('    [NO ROUTE]', 1)[0].rsplit('    [AYAR YOK]', 1)[0].strip()
         with _state_lock:
             if unique in pending_uniques:
                 pending_uniques.remove(unique)
@@ -477,7 +678,8 @@ def refresh_coordinate_list():
     try:
         QtBind.clear(gui, coordinate_list)
         unique_name = _selected_unique()
-        for index, point in enumerate(unique_coordinate_map.get(unique_name, []), 1):
+        points = unique_coordinate_map.get(unique_name, [])
+        for index, point in enumerate(points, 1):
             QtBind.append(
                 gui, coordinate_list,
                 '%d. R%d | %.0f, %.0f, %.0f | %s' % (
@@ -485,6 +687,11 @@ def refresh_coordinate_list():
                     point.get('source', 'Manual')
                 )
             )
+        count_text = tr('saved_point' if len(points) == 1 else 'saved_points', count=len(points))
+        if not points:
+            count_text = tr('no_saved_points')
+        QtBind.setText(gui, lbl_coordinate_count, fixed_width_text(
+            '<font color="%s">%s</font>' % (COLOR_TEXT, count_text), 180))
     except Exception as error:
         if debug_enabled: log('refresh_coordinate_list error: %s' % error)
 
@@ -502,6 +709,7 @@ def add_coordinate_fields():
         }
         added, message = _add_coordinate(unique_name, point, 'Manual')
         log('[Coordinates] %s: %s' % (unique_name or 'No unique', message))
+        set_coordinate_editor_status(message, COLOR_SUCCESS if added else COLOR_WARNING)
         if added:
             QtBind.setText(gui, txt_coord_x, '')
             QtBind.setText(gui, txt_coord_y, '')
@@ -517,6 +725,7 @@ def add_my_current_position():
             return
         added, message = _add_coordinate(unique_name, position, 'Manual')
         log('[Coordinates] %s: %s' % (unique_name or 'No unique', message))
+        set_coordinate_editor_status(message, COLOR_SUCCESS if added else COLOR_WARNING)
     except Exception as error:
         log('[Coordinates] Could not save current position: %s' % error)
 
@@ -537,11 +746,13 @@ def add_nearby_unique_position():
     unique_name = _selected_unique()
     if not unique_name:
         log('[Coordinates] Select a unique first')
+        set_coordinate_editor_status('Select a unique first.', COLOR_WARNING)
         return
     try:
         found = _find_visible_unique(unique_name)
         if not found:
             log('[Coordinates] Selected unique is not nearby')
+            set_coordinate_editor_status('Selected unique is not nearby.', COLOR_WARNING)
             return
         monster = found[2]
         point = {
@@ -550,6 +761,7 @@ def add_nearby_unique_position():
         }
         added, message = _add_coordinate(unique_name, point, 'Manual')
         log('[Coordinates] %s: %s' % (unique_name, message))
+        set_coordinate_editor_status(message, COLOR_SUCCESS if added else COLOR_WARNING)
     except Exception as error:
         log('[Coordinates] Could not save nearby unique: %s' % error)
 
@@ -573,6 +785,7 @@ def remove_coordinate():
         refresh_coordinate_list()
         refresh_pending_list()
         log('[Coordinates] Removed selected point for %s' % unique_name)
+        set_coordinate_editor_status('Selected coordinate removed.', COLOR_SUCCESS)
     except Exception as error:
         log('[Coordinates] Could not remove point: %s' % error)
 
@@ -603,6 +816,47 @@ def use_script_route():
     refresh_mapping_list()
     set_manager_status('Script route selected.', COLOR_SUCCESS)
     log('[Coordinates] %s will use its assigned script' % unique_name)
+
+
+def save_unique_reverse_setting():
+    """Save Reverse-before-coordinates preferences for the selected unique."""
+    unique_name = _selected_unique()
+    if not unique_name:
+        set_manager_status('Select a unique before saving Reverse settings.', COLOR_WARNING)
+        return
+    enabled = QtBind.isChecked(gui, chk_first_reverse)
+    location = QtBind.text(gui, cmb_reverse_location).strip()
+    if location not in REVERSE_LOCATIONS:
+        location = ''
+    unique_reverse_settings[unique_name] = {
+        'enabled': enabled,
+        'location': location,
+    }
+    save_config()
+    if enabled and not location:
+        set_manager_status('Choose a Reverse location, then save again.', COLOR_WARNING)
+        log('[Reverse] %s is enabled but has no location.' % unique_name)
+        return
+    state = 'enabled to %s' % location if enabled else 'disabled'
+    set_manager_status(tr('reverse_enabled_status', location=location, unique=unique_name)
+                       if enabled else tr('reverse_disabled_status', unique=unique_name), COLOR_SUCCESS)
+    log('[Reverse] %s: %s' % (unique_name, state))
+
+
+def toggle_unique_reverse(checked=None):
+    """Persist the checkbox immediately; the Save button commits dropdown changes."""
+    unique_name = _selected_unique()
+    if not unique_name:
+        try: QtBind.setChecked(gui, chk_first_reverse, False)
+        except: pass
+        set_manager_status('Select a unique before enabling First Reverse.', COLOR_WARNING)
+        return
+    setting = unique_reverse_settings.setdefault(unique_name, {'enabled': False, 'location': ''})
+    setting['enabled'] = bool(checked)
+    selected_location = QtBind.text(gui, cmb_reverse_location).strip()
+    if selected_location in REVERSE_LOCATIONS:
+        setting['location'] = selected_location
+    save_config()
 
 # ================= AUTO RETURN LOGIC =================
 def do_auto_return(unique_name):
@@ -916,9 +1170,143 @@ def _find_mapped_name(spawn_name: str) -> str:
             return mapped
     return spawn_name
 
+
+def _reverse_setting_for(unique_name):
+    setting = unique_reverse_settings.get(unique_name, {})
+    location = str(setting.get('location', '') or '').strip()
+    return bool(setting.get('enabled', False)), location
+
+
+def _cancel_pending_reverse(reason=None):
+    """Invalidate a pending Reverse continuation and cancel its timeout."""
+    global reverse_hunt_pending, reverse_timeout_timer, reverse_run_token
+    had_pending = reverse_hunt_pending is not None
+    reverse_run_token += 1
+    reverse_hunt_pending = None
+    if reverse_timeout_timer:
+        reverse_timeout_timer.cancel()
+        reverse_timeout_timer = None
+    if reason and had_pending and debug_enabled:
+        log('[Reverse] Pending coordinate hunt cancelled: %s' % reason)
+
+
+def _fail_pending_reverse(token, message):
+    """Abort this attempt without losing an alive unique from the queue."""
+    global current_active_unique, bot_state
+    if token != reverse_run_token or not reverse_hunt_pending:
+        return
+    unique_name = reverse_hunt_pending['unique']
+    _cancel_pending_reverse()
+    with _state_lock:
+        if alive_uniques.get(unique_name, {}).get('alive', False):
+            if unique_name not in unique_queue:
+                unique_queue.append(unique_name)
+                sort_queue_by_priority()
+            alive_uniques[unique_name]['handled'] = True
+    current_active_unique = None
+    bot_state = 'IDLE'
+    update_active_unique_label()
+    update_queue_label()
+    append_activity_once('reverse-failed:%s' % unique_name, message)
+    set_manager_status(message, COLOR_ERROR)
+    log('[Reverse] %s' % message)
+
+
+def _reverse_timed_out(token):
+    unique_name = reverse_hunt_pending['unique'] if reverse_hunt_pending else 'Unique'
+    _fail_pending_reverse(token, 'Reverse timed out; %s remains queued.' % unique_name)
+
+
+def _resume_coordinate_hunt_after_reverse(token):
+    """Continue after teleport data settles, if the hunt is still valid."""
+    global reverse_hunt_pending, reverse_timeout_timer, current_active_unique, bot_state
+    if token != reverse_run_token or not reverse_hunt_pending:
+        return
+    unique_name = reverse_hunt_pending['unique']
+    location = reverse_hunt_pending['location']
+    reverse_hunt_pending = None
+    if reverse_timeout_timer:
+        reverse_timeout_timer.cancel()
+        reverse_timeout_timer = None
+    if not plugin_active or current_active_unique != unique_name:
+        return
+    if not alive_uniques.get(unique_name, {}).get('alive', False):
+        log('[Reverse] %s is no longer alive; coordinate hunt cancelled.' % unique_name)
+        current_active_unique = None
+        bot_state = 'IDLE'
+        update_active_unique_label()
+        return
+    if get_route_mode(unique_name) != 'coordinates' or not unique_coordinate_map.get(unique_name):
+        log('[Reverse] %s no longer has an active coordinate route.' % unique_name)
+        current_active_unique = None
+        bot_state = 'IDLE'
+        update_active_unique_label()
+        return
+    _set_in_town(False)
+    append_activity_once('reverse-complete:%s' % unique_name,
+                         'Reverse complete: %s -> %s' % (unique_name, location))
+    log('[Reverse] Arrived at %s; starting %s coordinate route.' % (location, unique_name))
+    start_coordinate_hunt(unique_name)
+    refresh_runtime_dashboard(force=True)
+
+
+def _start_reverse_before_coordinates(unique_name, location):
+    """Use Reverse and defer coordinate pathfinding until teleported()."""
+    global reverse_hunt_pending, reverse_timeout_timer, reverse_run_token
+    _cancel_pending_reverse()
+    reverse_run_token += 1
+    token = reverse_run_token
+    reverse_hunt_pending = {
+        'token': token, 'unique': unique_name, 'location': location,
+        'started': time.time(), 'phase': 'waiting',
+    }
+    try:
+        used = reverse_return(3, location)
+    except Exception as error:
+        _fail_pending_reverse(token, 'Reverse error for %s: %s' % (unique_name, error))
+        return False
+    if not used:
+        _fail_pending_reverse(token,
+                              'Reverse could not be used; %s remains queued.' % unique_name)
+        return False
+    reverse_timeout_timer = threading.Timer(REVERSE_TIMEOUT_SEC, _reverse_timed_out, [token])
+    reverse_timeout_timer.start()
+    append_activity_once('reverse-start:%s' % unique_name,
+                         'Using Reverse for %s: %s' % (unique_name, location))
+    log('[Reverse] Using %s before %s coordinate route.' % (location, unique_name))
+    refresh_runtime_dashboard(force=True)
+    return True
+
+
+def start_coordinate_route(unique_name):
+    """Apply this unique's optional Reverse, then begin its coordinate hunt."""
+    enabled, location = _reverse_setting_for(unique_name)
+    if enabled:
+        if location not in REVERSE_LOCATIONS:
+            log('[Reverse] %s has no valid Reverse location; hunt remains queued.' % unique_name)
+            with _state_lock:
+                if unique_name not in unique_queue:
+                    unique_queue.append(unique_name)
+                    sort_queue_by_priority()
+            update_queue_label()
+            return False
+        try:
+            visible = _find_visible_unique(unique_name)
+        except Exception:
+            visible = None
+        if visible:
+            log('[Reverse] %s is already visible; engaging without Reverse.' % unique_name)
+            _engage_coordinate_target(unique_name, visible[1], visible[2])
+            return True
+        return _start_reverse_before_coordinates(unique_name, location)
+    start_coordinate_hunt(unique_name)
+    return True
+
+
 def stop_coordinate_hunt():
     """Cancel coordinate navigation and invalidate every pending callback."""
     global coordinate_hunt, coordinate_timer, coordinate_run_token
+    _cancel_pending_reverse('coordinate hunt stopped')
     coordinate_run_token += 1
     coordinate_hunt = None
     if coordinate_timer:
@@ -1334,9 +1722,14 @@ def run_mapped_script(unique_name, event_type, allow_outside_coordinate=False):
 
             # Coordinate routes take priority when at least one point is saved.
             if coordinate_mode and unique_coordinate_map.get(unique_name):
-                start_coordinate_hunt(unique_name)
+                started = start_coordinate_route(unique_name)
                 alive_uniques[unique_name]['handled'] = True
-                log(f"ACTIVE: {current_active_unique}")
+                if started:
+                    log(f"ACTIVE: {current_active_unique}")
+                else:
+                    current_active_unique = None
+                    bot_state = 'IDLE'
+                    update_active_unique_label()
                 return
 
             # ===== ENGAGE MODE =====
@@ -1557,7 +1950,7 @@ def disable_plugin_monitoring():
 def update_active_unique_label():
     try:
         if lbl_active_unique is None: return
-        value = current_active_unique if current_active_unique else "None"
+        value = current_active_unique if current_active_unique else tr('none')
         color = COLOR_SUCCESS if current_active_unique else COLOR_MUTED
         QtBind.setText(
             gui, lbl_active_unique,
@@ -1573,9 +1966,9 @@ def update_plugin_status():
     """Keep the live status row synchronized with the plugin state."""
     try:
         if plugin_active:
-            status = '<font color="%s"><b>ACTIVE</b></font>' % COLOR_SUCCESS
+            status = '<font color="%s"><b>%s</b></font>' % (COLOR_SUCCESS, tr('active'))
         else:
-            status = '<font color="%s"><b>DISABLED</b></font>' % COLOR_MUTED
+            status = '<font color="%s"><b>%s</b></font>' % (COLOR_MUTED, tr('disabled'))
         QtBind.setText(gui, lbl_plugin_status, fixed_width_text(status, 250))
         if _last_activity_state['plugin'] != plugin_active:
             _last_activity_state['plugin'] = plugin_active
@@ -1586,7 +1979,7 @@ def update_plugin_status():
 def update_queue_label():
     try:
         if lbl_queue is None: return
-        queue_text = f"({len(unique_queue)}) {', '.join(unique_queue[:3])}" if unique_queue else "Queue is empty."
+        queue_text = f"({len(unique_queue)}) {', '.join(unique_queue[:3])}" if unique_queue else tr('queue_empty')
         QtBind.setText(
             gui, lbl_queue,
             fixed_width_text('<font color="%s">%s</font>' % (COLOR_TEXT, queue_text), 300)
@@ -1613,10 +2006,10 @@ def refresh_queue_list():
         if unique_queue:
             for i, unique in enumerate(unique_queue, 1):
                 priority = get_unique_priority(unique)
-                route = ('Coordinates (%d)' % len(unique_coordinate_map[unique])) if get_route_mode(unique) == 'coordinates' else unique_script_map.get(unique, "[No Route]")
+                route = ('%s (%d)' % (tr('coordinates'), len(unique_coordinate_map[unique]))) if get_route_mode(unique) == 'coordinates' else unique_script_map.get(unique, "[%s]" % tr('no_route'))
                 QtBind.append(gui, queue_list, f"{i}. [{priority}] {unique} -> {route}")
         else:
-            QtBind.append(gui, queue_list, "Queue is empty.")
+            QtBind.append(gui, queue_list, tr('queue_empty'))
     except: pass
 
 def clear_queue_btn():
@@ -1863,7 +2256,7 @@ def discord_clicked():
         QtBind.setText(
             gui, lbl_plugin_status,
             fixed_width_text(
-                '<font color="%s"><b>OPENING DISCORD INVITE...</b></font>' % COLOR_WARNING,
+                '<font color="%s"><b>%s</b></font>' % (COLOR_WARNING, tr('opening_discord')),
                 300
             )
         )
@@ -1872,7 +2265,7 @@ def discord_clicked():
         QtBind.setText(
             gui, lbl_plugin_status,
             fixed_width_text(
-                '<font color="%s"><b>COULD NOT OPEN DISCORD INVITE</b></font>' % COLOR_ERROR,
+                '<font color="%s"><b>%s</b></font>' % (COLOR_ERROR, tr('discord_error')),
                 300
             )
         )
@@ -1881,18 +2274,110 @@ def discord_clicked():
 OFFSCREEN_X = 3000
 dashboard_widgets = []
 manager_widgets = []
+coordinate_editor_widgets = []
 hunt_settings_widgets = []
 logs_widgets = []
 screen_widgets = []
+localized_widgets = []
+
+
+def _localized(widget, key, style='plain'):
+    localized_widgets.append((widget, key, style))
+    return widget
+
+
+def _localized_text(key, style):
+    text = tr(key)
+    if style == 'heading':
+        return '<font color="%s"><b>%s</b></font>' % (COLOR_PRIMARY, text)
+    if style == 'bold':
+        return '<b>%s</b>' % text
+    if style == 'muted':
+        return '<font color="%s">%s</font>' % (COLOR_MUTED, text)
+    return text
+
+
+FILTER_KEYS = ('all', 'ready_filter', 'needs_setup_filter', 'script_filter', 'coordinate_filter')
+FILTER_TEXT = {
+    'en': {'all': 'All', 'ready_filter': 'Ready', 'needs_setup_filter': 'Needs Setup',
+           'script_filter': 'Script Route', 'coordinate_filter': 'Coordinate Route'},
+    'tr': {'all': 'Tümü', 'ready_filter': 'Hazır', 'needs_setup_filter': 'Ayar Gerekli',
+           'script_filter': 'Script Rotası', 'coordinate_filter': 'Koordinat Rotası'},
+}
+
+
+def _selected_filter_key():
+    selected = QtBind.text(gui, cmb_unique_filter).strip()
+    for language_table in FILTER_TEXT.values():
+        for key, value in language_table.items():
+            if value == selected:
+                return key
+    return 'all'
+
+
+def refresh_unique_filter_options(selected_key=None):
+    if selected_key is None:
+        selected_key = _selected_filter_key()
+    QtBind.clear(gui, cmb_unique_filter)
+    for key in FILTER_KEYS:
+        QtBind.append(gui, cmb_unique_filter, FILTER_TEXT[UI_LANGUAGE][key])
+    QtBind.setText(gui, cmb_unique_filter, FILTER_TEXT[UI_LANGUAGE].get(selected_key, FILTER_TEXT[UI_LANGUAGE]['all']))
+
+
+def refresh_reverse_location_options():
+    selected = QtBind.text(gui, cmb_reverse_location).strip()
+    if selected not in REVERSE_LOCATIONS:
+        selected = ''
+    QtBind.clear(gui, cmb_reverse_location)
+    QtBind.append(gui, cmb_reverse_location, tr('reverse_placeholder'))
+    for location in REVERSE_LOCATIONS:
+        QtBind.append(gui, cmb_reverse_location, location)
+    QtBind.setText(gui, cmb_reverse_location, selected or tr('reverse_placeholder'))
+
+
+def apply_language():
+    try:
+        selected_filter = _selected_filter_key()
+        for widget, key, style in localized_widgets:
+            QtBind.setText(gui, widget, _localized_text(key, style))
+        QtBind.setText(gui, cmb_language, u'T\u00fcrk\u00e7e' if UI_LANGUAGE == 'tr' else 'English')
+        refresh_unique_filter_options(selected_filter)
+        refresh_reverse_location_options()
+        refresh_unique_browser()
+        refresh_selected_unique_details()
+        refresh_coordinate_list()
+        unique_name = _selected_unique()
+        set_manager_status(('Selected %s.' % unique_name) if unique_name
+                           else tr('select_unique_configure'), COLOR_MUTED)
+        if unique_name:
+            set_coordinate_editor_status('Editing saved points for %s.' % unique_name, COLOR_MUTED)
+        else:
+            set_coordinate_editor_status(tr('editor_ready'), COLOR_MUTED)
+        update_plugin_status()
+        update_queue_label()
+        refresh_runtime_dashboard(True)
+        refresh_configuration_health()
+        append_activity('Language changed to %s' % (u'T\u00fcrk\u00e7e' if UI_LANGUAGE == 'tr' else 'English'))
+    except Exception as error:
+        log('[Language] Could not apply GUI language: %s' % error)
+
+
+def apply_language_clicked():
+    global UI_LANGUAGE
+    UI_LANGUAGE = 'tr' if QtBind.text(gui, cmb_language).strip() == u'T\u00fcrk\u00e7e' else 'en'
+    save_config()
+    apply_language()
 
 
 def _screen_widget(widget, dashboard_position=None, manager_position=None,
-                   settings_position=None, logs_position=None):
+                   editor_position=None, settings_position=None, logs_position=None):
     screen_widgets.append(widget)
     if dashboard_position:
         dashboard_widgets.append((widget, dashboard_position[0], dashboard_position[1]))
     if manager_position:
         manager_widgets.append((widget, manager_position[0], manager_position[1]))
+    if editor_position:
+        coordinate_editor_widgets.append((widget, editor_position[0], editor_position[1]))
     if settings_position:
         hunt_settings_widgets.append((widget, settings_position[0], settings_position[1]))
     if logs_position:
@@ -1909,7 +2394,8 @@ def _show_screen(visible_widgets):
 
 def _all_unique_names():
     return sorted(set(COMMON_UNIQUES) | set(discovered_uniques) |
-                  set(unique_script_map) | set(unique_coordinate_map))
+                  set(unique_script_map) | set(unique_coordinate_map) |
+                  set(unique_reverse_settings))
 
 
 def _unique_status(unique_name):
@@ -1928,25 +2414,27 @@ def refresh_unique_browser():
     try:
         if unique_browser_list is None: return
         query = QtBind.text(gui, txt_unique_search).strip().lower()
-        selected_filter = QtBind.text(gui, cmb_unique_filter).strip() or 'All'
+        selected_filter = _selected_filter_key()
         unique_browser_items = []
         QtBind.clear(gui, unique_browser_list)
         for unique_name in _all_unique_names():
             status = _unique_status(unique_name)
             if query and query not in unique_name.lower():
                 continue
-            if selected_filter == 'Ready' and status == 'NO ROUTE':
+            if selected_filter == 'ready_filter' and status == 'NO ROUTE':
                 continue
-            if selected_filter == 'Needs Setup' and status != 'NO ROUTE':
+            if selected_filter == 'needs_setup_filter' and status != 'NO ROUTE':
                 continue
-            if selected_filter == 'Script Route' and status != 'SCRIPT':
+            if selected_filter == 'script_filter' and status != 'SCRIPT':
                 continue
-            if selected_filter == 'Coordinate Route' and status != 'COORD':
+            if selected_filter == 'coordinate_filter' and status != 'COORD':
                 continue
             unique_browser_items.append(unique_name)
-            QtBind.append(gui, unique_browser_list, '%s    [%s]' % (unique_name, status))
+            status_text = {'NO ROUTE': tr('no_route'), 'SCRIPT': tr('script_route'),
+                           'COORD': tr('coordinate_route')}.get(status, status)
+            QtBind.append(gui, unique_browser_list, '%s    [%s]' % (unique_name, status_text))
         if not unique_browser_items:
-            QtBind.append(gui, unique_browser_list, 'No uniques match this search.')
+            QtBind.append(gui, unique_browser_list, tr('no_matches'))
     except Exception as error:
         if debug_enabled: log('refresh_unique_browser error: %s' % error)
 
@@ -1973,8 +2461,17 @@ def select_unique_from_browser():
 
 def set_manager_status(message, color=COLOR_MUTED):
     try:
+        message = translate_ui_message(message)
         QtBind.setText(gui, lbl_manager_status, fixed_width_text(
-            '<font color="%s">%s</font>' % (color, message), 380))
+            '<font color="%s">%s</font>' % (color, message), 360))
+    except: pass
+
+
+def set_coordinate_editor_status(message, color=COLOR_MUTED):
+    try:
+        message = translate_ui_message(message)
+        QtBind.setText(gui, lbl_coordinate_editor_status, fixed_width_text(
+            '<font color="%s">%s</font>' % (color, message), 696))
     except: pass
 
 
@@ -1982,21 +2479,28 @@ def refresh_selected_unique_details():
     try:
         unique_name = _selected_unique()
         if not unique_name:
-            name, status, route, priority, script = 'None selected', 'Needs Setup', 'None', '-', 'No script assigned.'
+            name, status, route, priority, script = tr('no_unique_selected'), tr('no_route'), tr('none'), '-', tr('no_script')
         else:
             marker = _unique_status(unique_name)
-            status = 'Needs Setup' if marker == 'NO ROUTE' else 'Ready'
-            route = {'SCRIPT': 'Script Route', 'COORD': 'Coordinate Route'}.get(marker, 'None')
+            status = tr('no_route') if marker == 'NO ROUTE' else tr('ready')
+            route = {'SCRIPT': tr('script_route'), 'COORD': tr('coordinate_route')}.get(marker, tr('none'))
             name = unique_name
             priority = str(get_unique_priority(unique_name))
-            script = unique_script_map.get(unique_name, 'No script assigned.')
+            script = unique_script_map.get(unique_name, tr('no_script'))
         QtBind.setText(gui, lbl_selected_unique, fixed_width_text(
-            '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, name), 380))
+            '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, name), 360))
         QtBind.setText(gui, lbl_detail_status, fixed_width_text(status, 100))
         QtBind.setText(gui, lbl_detail_route, fixed_width_text(route, 100))
-        QtBind.setText(gui, lbl_detail_priority, fixed_width_text(priority, 28))
+        QtBind.setText(gui, lbl_detail_priority, fixed_width_text(priority, 15))
         QtBind.setText(gui, lbl_assigned_script, fixed_width_text(
-            '<font color="%s">%s</font>' % (COLOR_TEXT, script), 280))
+            '<font color="%s">%s</font>' % (COLOR_TEXT, script), 260))
+        reverse_setting = unique_reverse_settings.get(unique_name, {}) if unique_name else {}
+        QtBind.setChecked(gui, chk_first_reverse,
+                          bool(reverse_setting.get('enabled', False)))
+        reverse_location = reverse_setting.get('location', '')
+        QtBind.setText(gui, cmb_reverse_location,
+                       reverse_location if reverse_location in REVERSE_LOCATIONS
+                       else tr('reverse_placeholder'))
         refresh_coordinate_list()
     except Exception as error:
         if debug_enabled: log('refresh_selected_unique_details error: %s' % error)
@@ -2025,20 +2529,24 @@ def refresh_configuration_health():
         coord_count = sum(1 for name in names if _unique_status(name) == 'COORD')
         ready_count = sum(1 for name in names if _unique_status(name) != 'NO ROUTE')
         needs_count = len(names) - ready_count
-        summary = ('<b>Total:</b> %d  |  <b>Ready:</b> %d  |  '
-                   '<b>Script:</b> %d  |  <b>Coord:</b> %d  |  '
-                   '<b>Needs Setup:</b> %d') % (
-                       len(names), ready_count, script_count, coord_count, needs_count)
-        QtBind.setText(gui, lbl_config_summary, fixed_width_text(summary, 700))
+        labels = ('Toplam', 'Hazir', 'Script', 'Koord', 'Ayar Gerekli') if UI_LANGUAGE == 'tr' else (
+            'Total', 'Ready', 'Script', 'Coord', 'Needs Setup')
+        summary = ('<b>%s:</b> %d  |  <b>%s:</b> %d  |  '
+                   '<b>%s:</b> %d  |  <b>%s:</b> %d  |  '
+                   '<b>%s:</b> %d') % (
+                       labels[0], len(names), labels[1], ready_count,
+                       labels[2], script_count, labels[3], coord_count, labels[4], needs_count)
+        QtBind.setText(gui, lbl_config_summary, fixed_width_text(summary, 696))
     except: pass
 
 
 def _current_action_text():
-    if bot_state == 'RETURNING': return 'Returning to town'
+    if bot_state == 'RETURNING': return tr('returning_town')
     if bot_state == 'HUNTING':
-        if coordinate_hunt: return 'Searching saved spawn points'
-        return 'Running hunt route'
-    return 'Waiting for a unique' if plugin_active else 'Monitoring is disabled'
+        if reverse_hunt_pending: return tr('waiting_reverse')
+        if coordinate_hunt: return tr('searching_points')
+        return tr('running_route')
+    return tr('waiting_unique') if plugin_active else tr('monitoring_disabled')
 
 
 def refresh_runtime_dashboard(force=False):
@@ -2046,7 +2554,9 @@ def refresh_runtime_dashboard(force=False):
     try:
         route = 'None'
         if current_active_unique:
-            route = 'Coordinates' if get_route_mode(current_active_unique) == 'coordinates' else 'Script'
+            route = tr('coordinates') if get_route_mode(current_active_unique) == 'coordinates' else 'Script'
+        else:
+            route = tr('none')
         action = _current_action_text()
         snapshot = (bot_state, current_active_unique, route, action)
         if not force and snapshot == _last_dashboard_snapshot:
@@ -2054,8 +2564,10 @@ def refresh_runtime_dashboard(force=False):
         _last_dashboard_snapshot = snapshot
         state_color = COLOR_SUCCESS if bot_state == 'HUNTING' else (
             COLOR_WARNING if bot_state == 'RETURNING' else COLOR_MUTED)
+        state_text = {'IDLE': tr('idle'), 'HUNTING': tr('hunting'),
+                      'RETURNING': tr('returning')}.get(bot_state, bot_state)
         QtBind.setText(gui, lbl_bot_state, fixed_width_text(
-            '<font color="%s"><b>%s</b></font>' % (state_color, bot_state), 180))
+            '<font color="%s"><b>%s</b></font>' % (state_color, state_text), 180))
         QtBind.setText(gui, lbl_active_route, fixed_width_text(route, 180))
         QtBind.setText(gui, lbl_current_action, fixed_width_text(action, 250))
         if _last_activity_state['bot'] != bot_state:
@@ -2082,7 +2594,10 @@ def append_activity(message):
         if activity_list is not None:
             QtBind.clear(gui, activity_list)
             for item in activity_entries:
-                QtBind.append(gui, activity_list, item)
+                timestamp, separator, raw_message = item.partition('  ')
+                translated = translate_ui_message(raw_message) if separator else translate_ui_message(item)
+                QtBind.append(gui, activity_list,
+                              '%s  %s' % (timestamp, translated) if separator else translated)
     except: pass
 
 
@@ -2117,6 +2632,29 @@ def show_unique_manager():
     refresh_selected_unique_details()
 
 
+def show_coordinate_editor():
+    unique_name = _selected_unique()
+    if not unique_name:
+        set_manager_status('Select a unique before editing coordinates.', COLOR_WARNING)
+        return
+    _show_screen(coordinate_editor_widgets)
+    QtBind.setText(gui, lbl_coordinate_editor_unique, fixed_width_text(
+        '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, unique_name), 500))
+    QtBind.setText(gui, txt_coord_region, '')
+    QtBind.setText(gui, txt_coord_x, '')
+    QtBind.setText(gui, txt_coord_y, '')
+    QtBind.setText(gui, txt_coord_z, '0')
+    refresh_coordinate_list()
+    set_coordinate_editor_status('Editing saved points for %s.' % unique_name, COLOR_MUTED)
+
+
+def back_to_unique_manager():
+    show_unique_manager()
+    unique_name = _selected_unique()
+    if unique_name:
+        set_manager_status('Selected %s.' % unique_name, COLOR_MUTED)
+
+
 def show_hunt_settings():
     _show_screen(hunt_settings_widgets)
 
@@ -2146,66 +2684,71 @@ btn_discord = QtBind.createButton(gui, 'discord_clicked', u'\U0001f4ac Discord',
 QtBind.createLabel(
     gui, u'<font color="%s"><b>\u269c Made By FascinaTe</b></font>' % COLOR_PRIMARY,
     565, 11)
-QtBind.createLineEdit(gui, '', 12, 30, 716, 1)
+QtBind.createLineEdit(gui, '', 12, 30, 696, 1)
 
-# Four logical pages continue to use the native QtBind.move/OFFSCREEN_X model.
-QtBind.createButton(gui, 'show_dashboard', 'Dashboard', 12, 38)
-QtBind.createButton(gui, 'show_unique_manager', 'Unique Manager', 102, 38)
-QtBind.createButton(gui, 'show_hunt_settings', 'Hunt Settings', 215, 38)
-QtBind.createButton(gui, 'show_logs', 'Logs', 320, 38)
+# Four primary pages and the Coordinate Editor use QtBind.move/OFFSCREEN_X.
+btn_nav_dashboard = _localized(QtBind.createButton(gui, 'show_dashboard', 'Dashboard', 12, 38), 'dashboard')
+btn_nav_manager = _localized(QtBind.createButton(gui, 'show_unique_manager', 'Unique Manager', 110, 38), 'unique_manager')
+btn_nav_settings = _localized(QtBind.createButton(gui, 'show_hunt_settings', 'Hunt Settings', 230, 38), 'hunt_settings')
+btn_nav_logs = _localized(QtBind.createButton(gui, 'show_logs', 'Logs', 340, 38), 'logs')
+lbl_language = _localized(QtBind.createLabel(gui, 'Language:', 430, 43), 'language')
+cmb_language = QtBind.createCombobox(gui, 500, 38, 100, 22)
+QtBind.append(gui, cmb_language, 'English')
+QtBind.append(gui, cmb_language, u'T\u00fcrk\u00e7e')
+btn_language = _localized(QtBind.createButton(gui, 'apply_language_clicked', 'Apply', 605, 38), 'apply_language')
 
 # Legacy controls remain off-screen so old refresh helpers retain valid widget objects.
 dropdown_unique = QtBind.createCombobox(gui, OFFSCREEN_X, 0, 1, 1)
 mappings_list = QtBind.createList(gui, OFFSCREEN_X, 0, 1, 1)
 
 # Dashboard
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>LIVE HUNT STATUS</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 65), dashboard_position=(12, 65))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>LIVE HUNT STATUS</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), 'live_hunt_status', 'heading'), dashboard_position=(12, 65))
 lbl_plugin_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
     '<font color="%s"><b>DISABLED</b></font>' % COLOR_MUTED, 250), OFFSCREEN_X, 86),
     dashboard_position=(100, 86))
-_screen_widget(QtBind.createLabel(gui, '<b>Plugin</b>', OFFSCREEN_X, 86), dashboard_position=(12, 86))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Plugin</b>', OFFSCREEN_X, 86), 'plugin', 'bold'), dashboard_position=(12, 86))
 lbl_bot_state = _screen_widget(QtBind.createLabel(gui, fixed_width_text('IDLE', 180), OFFSCREEN_X, 107),
                                dashboard_position=(100, 107))
-_screen_widget(QtBind.createLabel(gui, '<b>Bot state</b>', OFFSCREEN_X, 107), dashboard_position=(12, 107))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Bot state</b>', OFFSCREEN_X, 107), 'bot_state', 'bold'), dashboard_position=(12, 107))
 lbl_active_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 250), OFFSCREEN_X, 128),
                                    dashboard_position=(100, 128))
-_screen_widget(QtBind.createLabel(gui, '<b>Current target</b>', OFFSCREEN_X, 128), dashboard_position=(12, 128))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Current target</b>', OFFSCREEN_X, 128), 'current_target', 'bold'), dashboard_position=(12, 128))
 lbl_active_route = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 180), OFFSCREEN_X, 149),
                                   dashboard_position=(100, 149))
-_screen_widget(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 149), dashboard_position=(12, 149))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 149), 'route', 'bold'), dashboard_position=(12, 149))
 lbl_current_action = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Monitoring is disabled', 250),
                                                        OFFSCREEN_X, 170), dashboard_position=(100, 170))
-_screen_widget(QtBind.createLabel(gui, '<b>Action</b>', OFFSCREEN_X, 170), dashboard_position=(12, 170))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Action</b>', OFFSCREEN_X, 170), 'action', 'bold'), dashboard_position=(12, 170))
 lbl_queue = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Queue is empty.', 300), OFFSCREEN_X, 191),
                            dashboard_position=(100, 191))
-_screen_widget(QtBind.createLabel(gui, '<b>Queue</b>', OFFSCREEN_X, 191), dashboard_position=(12, 191))
-btn_plugin_enable = _screen_widget(QtBind.createButton(gui, 'enable_plugin_monitoring', 'Start Monitoring',
-                                                       OFFSCREEN_X, 84), dashboard_position=(445, 84))
-btn_plugin_disable = _screen_widget(QtBind.createButton(gui, 'disable_plugin_monitoring', 'Stop Monitoring',
-                                                        OFFSCREEN_X, 84), dashboard_position=(565, 84))
-btn_stop = _screen_widget(QtBind.createButton(gui, 'stop_script_btn', 'Stop Current Hunt', OFFSCREEN_X, 112),
-                          dashboard_position=(565, 112))
-_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 210, 716, 1), dashboard_position=(12, 210))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>HUNT QUEUE</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 216), dashboard_position=(12, 216))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Queue</b>', OFFSCREEN_X, 191), 'queue', 'bold'), dashboard_position=(12, 191))
+btn_plugin_enable = _screen_widget(_localized(QtBind.createButton(gui, 'enable_plugin_monitoring', 'Start Monitoring',
+                                                       OFFSCREEN_X, 84), 'start_monitoring'), dashboard_position=(445, 84))
+btn_plugin_disable = _screen_widget(_localized(QtBind.createButton(gui, 'disable_plugin_monitoring', 'Stop Monitoring',
+                                                        OFFSCREEN_X, 84), 'stop_monitoring'), dashboard_position=(565, 84))
+btn_stop = _screen_widget(_localized(QtBind.createButton(gui, 'stop_script_btn', 'Stop Current Hunt', OFFSCREEN_X, 112),
+                          'stop_current_hunt'), dashboard_position=(565, 112))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 210, 696, 1), dashboard_position=(12, 210))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>HUNT QUEUE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 216), 'hunt_queue', 'heading'), dashboard_position=(12, 216))
 queue_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 233, 350, 42), dashboard_position=(12, 233))
-btn_start_next = _screen_widget(QtBind.createButton(gui, 'auto_start_next_unique', 'Hunt Next', OFFSCREEN_X, 277),
-                                dashboard_position=(12, 277))
-btn_remove_from_queue = _screen_widget(QtBind.createButton(gui, 'remove_from_queue_btn', 'Remove Selected',
-                                                           OFFSCREEN_X, 277), dashboard_position=(105, 277))
-btn_clear_queue = _screen_widget(QtBind.createButton(gui, 'clear_queue_btn', 'Clear Queue', OFFSCREEN_X, 277),
-                                 dashboard_position=(225, 277))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>NEEDS SETUP</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 216), dashboard_position=(378, 216))
-pending_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 233, 350, 42), dashboard_position=(378, 233))
-btn_pending_assign = _screen_widget(QtBind.createButton(gui, 'show_unique_manager', 'Configure Uniques',
-                                                        OFFSCREEN_X, 277), dashboard_position=(378, 277))
-btn_delete_pending = _screen_widget(QtBind.createButton(gui, 'delete_pending', 'Remove Entry', OFFSCREEN_X, 277),
-                                    dashboard_position=(500, 277))
+btn_start_next = _screen_widget(_localized(QtBind.createButton(gui, 'auto_start_next_unique', 'Hunt Next', OFFSCREEN_X, 277),
+                                'hunt_next'), dashboard_position=(12, 277))
+btn_remove_from_queue = _screen_widget(_localized(QtBind.createButton(gui, 'remove_from_queue_btn', 'Remove Selected',
+                                                           OFFSCREEN_X, 277), 'remove_selected'), dashboard_position=(105, 277))
+btn_clear_queue = _screen_widget(_localized(QtBind.createButton(gui, 'clear_queue_btn', 'Clear Queue', OFFSCREEN_X, 277),
+                                 'clear_queue'), dashboard_position=(225, 277))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>NEEDS SETUP</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 216), 'needs_setup_heading', 'heading'), dashboard_position=(378, 216))
+pending_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 233, 330, 42), dashboard_position=(378, 233))
+btn_pending_assign = _screen_widget(_localized(QtBind.createButton(gui, 'show_unique_manager', 'Configure Uniques',
+                                                        OFFSCREEN_X, 277), 'configure_uniques'), dashboard_position=(378, 277))
+btn_delete_pending = _screen_widget(_localized(QtBind.createButton(gui, 'delete_pending', 'Remove Entry', OFFSCREEN_X, 277),
+                                    'remove_entry'), dashboard_position=(500, 277))
 lbl_config_summary = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
     '<b>Total:</b> 0  |  <b>Ready:</b> 0  |  <b>Script:</b> 0  |  '
-    '<b>Coord:</b> 0  |  <b>Needs Setup:</b> 0', 700), OFFSCREEN_X, 299),
+    '<b>Coord:</b> 0  |  <b>Needs Setup:</b> 0', 696), OFFSCREEN_X, 299),
     dashboard_position=(12, 299))
 
 # Unique Manager: browser owns selection; detail controls own mapping and coordinate actions.
@@ -2213,116 +2756,150 @@ txt_unique_search = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 6
                                    manager_position=(12, 65))
 cmb_unique_filter = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 65, 100, 22),
                                    manager_position=(162, 65))
-for filter_name in ('All', 'Ready', 'Needs Setup', 'Script Route', 'Coordinate Route'):
-    QtBind.append(gui, cmb_unique_filter, filter_name)
-_screen_widget(QtBind.createButton(gui, 'apply_unique_filter', 'Apply', OFFSCREEN_X, 64),
+refresh_unique_filter_options('all')
+_screen_widget(_localized(QtBind.createButton(gui, 'apply_unique_filter', 'Apply', OFFSCREEN_X, 64), 'apply'),
                manager_position=(267, 64))
 unique_browser_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 92, 300, 128),
                                      manager_position=(12, 92))
-_screen_widget(QtBind.createButton(gui, 'select_unique_from_browser', 'Load Selected', OFFSCREEN_X, 223),
+_screen_widget(_localized(QtBind.createButton(gui, 'select_unique_from_browser', 'Load Selected', OFFSCREEN_X, 223), 'load_selected'),
                manager_position=(12, 223))
-btn_scan = _screen_widget(QtBind.createButton(gui, 'scan_nearby_uniques', 'Scan Nearby', OFFSCREEN_X, 223),
-                          manager_position=(112, 223))
-_screen_widget(QtBind.createLabel(gui, 'Custom', OFFSCREEN_X, 257), manager_position=(12, 257))
+btn_scan = _screen_widget(_localized(QtBind.createButton(gui, 'scan_nearby_uniques', 'Scan Nearby', OFFSCREEN_X, 223),
+                          'scan_nearby'), manager_position=(112, 223))
+_screen_widget(_localized(QtBind.createLabel(gui, 'Custom', OFFSCREEN_X, 257), 'custom'), manager_position=(12, 257))
 txt_unique = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 252, 145, 22), manager_position=(62, 252))
-btn_add_unique = _screen_widget(QtBind.createButton(gui, 'add_manual_unique', 'Add Unique', OFFSCREEN_X, 251),
-                                manager_position=(212, 251))
-btn_add_queue = _screen_widget(QtBind.createButton(gui, 'add_to_queue_btn', 'Queue Selected', OFFSCREEN_X, 280),
-                               manager_position=(12, 280))
-btn_start = _screen_widget(QtBind.createButton(gui, 'start_script_btn', 'Hunt Selected', OFFSCREEN_X, 280),
-                           manager_position=(120, 280))
+btn_add_unique = _screen_widget(_localized(QtBind.createButton(gui, 'add_manual_unique', 'Add Unique', OFFSCREEN_X, 251),
+                                'add_unique'), manager_position=(212, 251))
+btn_add_queue = _screen_widget(_localized(QtBind.createButton(gui, 'add_to_queue_btn', 'Queue Selected', OFFSCREEN_X, 280),
+                               'queue_selected'), manager_position=(12, 280))
+btn_start = _screen_widget(_localized(QtBind.createButton(gui, 'start_script_btn', 'Hunt Selected', OFFSCREEN_X, 280),
+                           'hunt_selected'), manager_position=(120, 280))
 _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 65, 1, 245), manager_position=(325, 65))
-lbl_selected_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text('<b>None selected</b>', 380),
+lbl_selected_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text('<b>None selected</b>', 360),
                                                         OFFSCREEN_X, 65), manager_position=(345, 65))
-_screen_widget(QtBind.createLabel(gui, '<b>Status</b>', OFFSCREEN_X, 88), manager_position=(345, 88))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Status</b>', OFFSCREEN_X, 88), 'status', 'bold'), manager_position=(345, 88))
 lbl_detail_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text('Needs Setup', 100), OFFSCREEN_X, 88),
                                    manager_position=(395, 88))
-_screen_widget(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 88), manager_position=(500, 88))
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Route</b>', OFFSCREEN_X, 88), 'route', 'bold'), manager_position=(500, 88))
 lbl_detail_route = _screen_widget(QtBind.createLabel(gui, fixed_width_text('None', 100), OFFSCREEN_X, 88),
                                   manager_position=(540, 88))
-_screen_widget(QtBind.createLabel(gui, '<b>Priority</b>', OFFSCREEN_X, 88), manager_position=(645, 88))
-lbl_detail_priority = _screen_widget(QtBind.createLabel(gui, fixed_width_text('-', 28), OFFSCREEN_X, 88),
-                                     manager_position=(700, 88))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>SCRIPT ROUTE</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 110), manager_position=(345, 110))
-lbl_assigned_script = _screen_widget(QtBind.createLabel(gui, fixed_width_text('No script assigned.', 280),
+_screen_widget(_localized(QtBind.createLabel(gui, '<b>Priority</b>', OFFSCREEN_X, 88), 'priority', 'bold'), manager_position=(640, 88))
+lbl_detail_priority = _screen_widget(QtBind.createLabel(gui, fixed_width_text('-', 15), OFFSCREEN_X, 88),
+                                     manager_position=(690, 88))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>SCRIPT ROUTE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 110), 'script_route_heading', 'heading'), manager_position=(345, 110))
+lbl_assigned_script = _screen_widget(QtBind.createLabel(gui, fixed_width_text('No script assigned.', 260),
                                                         OFFSCREEN_X, 110), manager_position=(445, 110))
 dropdown_script = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 128, 220, 22), manager_position=(345, 128))
-btn_refresh = _screen_widget(QtBind.createButton(gui, 'refresh_scripts', 'Refresh', OFFSCREEN_X, 127),
-                             manager_position=(570, 127))
-btn_set = _screen_widget(QtBind.createButton(gui, 'set_script', 'Assign Script', OFFSCREEN_X, 153),
-                         manager_position=(345, 153))
-btn_use_script = _screen_widget(QtBind.createButton(gui, 'use_script_route', 'Use Script Route', OFFSCREEN_X, 153),
-                                manager_position=(445, 153))
-btn_remove_script = _screen_widget(QtBind.createButton(gui, 'remove_script_mapping', 'Remove Script', OFFSCREEN_X, 153),
-                                   manager_position=(565, 153))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE ROUTE</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 180), manager_position=(345, 180))
-coordinate_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 196, 260, 38), manager_position=(345, 196))
-btn_remove_coordinate = _screen_widget(QtBind.createButton(gui, 'remove_coordinate', 'Remove Point', OFFSCREEN_X, 195),
-                                       manager_position=(610, 195))
-btn_use_coordinates = _screen_widget(QtBind.createButton(gui, 'use_coordinate_route', 'Use Coordinate Route',
-                                                         OFFSCREEN_X, 220), manager_position=(610, 220))
-for text_value, x in (('R', 345), ('X', 438), ('Y', 531), ('Z', 624)):
-    _screen_widget(QtBind.createLabel(gui, text_value, OFFSCREEN_X, 242), manager_position=(x, 242))
-txt_coord_region = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(365, 238))
-txt_coord_x = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(458, 238))
-txt_coord_y = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 238, 68, 22), manager_position=(551, 238))
-txt_coord_z = _screen_widget(QtBind.createLineEdit(gui, '0', OFFSCREEN_X, 238, 68, 22), manager_position=(644, 238))
-btn_add_coordinate = _screen_widget(QtBind.createButton(gui, 'add_coordinate_fields', 'Add Manual', OFFSCREEN_X, 263),
-                                    manager_position=(345, 263))
-btn_add_current = _screen_widget(QtBind.createButton(gui, 'add_my_current_position', 'Capture Current', OFFSCREEN_X, 263),
-                                 manager_position=(440, 263))
-btn_add_nearby = _screen_widget(QtBind.createButton(gui, 'add_nearby_unique_position', 'Capture Nearby', OFFSCREEN_X, 263),
-                                manager_position=(548, 263))
+btn_refresh = _screen_widget(_localized(QtBind.createButton(gui, 'refresh_scripts', 'Refresh', OFFSCREEN_X, 127),
+                             'refresh'), manager_position=(570, 127))
+btn_set = _screen_widget(_localized(QtBind.createButton(gui, 'set_script', 'Assign Script', OFFSCREEN_X, 153),
+                         'assign_script'), manager_position=(345, 153))
+btn_use_script = _screen_widget(_localized(QtBind.createButton(gui, 'use_script_route', 'Use Script Route', OFFSCREEN_X, 153),
+                                'use_script_route'), manager_position=(445, 153))
+btn_remove_script = _screen_widget(_localized(QtBind.createButton(gui, 'remove_script_mapping', 'Remove Script', OFFSCREEN_X, 153),
+                                   'remove_script'), manager_position=(565, 153))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE ROUTE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 180), 'coordinate_route_heading', 'heading'), manager_position=(345, 180))
+lbl_coordinate_count = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s">No saved points</font>' % COLOR_TEXT, 180), OFFSCREEN_X, 200),
+    manager_position=(345, 200))
+btn_edit_coordinates = _screen_widget(_localized(QtBind.createButton(gui, 'show_coordinate_editor', 'Edit Coordinates',
+                                                           OFFSCREEN_X, 195), 'edit_coordinates'), manager_position=(530, 195))
+btn_use_coordinates = _screen_widget(_localized(QtBind.createButton(gui, 'use_coordinate_route', 'Use Coord',
+                                                         OFFSCREEN_X, 195), 'use_coord'), manager_position=(640, 195))
+chk_first_reverse = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_unique_reverse', 'First use Reverse',
+                                                         OFFSCREEN_X, 226), 'first_reverse'), manager_position=(345, 226))
+QtBind.setChecked(gui, chk_first_reverse, False)
+cmb_reverse_location = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 247, 260, 22),
+                                      manager_position=(345, 247))
+refresh_reverse_location_options()
+btn_save_reverse = _screen_widget(_localized(QtBind.createButton(gui, 'save_unique_reverse_setting', 'Save Reverse',
+                                                       OFFSCREEN_X, 246), 'save_reverse'), manager_position=(610, 246))
 lbl_manager_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
-    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 380), OFFSCREEN_X, 290),
-    manager_position=(345, 290))
+    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 360), OFFSCREEN_X, 278),
+    manager_position=(345, 278))
+
+# Coordinate Editor: dedicated point-list and capture/manual-editing page.
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE EDITOR</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), 'coordinate_editor', 'heading'), editor_position=(12, 65))
+_screen_widget(_localized(QtBind.createButton(gui, 'back_to_unique_manager', u'\u2190 Back', OFFSCREEN_X, 64),
+               'back'), editor_position=(650, 64))
+lbl_coordinate_editor_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s"><b>No unique selected</b></font>' % COLOR_TEXT, 500), OFFSCREEN_X, 87),
+    editor_position=(12, 87))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>SAVED COORDINATE ROUTE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 108), 'saved_coordinate_route', 'heading'), editor_position=(12, 108))
+coordinate_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 124, 696, 82),
+                                 editor_position=(12, 124))
+btn_remove_coordinate = _screen_widget(_localized(QtBind.createButton(gui, 'remove_coordinate', 'Remove Selected',
+                                                            OFFSCREEN_X, 211), 'remove_selected'), editor_position=(12, 211))
+btn_add_current = _screen_widget(_localized(QtBind.createButton(gui, 'add_my_current_position', 'Capture Current',
+                                                      OFFSCREEN_X, 211), 'capture_current'), editor_position=(150, 211))
+btn_add_nearby = _screen_widget(_localized(QtBind.createButton(gui, 'add_nearby_unique_position', 'Capture Nearby',
+                                                     OFFSCREEN_X, 211), 'capture_nearby'), editor_position=(270, 211))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>MANUAL COORDINATE</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 236), 'manual_coordinate', 'heading'), editor_position=(12, 236))
+for text_value, x in (('R', 12), ('X', 120), ('Y', 285), ('Z', 450)):
+    _screen_widget(QtBind.createLabel(gui, text_value, OFFSCREEN_X, 258), editor_position=(x, 258))
+txt_coord_region = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 254, 75, 22),
+                                  editor_position=(30, 254))
+txt_coord_x = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 254, 130, 22),
+                             editor_position=(138, 254))
+txt_coord_y = _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 254, 130, 22),
+                             editor_position=(303, 254))
+txt_coord_z = _screen_widget(QtBind.createLineEdit(gui, '0', OFFSCREEN_X, 254, 100, 22),
+                             editor_position=(468, 254))
+btn_add_coordinate = _screen_widget(_localized(QtBind.createButton(gui, 'add_coordinate_fields', 'Add', OFFSCREEN_X, 253),
+                                    'add'), editor_position=(580, 253))
+lbl_coordinate_editor_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s">Ready.</font>' % COLOR_MUTED, 696), OFFSCREEN_X, 283),
+    editor_position=(12, 283))
 
 # Hunt Settings
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>LOOT BEHAVIOR</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 65), settings_position=(12, 65))
-cbx_loot_wait = _screen_widget(QtBind.createCheckBox(gui, 'do_nothing', 'Wait after unique death', OFFSCREEN_X, 86),
-                               settings_position=(12, 86))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>LOOT BEHAVIOR</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), 'loot_behavior', 'heading'), settings_position=(12, 65))
+cbx_loot_wait = _screen_widget(_localized(QtBind.createCheckBox(gui, 'do_nothing', 'Wait after unique death', OFFSCREEN_X, 86),
+                               'wait_after_death'), settings_position=(12, 86))
 QtBind.setChecked(gui, cbx_loot_wait, True)
 tbx_loot_wait = _screen_widget(QtBind.createLineEdit(gui, '60', OFFSCREEN_X, 82, 55, 22), settings_position=(190, 82))
-_screen_widget(QtBind.createLabel(gui, 'seconds', OFFSCREEN_X, 87), settings_position=(250, 87))
-_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 110, 716, 1), settings_position=(12, 110))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>HUNT TIMEOUT</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 119), settings_position=(12, 119))
-cbx_unique_timeout = _screen_widget(QtBind.createCheckBox(gui, 'do_nothing', 'Enable hunt timeout', OFFSCREEN_X, 140),
-                                    settings_position=(12, 140))
+_screen_widget(_localized(QtBind.createLabel(gui, 'seconds', OFFSCREEN_X, 87), 'seconds'), settings_position=(250, 87))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 110, 696, 1), settings_position=(12, 110))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>HUNT TIMEOUT</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 119), 'hunt_timeout', 'heading'), settings_position=(12, 119))
+cbx_unique_timeout = _screen_widget(_localized(QtBind.createCheckBox(gui, 'do_nothing', 'Enable hunt timeout', OFFSCREEN_X, 140),
+                                    'enable_hunt_timeout'), settings_position=(12, 140))
 QtBind.setChecked(gui, cbx_unique_timeout, True)
 tbx_unique_timeout = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 136, 90, 22), settings_position=(190, 136))
 for timeout_value in ('10min', '20min', '30min'): QtBind.append(gui, tbx_unique_timeout, timeout_value)
-_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 164, 716, 1), settings_position=(12, 164))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>AUTOMATION</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 173), settings_position=(12, 173))
-chk_auto_return = _screen_widget(QtBind.createCheckBox(gui, 'toggle_auto_return',
-    'Return to town for an unconfigured unique', OFFSCREEN_X, 194), settings_position=(12, 194))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 164, 696, 1), settings_position=(12, 164))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>AUTOMATION</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 173), 'automation', 'heading'), settings_position=(12, 173))
+chk_auto_return = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_auto_return',
+    'Return to town for an unconfigured unique', OFFSCREEN_X, 194), 'auto_return'), settings_position=(12, 194))
 QtBind.setChecked(gui, chk_auto_return, False)
-chk_auto_learn = _screen_widget(QtBind.createCheckBox(gui, 'toggle_auto_learn',
-    'Automatically learn unique coordinates', OFFSCREEN_X, 218), settings_position=(12, 218))
+chk_auto_learn = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_auto_learn',
+    'Automatically learn unique coordinates', OFFSCREEN_X, 218), 'auto_learn'), settings_position=(12, 218))
 QtBind.setChecked(gui, chk_auto_learn, False)
-_screen_widget(QtBind.createLabel(gui, '<font color="%s">Points within 30m of a saved point are ignored.</font>' % COLOR_MUTED,
-                                  OFFSCREEN_X, 240), settings_position=(32, 240))
-_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 716, 1), settings_position=(12, 258))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>DIAGNOSTICS</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 267), settings_position=(12, 267))
-chk_debug = _screen_widget(QtBind.createCheckBox(gui, 'toggle_debug', 'Detailed debug logging', OFFSCREEN_X, 290),
-                           settings_position=(12, 290))
-btn_force_scan = _screen_widget(QtBind.createButton(gui, 'force_scan_alive_uniques', 'Refresh Nearby Alive Status',
-                                                    OFFSCREEN_X, 286), settings_position=(210, 286))
-btn_check_alive = _screen_widget(QtBind.createButton(gui, 'check_alive_uniques', 'Log Tracked Uniques', OFFSCREEN_X, 286),
-                                 settings_position=(375, 286))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s">Points within 30m of a saved point are ignored.</font>' % COLOR_MUTED,
+                                  OFFSCREEN_X, 240), 'duplicate_help', 'muted'), settings_position=(32, 240))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 696, 1), settings_position=(12, 258))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>DIAGNOSTICS</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 267), 'diagnostics', 'heading'), settings_position=(12, 267))
+chk_debug = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_debug', 'Detailed debug logging', OFFSCREEN_X, 290),
+                           'debug_logging'), settings_position=(12, 290))
+btn_force_scan = _screen_widget(_localized(QtBind.createButton(gui, 'force_scan_alive_uniques', 'Refresh Nearby Alive Status',
+                                                    OFFSCREEN_X, 286), 'refresh_alive'), settings_position=(210, 286))
+btn_check_alive = _screen_widget(_localized(QtBind.createButton(gui, 'check_alive_uniques', 'Log Tracked Uniques', OFFSCREEN_X, 286),
+                                 'log_tracked'), settings_position=(375, 286))
 
 # Logs
-_screen_widget(QtBind.createLabel(gui, '<font color="%s"><b>RECENT PLUGIN ACTIVITY</b></font>' % COLOR_PRIMARY,
-                                  OFFSCREEN_X, 65), logs_position=(12, 65))
-_screen_widget(QtBind.createLabel(gui, '<font color="%s">Shows the latest 100 important GUI-visible state changes.</font>' % COLOR_MUTED,
-                                  OFFSCREEN_X, 84), logs_position=(12, 84))
-activity_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 102, 716, 176), logs_position=(12, 102))
-_screen_widget(QtBind.createButton(gui, 'clear_activity_log', 'Clear Activity', OFFSCREEN_X, 282), logs_position=(12, 282))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>RECENT PLUGIN ACTIVITY</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 65), 'recent_activity', 'heading'), logs_position=(12, 65))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s">Shows the latest 100 important GUI-visible state changes.</font>' % COLOR_MUTED,
+                                  OFFSCREEN_X, 84), 'activity_help', 'muted'), logs_position=(12, 84))
+activity_list = _screen_widget(QtBind.createList(gui, OFFSCREEN_X, 102, 696, 176), logs_position=(12, 102))
+_screen_widget(_localized(QtBind.createButton(gui, 'clear_activity_log', 'Clear Activity', OFFSCREEN_X, 282),
+               'clear_activity'), logs_position=(12, 282))
 
 show_dashboard()
 
@@ -2403,6 +2980,12 @@ def teleported():
     (bkz. docs/phbot-api/events.md) â€” eski isim hiÃ§ Ã§aÄŸrÄ±lmÄ±yordu, bu yÃ¼zden
     teleport sonrasÄ± ÅŸehir state gÃ¼ncellemesi Ã§alÄ±ÅŸmÄ±yordu.
     """
+    if reverse_hunt_pending and reverse_hunt_pending.get('phase') == 'waiting':
+        reverse_hunt_pending['phase'] = 'settling'
+        token = reverse_hunt_pending['token']
+        if reverse_timeout_timer:
+            reverse_timeout_timer.cancel()
+        threading.Timer(1.5, _resume_coordinate_hunt_after_reverse, [token]).start()
     threading.Timer(1.5, _update_town_state_after_teleport).start()
 
 def _update_town_state_after_teleport():

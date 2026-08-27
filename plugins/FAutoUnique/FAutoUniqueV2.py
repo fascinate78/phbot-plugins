@@ -12,7 +12,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.7.1'
+pVersion = '2.7.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -1795,22 +1795,43 @@ def _normalize_town_zone_name(zone_name):
     normalized = str(zone_name or '').strip().lower()
     return TOWN_ZONE_ALIASES.get(normalized, '')
 
+def _current_zone_info():
+    """Return the live character region and zone, preferring get_stats()."""
+    stats_function = getattr(phBot, 'get_stats', None)
+    if callable(stats_function):
+        try:
+            stats = stats_function() or {}
+            if isinstance(stats, dict) and stats.get('stats_valid', True):
+                region = int(stats.get('region', 0) or 0)
+                zone_name = str(stats.get('zone_name', '') or '').strip()
+                if region:
+                    if not zone_name:
+                        zone_name = str(get_zone_name(region) or '').strip()
+                    return region, zone_name, 'get_stats'
+        except Exception as error:
+            if debug_enabled:
+                log('[Town] get_stats lookup failed; using position fallback: %s' % error)
+
+    position = phBot.get_position() or {}
+    region = int(position.get('region', 0) or 0)
+    zone_name = str(get_zone_name(region) or '').strip() if region else ''
+    return region, zone_name, 'get_position'
+
 def _is_in_town():
     """
     Determine whether the current region belongs to a town by its zone name.
     """
     global _in_town_state
     try:
-        pos = phBot.get_position()
-        if pos:
-            region = int(pos.get('region', 0) or 0)
-            if not region:
-                return _in_town_state
-            zone_name = get_zone_name(region)
-            if not str(zone_name or '').strip():
-                return _in_town_state
-            _in_town_state = bool(_normalize_town_zone_name(zone_name))
+        region, zone_name, source = _current_zone_info()
+        if not region or not zone_name:
             return _in_town_state
+        canonical_town = _normalize_town_zone_name(zone_name)
+        _in_town_state = bool(canonical_town)
+        if debug_enabled and not canonical_town:
+            log('[Town] Not recognized: region=%d zone=%r source=%s' %
+                (region, zone_name, source))
+        return _in_town_state
     except Exception as error:
         if debug_enabled:
             log('[Town] Zone lookup failed: %s' % error)

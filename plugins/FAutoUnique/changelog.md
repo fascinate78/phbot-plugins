@@ -1,5 +1,10 @@
 # FAutoUnique V2 Changelog
 
+## v2.7.2
+
+### Fixed
+- Fixed live town detection on phBot builds that expose the current region and zone through `get_stats()`; documented position and zone APIs remain as a compatibility fallback.
+
 ## v2.7.1
 
 ### Improved

@@ -47,17 +47,16 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "2.7.1",
+                        "version":  "2.7.2",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Replaced fixed town region-ID checks with normalized `get_zone_name(region)` detection for cities spanning multiple regions.",
-                                        "Added verified `Hotan Kingdom` and `Western China Donwhang` aliases alongside plain English and known Chinese Media.pk2 city names."
+                                        "Fixed live town detection on phBot builds that expose the current region and zone through `get_stats()`; documented position and zone APIs remain as a compatibility fallback."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "c9f3378925b9d62103babbce064e6efc057934a1ce35bd251b0d000d266c5d7b"
+                        "sha256":  "5a751d324bf01139e37c2216008b625e7c722b762e4009afdb98f0f43a4b59b7"
                     },
                     {
                         "id":  "FCaravanNavigator",

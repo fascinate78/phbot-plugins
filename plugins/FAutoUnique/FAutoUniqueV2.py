@@ -12,7 +12,7 @@ import webbrowser
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.7.0'
+pVersion = '2.7.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -277,18 +277,27 @@ unique_not_found_count = 0
 script_finished = False
 _in_town_state = True  # Manually tracked town state.
 
-# Town region'lari â€” hem _is_in_town hem capture_slot kullaniyor
-# (slot'u yanlislikla town sanmamak icin)
-TOWN_REGIONS = {
-    25000, 25001, 25002, 25003,  # Jangan
-    24064, 24065, 24066, 24067,  # Donwhang
-    23687,                        # Hotan (confirmed)
-    23040, 23041, 23042, 23043,  # Hotan area
-    22016, 22017, 22018, 22019,  # Constantinople
-    21504, 21505, 21506, 21507,  # Samarkand
-    20480, 20481, 20482, 20483,  # Roc
-    19456, 19457, 19458, 19459,  # Alexandria
-    18432, 18433, 18434, 18435,  # Bagdad
+# Normalize localized and server-specific Media.pk2 zone names before town
+# checks. This avoids incomplete region-ID lists in cities with many regions.
+TOWN_ZONE_ALIASES = {
+    'jangan': 'Jangan',
+    'donwhang': 'Donwhang',
+    'western china donwhang': 'Donwhang',
+    'hotan': 'Hotan',
+    'hotan kingdom': 'Hotan',
+    'constantinople': 'Constantinople',
+    'samarkand': 'Samarkand',
+    'roc': 'Roc',
+    'alexandria': 'Alexandria',
+    'bagdad': 'Baghdad',
+    'baghdad': 'Baghdad',
+    u'和田王国': 'Hotan',
+    u'长安': 'Jangan',
+    u'長安': 'Jangan',
+    u'敦煌': 'Donwhang',
+    u'撒马尔罕': 'Samarkand',
+    u'君士坦丁堡': 'Constantinople',
+    u'亚历山大': 'Alexandria',
 }
 # ================= AUTO RETURN STATE =================
 # Return to town when an unmapped unique appears while the bot is idle.
@@ -1781,22 +1790,30 @@ def toggle_debug(checked=None):
     debug_enabled = bool(checked)
     log(f"Debug mode {'ON' if debug_enabled else 'OFF'}")
 
+def _normalize_town_zone_name(zone_name):
+    """Return the canonical town name for a known localized zone name."""
+    normalized = str(zone_name or '').strip().lower()
+    return TOWN_ZONE_ALIASES.get(normalized, '')
+
 def _is_in_town():
     """
-    Determine whether the character is in town from the current region.
+    Determine whether the current region belongs to a town by its zone name.
     """
     global _in_town_state
     try:
         pos = phBot.get_position()
         if pos:
-            region = pos.get('region', 0)
-            if region in TOWN_REGIONS:
-                _in_town_state = True
-                return True
-            else:
-                _in_town_state = False
-                return False
-    except: pass
+            region = int(pos.get('region', 0) or 0)
+            if not region:
+                return _in_town_state
+            zone_name = get_zone_name(region)
+            if not str(zone_name or '').strip():
+                return _in_town_state
+            _in_town_state = bool(_normalize_town_zone_name(zone_name))
+            return _in_town_state
+    except Exception as error:
+        if debug_enabled:
+            log('[Town] Zone lookup failed: %s' % error)
     return _in_town_state
 
 def _set_in_town(value: bool):
@@ -1826,7 +1843,7 @@ def capture_slot():
         y = float(area.get('y', 0) or 0)
         if x == 0 and y == 0:
             return  # ayarlanmamis / gecersiz slot
-        if region in TOWN_REGIONS:
+        if _normalize_town_zone_name(get_zone_name(region)):
             return  # town'u slot olarak kaydetme
         saved_slot = {
             'region': region, 'x': x, 'y': y,

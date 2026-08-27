@@ -1,5 +1,11 @@
 # FAutoUnique V2 Changelog
 
+## v2.7.1
+
+### Improved
+- Replaced fixed town region-ID checks with normalized `get_zone_name(region)` detection for cities spanning multiple regions.
+- Added verified `Hotan Kingdom` and `Western China Donwhang` aliases alongside plain English and known Chinese Media.pk2 city names.
+
 ## v2.7.0
 
 ### Added

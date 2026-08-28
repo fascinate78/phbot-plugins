@@ -1,5 +1,13 @@
 # FControl Changelog
 
+## v1.8.2
+
+### Added
+- Added case-insensitive `EQ job` and `UQ job` shortcuts that identify job equipment by item type without requiring its full name.
+
+### Improved
+- Preserved iSRO reserved equipment slots when searching the inventory for a job item to equip.
+
 ## v1.8.1
 
 ### Added

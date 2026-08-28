@@ -109,17 +109,17 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.8.1",
+                        "version":  "1.8.2",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Added compact Buttons-page shortcuts for bot control, following, leaving the party, character actions, loot, storage, Clock, and Devil extension commands.",
-                                        "Reorganized the Buttons page into a compact two-column layout with shared channel selection, localized labels, and command-send status feedback."
+                                        "Added case-insensitive `EQ job` and `UQ job` shortcuts that identify job equipment by item type without requiring its full name.",
+                                        "Preserved iSRO reserved equipment slots when searching the inventory for a job item to equip."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "717cdc8b2d9cecd221f51710e6d5c858c74dce171b9eb75e9529f99eb4d3f8ca"
+                        "sha256":  "d08923e46853e311433ed9c5ea456d6ffe9a705b47d74ecc80502688f61c0e21"
                     },
                     {
                         "id":  "FFateManager",

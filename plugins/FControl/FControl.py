@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.8.1'
+pVersion = '1.8.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1300,6 +1300,22 @@ def GetItemByExpression(_lambda, start=0, end=0):
                     return item
     return None
 
+
+def GetJobItem(start, end=0):
+    """Return the first real job item in the requested inventory/equipment range."""
+    inventory = get_inventory() or {}
+    items = inventory.get('items') or []
+    if end == 0:
+        end = len(items) - 1
+    for slot, item in enumerate(items):
+        if slot < start or slot > end or not item:
+            continue
+        item_data = get_item(item.get('model'))
+        if item_data and item_data.get('tid1') == 1 and item_data.get('tid2') == 7:
+            item['slot'] = slot
+            return item
+    return None
+
 # Gets the NPC unique ID if the specified name is found near
 def GetNPCUniqueID(name):
     NPCs = get_npcs()
@@ -1782,7 +1798,11 @@ def handle_equip_command(player, text):
     if not item_name:
         log(f"Plugin: EQ command requires an item name (Leader: {player}).")
         return
-    item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
+    if item_name.lower() == 'job':
+        first_inventory_slot = 17 if get_locale() == 18 else 13
+        item = GetJobItem(first_inventory_slot)
+    else:
+        item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 13)
     if item:
         EquipItem(item)
     else:
@@ -1795,7 +1815,10 @@ def handle_unequip_command(player, text):
     if not item_name:
         log(f"Plugin: UQ command requires an item name (Leader: {player}).")
         return
-    item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 0, 12)
+    if item_name.lower() == 'job':
+        item = GetJobItem(8, 8)
+    else:
+        item = GetItemByExpression(lambda n, s: item_name in n or item_name == s, 0, 12)
     if item:
         UnequipItem(item)
     else:
@@ -3122,8 +3145,6 @@ def _send_runtime_tp_announcement(source):
         log("Plugin: Failed to send TPR announcement (phBotChat reported a message send failure).")
     return sent
 
-# Plugin loaded
-log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)
 if os.path.exists(getPath()):
     loadLeadersConfigs()
     loadOpcodeConfigs()
@@ -3132,3 +3153,6 @@ else:
     log('Plugin: ' + pName + ' folder has been created')
 update_account_info()
 refresh_display_fields()
+
+# Plugin loaded
+log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

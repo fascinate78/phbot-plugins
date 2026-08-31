@@ -1,5 +1,12 @@
 # FSroRAutoTrade Changelog
 
+## v4.1.0
+
+### Added
+
+- Added a character-specific option to skip training-area validation for automatic
+  and party-synchronized trade starts while retaining all other readiness checks.
+
 ## v4.0.0
 
 ### Added

@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.8.2'
+pVersion = '1.9.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -48,18 +48,18 @@ GUI_TEXT = {
         'announce_channel': 'Announce Channel:',
         'buttons_title': 'BUTTONS',
         'chat_type': 'Chat Type:',
-        'job_suit_group': 'EQ/UQ Job Suit',
-        'job_suit': 'Job Suit:',
-        'refresh': 'Refresh',
-        'equip': 'Equip',
-        'unequip': 'Unequip',
+        'job_suit_group': 'Job Suit',
+        'equip_job': 'EQ Job',
+        'unequip_job': 'UQ Job',
+        'set_radius_group': 'Set Radius',
+        'radius': 'Radius:',
+        'set_radius': 'Set Radius',
         'set_profile_group': 'Set Profile',
         'profile_name': 'Profile Name:',
         'set_profile': 'Set Profile',
-        'job_suit_initial': 'Open Buttons or press Refresh to scan inventory.',
-        'job_suits_found': '%d matching job suit(s) found.',
-        'job_suits_missing': 'No Warrior Outfit or Thief Outfit found.',
-        'select_job_suit': 'Select a job suit first.',
+        'job_suit_initial': 'Send an automatic job suit command.',
+        'radius_initial': 'Enter the training radius to send.',
+        'radius_required': 'Enter a numeric radius first.',
         'sent_command': 'Sent on %s: %s',
         'send_failed': 'Could not send: %s',
         'profile_initial': 'Enter a phBot profile name.',
@@ -103,18 +103,18 @@ GUI_TEXT = {
         'announce_channel': 'Duyuru Kanalı:',
         'buttons_title': 'BUTONLAR',
         'chat_type': 'Sohbet Türü:',
-        'job_suit_group': 'EQ/UQ Meslek Kıyafeti',
-        'job_suit': 'Meslek Kıyafeti:',
-        'refresh': 'Yenile',
-        'equip': 'Kuşan',
-        'unequip': 'Çıkar',
+        'job_suit_group': 'Meslek Kıyafeti',
+        'equip_job': 'EQ Job',
+        'unequip_job': 'UQ Job',
+        'set_radius_group': 'Radius Ayarla',
+        'radius': 'Radius:',
+        'set_radius': 'Radius Ayarla',
         'set_profile_group': 'Profil Ayarla',
         'profile_name': 'Profil Adı:',
         'set_profile': 'Profili Ayarla',
-        'job_suit_initial': 'Envanteri taramak için Butonlar sayfasını açın veya Yenile\'ye basın.',
-        'job_suits_found': '%d eşleşen meslek kıyafeti bulundu.',
-        'job_suits_missing': 'Warrior Outfit veya Thief Outfit bulunamadı.',
-        'select_job_suit': 'Önce bir meslek kıyafeti seçin.',
+        'job_suit_initial': 'Otomatik meslek kıyafeti komutu gönderin.',
+        'radius_initial': 'Gönderilecek training radius değerini girin.',
+        'radius_required': 'Önce sayısal bir radius değeri girin.',
         'sent_command': '%s kanalında gönderildi: %s',
         'send_failed': 'Gönderilemedi: %s',
         'profile_initial': 'Bir phBot profil adı girin.',
@@ -712,51 +712,59 @@ for _channel_name in ANNOUNCE_CHANNEL_ORDER:
 QtBind.setText(gui, cbxButtonsChannel, 'All')
 
 lblJobSuitGroup = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#3cff7a"><b>EQ/UQ Job Suit</b></font>', 12, 96),
-    12, 96
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Job Suit</b></font>', 12, 92),
+    12, 92
 )
 lineJobSuitGroup = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 12, 114, 266, 1), 12, 114
-)
-lblJobSuit = _add_buttons_widget(
-    QtBind.createLabel(gui, _text('job_suit'), 12, 125), 12, 125
-)
-cbxJobSuit = _add_buttons_widget(
-    QtBind.createCombobox(gui, 92, 121, 118, 22), 92, 121
-)
-btnRefreshJobSuits = _add_buttons_widget(
-    QtBind.createButton(gui, 'refresh_job_suit_list', _text('refresh'), 215, 119), 215, 119
+    QtBind.createLineEdit(gui, '', 12, 110, 266, 1), 12, 110
 )
 btnEquipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', _text('equip'), 92, 148), 92, 148
+    QtBind.createButton(gui, 'btnEquipJobSuit_clicked', _text('equip_job'), 12, 115), 12, 115
 )
 btnUnequipJobSuit = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', _text('unequip'), 158, 148), 158, 148
+    QtBind.createButton(gui, 'btnUnequipJobSuit_clicked', _text('unequip_job'), 112, 115), 112, 115
 )
 lblJobSuitStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('job_suit_initial'), 12, 174),
-    12, 174
+    QtBind.createLabel(gui, '<table width="266"><tr><td><font color="#9aa0ac">%s</font></td></tr></table>' % _text('job_suit_initial'), 12, 137),
+    12, 137
+)
+
+lblSetRadiusGroup = _add_buttons_widget(
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Radius</b></font>', 12, 157), 12, 157
+)
+lineSetRadiusGroup = _add_buttons_widget(
+    QtBind.createLineEdit(gui, '', 12, 175, 266, 1), 12, 175
+)
+lblRadius = _add_buttons_widget(
+    QtBind.createLabel(gui, _text('radius'), 12, 186), 12, 186
+)
+tbxRadius = _add_buttons_widget(
+    QtBind.createLineEdit(gui, '', 72, 182, 78, 22), 72, 182
+)
+btnSetRadius = _add_buttons_widget(
+    QtBind.createButton(gui, 'btnSetRadius_clicked', _text('set_radius'), 155, 180), 155, 180
+)
+lblSetRadiusStatus = _add_buttons_widget(
+    QtBind.createLabel(gui, '<table width="266"><tr><td><font color="#9aa0ac">%s</font></td></tr></table>' % _text('radius_initial'), 12, 207), 12, 207
 )
 
 lblSetProfileGroup = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Profile</b></font>', 12, 205),
-    12, 205
+    QtBind.createLabel(gui, '<font color="#3cff7a"><b>Set Profile</b></font>', 12, 225), 12, 225
 )
 lineSetProfileGroup = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 12, 223, 266, 1), 12, 223
+    QtBind.createLineEdit(gui, '', 12, 243, 266, 1), 12, 243
 )
 lblProfileName = _add_buttons_widget(
-    QtBind.createLabel(gui, _text('profile_name'), 12, 234), 12, 234
+    QtBind.createLabel(gui, _text('profile_name'), 12, 254), 12, 254
 )
 tbxProfileName = _add_buttons_widget(
-    QtBind.createLineEdit(gui, '', 92, 230, 118, 22), 92, 230
+    QtBind.createLineEdit(gui, '', 92, 250, 118, 22), 92, 250
 )
 btnSetProfile = _add_buttons_widget(
-    QtBind.createButton(gui, 'btnSetProfile_clicked', _text('set_profile'), 215, 228), 215, 228
+    QtBind.createButton(gui, 'btnSetProfile_clicked', _text('set_profile'), 215, 248), 215, 248
 )
 lblSetProfileStatus = _add_buttons_widget(
-    QtBind.createLabel(gui, '<font color="#9aa0ac">%s</font>' % _text('profile_initial'), 12, 260),
-    12, 260
+    QtBind.createLabel(gui, '<table width="266"><tr><td><font color="#9aa0ac">%s</font></td></tr></table>' % _text('profile_initial'), 12, 277), 12, 277
 )
 
 lblQuickControlGroup = _add_buttons_widget(
@@ -824,6 +832,7 @@ lblQuickStatus = _add_buttons_widget(
 )
 
 _job_suit_status = ('job_suit_initial', (), '#9aa0ac')
+_radius_status = ('radius_initial', (), '#9aa0ac')
 _profile_status = ('profile_initial', (), '#9aa0ac')
 _quick_status = ('quick_ready', (), '#9aa0ac')
 
@@ -860,10 +869,11 @@ def _apply_gui_language():
     QtBind.setText(gui, lblButtonsTitle, '<font color="#00d2ff" size="4"><b>%s</b></font>' % _text('buttons_title'))
     QtBind.setText(gui, lblButtonsChannel, '<b>%s</b>' % _text('chat_type'))
     QtBind.setText(gui, lblJobSuitGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('job_suit_group'))
-    QtBind.setText(gui, lblJobSuit, _text('job_suit'))
-    QtBind.setText(gui, btnRefreshJobSuits, _text('refresh'))
-    QtBind.setText(gui, btnEquipJobSuit, _text('equip'))
-    QtBind.setText(gui, btnUnequipJobSuit, _text('unequip'))
+    QtBind.setText(gui, btnEquipJobSuit, _text('equip_job'))
+    QtBind.setText(gui, btnUnequipJobSuit, _text('unequip_job'))
+    QtBind.setText(gui, lblSetRadiusGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('set_radius_group'))
+    QtBind.setText(gui, lblRadius, _text('radius'))
+    QtBind.setText(gui, btnSetRadius, _text('set_radius'))
     QtBind.setText(gui, lblSetProfileGroup, '<font color="#3cff7a"><b>%s</b></font>' % _text('set_profile_group'))
     QtBind.setText(gui, lblProfileName, _text('profile_name'))
     QtBind.setText(gui, btnSetProfile, _text('set_profile'))
@@ -878,6 +888,7 @@ def _apply_gui_language():
         QtBind.setText(gui, widget, _text(key))
     _refresh_command_list()
     _render_status(lblJobSuitStatus, _job_suit_status)
+    _render_status(lblSetRadiusStatus, _radius_status)
     _render_status(lblSetProfileStatus, _profile_status)
     _render_status(lblQuickStatus, _quick_status, 400)
 
@@ -894,60 +905,11 @@ def _set_job_suit_status(key, args=(), color='#9aa0ac'):
     _render_status(lblJobSuitStatus, _job_suit_status)
 
 
-def _is_job_suit_name(name):
-    value = (name or '').lower()
-    return 'warrior outfit' in value or 'thief outfit' in value
-
-
-def get_available_job_suits():
-    """Return unique equipped suits first, followed by matching inventory suits."""
-    inventory = get_inventory() or {}
-    items = inventory.get('items') or []
-    equipped = []
-    carried = []
-    seen = set()
-
-    for slot, item in enumerate(items):
-        if not item:
-            continue
-        name = item.get('name') or ''
-        key = name.lower()
-        if not _is_job_suit_name(name) or key in seen:
-            continue
-        seen.add(key)
-        if slot <= 12:
-            equipped.append(name)
-        else:
-            carried.append(name)
-
-    return equipped + carried
-
-
-def refresh_job_suit_list():
-    suits = get_available_job_suits()
-    QtBind.clear(gui, cbxJobSuit)
-    for name in suits:
-        QtBind.append(gui, cbxJobSuit, name)
-
-    if suits:
-        QtBind.setText(gui, cbxJobSuit, suits[0])
-        _set_job_suit_status('job_suits_found', (len(suits),), '#3cff7a')
-    else:
-        _set_job_suit_status('job_suits_missing', (), '#ff4b5c')
-    return suits
-
-
 def _send_job_suit_command(command):
-    item_name = (QtBind.text(gui, cbxJobSuit) or '').strip()
-    if not item_name:
-        _set_job_suit_status('select_job_suit', (), '#ff4b5c')
-        log('Plugin: Buttons: No Warrior Outfit or Thief Outfit found')
-        return False
-
     channel = QtBind.text(gui, cbxButtonsChannel) or 'All'
     if channel not in ANNOUNCE_CHANNELS:
         channel = 'All'
-    message = '%s %s' % (command, item_name)
+    message = '%s job' % command
     sent = ANNOUNCE_CHANNELS[channel](message)
     if sent:
         _set_job_suit_status('sent_command', (channel, message), '#3cff7a')
@@ -964,6 +926,35 @@ def btnEquipJobSuit_clicked():
 
 def btnUnequipJobSuit_clicked():
     return _send_job_suit_command('UQ')
+
+
+def _set_radius_status(key, args=(), color='#9aa0ac'):
+    global _radius_status
+    _radius_status = (key, args, color)
+    _render_status(lblSetRadiusStatus, _radius_status)
+
+
+def btnSetRadius_clicked():
+    value = (QtBind.text(gui, tbxRadius) or '').strip()
+    try:
+        radius = abs(int(float(value)))
+    except (ValueError, OverflowError):
+        _set_radius_status('radius_required', (), '#ff4b5c')
+        log('Plugin: Buttons: Radius must be a finite numeric value')
+        return False
+
+    channel = QtBind.text(gui, cbxButtonsChannel) or 'All'
+    if channel not in ANNOUNCE_CHANNELS:
+        channel = 'All'
+    message = 'SR %d' % radius
+    sent = ANNOUNCE_CHANNELS[channel](message)
+    if sent:
+        _set_radius_status('sent_command', (channel, message), '#3cff7a')
+        log('Plugin: Buttons: Sent on %s: %s' % (channel, message))
+    else:
+        _set_radius_status('send_failed', (message,), '#ff4b5c')
+        log('Plugin: Buttons: Chat send failed on %s: %s' % (channel, message))
+    return sent
 
 
 def _set_profile_status(key, args=(), color='#9aa0ac'):
@@ -1108,7 +1099,6 @@ def show_buttons_page():
         QtBind.move(gui, widget, OFFSCREEN_X, y)
     for widget, x, y in buttons_widgets:
         QtBind.move(gui, widget, x, y)
-    refresh_job_suit_list()
 
 
 def cbxAnnounceOwnTp_clicked(checked):

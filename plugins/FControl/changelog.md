@@ -1,5 +1,11 @@
 # FControl Changelog
 
+## v1.9.0
+
+### Added
+- Added a Buttons-page radius field that sends a validated `SR` command through the selected chat channel.
+- Replaced job-suit inventory selection and scanning with direct `EQ Job` and `UQ Job` command buttons.
+
 ## v1.8.2
 
 ### Added

@@ -57,7 +57,7 @@ downloaded version.
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
-| [FControl](plugins/FControl/) | 1.8.2 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
+| [FControl](plugins/FControl/) | 1.9.0 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
 | [FFortuneManager](plugins/FFortuneManager/) | 1.2.7 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.4 | Sorts character inventory and personal storage with configurable category rules. |
@@ -66,7 +66,7 @@ downloaded version.
 | [FScriptHelper](plugins/FScriptHelper/) | 1.1.1 | Records and replays NPC interactions as reusable script commands. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
-| [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.0.0 | Coordinates party-synchronized trade scripts and job-item handling. |
+| [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.1.0 | Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached. |
 | [FTarget](plugins/FTarget/) | 3.5.1 | Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
 | [FWheelManager](plugins/FWheelManager/) | 1.0.1 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |

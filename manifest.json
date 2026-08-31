@@ -109,17 +109,17 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.8.2",
+                        "version":  "1.9.0",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Added case-insensitive `EQ job` and `UQ job` shortcuts that identify job equipment by item type without requiring its full name.",
-                                        "Preserved iSRO reserved equipment slots when searching the inventory for a job item to equip."
+                                        "Added a Buttons-page radius field that sends a validated `SR` command through the selected chat channel.",
+                                        "Replaced job-suit inventory selection and scanning with direct `EQ Job` and `UQ Job` command buttons."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "d08923e46853e311433ed9c5ea456d6ffe9a705b47d74ecc80502688f61c0e21"
+                        "sha256":  "430b8c92cb003da42ec006240d956e86c5d0547f1f5919664ed0d91baa92681b"
                     },
                     {
                         "id":  "FFateManager",
@@ -241,19 +241,16 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "4.0.0",
+                        "version":  "4.1.0",
                         "core":  false,
-                        "description":  "Coordinates party-synchronized trade scripts and job-item handling.",
+                        "description":  "Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached.",
                         "changes":  [
-                                        "Added a separate Telegram screen with character-specific Bot Token, Chat ID,",
-                                        "Added manual delivery of every notification type with editable state and",
-                                        "Added automatic English/Turkish Telegram messages containing the event,",
-                                        "Added non-blocking Telegram delivery with verified HTTPS and a one-time SSL"
+                                        "Added a character-specific option to skip training-area validation for automatic"
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
-                        "install_path":  "FSroRAutoTrade.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "a22b468b640333d6bf6754afffb0cc19d08ec6f9cac5b2e7ab31ab0dca16f72d"
+                        "install_path":  "FSroRAutoTradeTest.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTradeTest.py",
+                        "sha256":  "0df33d50bbf0207f5155c744c90c318c82470f0f3fd972dae02a43697549b99b"
                     },
                     {
                         "id":  "FTarget",

@@ -284,17 +284,19 @@
                     {
                         "id":  "FWheelManager",
                         "name":  "FWheelManager",
-                        "version":  "1.0.1",
+                        "version":  "1.3.0",
                         "core":  false,
                         "description":  "Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin.",
                         "changes":  [
-                                        "Added context-aware decoding for the verified high-degree weapon Fortune stat-code family.",
-                                        "Added bounded raw packet diagnostics when a Fortune response contains stats that are unsafe for the selected item."
+                                        "Added automatic discovery of phBot\u0027s active private-server database, including servers reporting locale 22 or 65, with read-only server-specific Fortune and Pen stat decoding.",
+                                        "Added database-backed Available Stats for Fortune and Pen based on the selected item\u0027s equipment category, subtype, and degree.",
+                                        "Improved cross-server safety with verified full-ID response parsing, built-in layout fallbacks, and bounded diagnostics for unrecognized Fortune or Pen responses.",
+                                        "Fixed valid server-specific Fortune and Pen responses being rejected because of database-ID, locale, installation-path, or Pen record-offset differences."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/changelog.md",
                         "install_path":  "FWheelManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/FWheelManager.py",
-                        "sha256":  "f1934c4075dc7050b730363a3d8bca1c75914463d7cde2a204f454b630811b83"
+                        "sha256":  "cd4d3a503a511d9b3f08014a8afa3223e94f41f2a8e59d1274eabc9a86b569cf"
                     }
                 ]
 }

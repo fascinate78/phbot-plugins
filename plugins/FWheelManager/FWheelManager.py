@@ -1,12 +1,16 @@
 from phBot import *
 import QtBind
+import json
+import os
+import re
+import sqlite3
 import struct
 import webbrowser
 from threading import Timer
 
 
 pName = 'FWheelManager'
-pVersion = '1.0.1'
+pVersion = '1.3.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -119,10 +123,190 @@ awaiting_response = False
 single_roll = False
 timer_token = 0
 pending_timer = None
+magic_option_codes = {}
+magic_option_records = []
+magic_database_path = None
+magic_database_identity = None
 
 
 def plugin_log(message):
     log('[%s] %s' % (pName, str(message)))
+
+
+def readonly_database(path):
+    uri = 'file:' + os.path.abspath(path).replace('\\', '/') + '?mode=ro'
+    try:
+        return sqlite3.connect(uri, uri=True)
+    except Exception:
+        # Some phBot embedded Python/SQLite builds do not expose URI mode.
+        # query_only keeps the compatibility connection unable to mutate data.
+        connection = sqlite3.connect(path)
+        connection.execute('PRAGMA query_only = ON')
+        return connection
+
+
+def phbot_root_candidates():
+    candidates = []
+    raw_paths = [os.getcwd(), os.path.dirname(os.path.abspath(__file__))]
+    for getter in (get_config_dir, get_log_dir):
+        try:
+            folder = getter()
+        except Exception:
+            folder = None
+        if folder:
+            raw_paths.append(os.path.dirname(os.path.normpath(folder)))
+    for path in raw_paths:
+        current = os.path.abspath(path)
+        for unused in range(3):
+            if current not in candidates:
+                candidates.append(current)
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+    return candidates
+
+
+def normalized_identity(value):
+    return ''.join(character.lower() for character in str(value or '') if character.isalnum())
+
+
+def server_entry_matches(key, entry, active_server):
+    active = normalized_identity(active_server)
+    if not active:
+        return False
+    candidates = [key, entry.get('division')]
+    candidates.extend(entry.get('servers', []))
+    for candidate in candidates:
+        value = normalized_identity(candidate)
+        if value == active:
+            return True
+        if len(value) >= 4 and (value in active or active in value):
+            return True
+    return False
+
+
+def normalized_path(value):
+    return os.path.normcase(os.path.normpath(str(value or '').replace('/', os.sep)))
+
+
+def active_database_path():
+    locale = int(get_locale())
+    character = get_character_data() or {}
+    server = str(character.get('server') or '')
+    if locale not in (18, 56) and not server:
+        return None
+    searched = []
+    scan_errors = []
+    for bot_path in phbot_root_candidates():
+        data_path = os.path.join(bot_path, 'Data')
+        if not os.path.isdir(data_path):
+            continue
+        searched.append(bot_path)
+        if locale in (18, 56):
+            filename = 'iSRO.db3' if locale == 18 else 'TRSRO.db3'
+            path = os.path.join(data_path, filename)
+            if os.path.isfile(path):
+                return path
+            continue
+        try:
+            with open(os.path.join(bot_path, 'vSRO.json'), 'r', encoding='utf-8') as source:
+                servers = json.load(source)
+        except Exception:
+            continue
+        media_path = None
+        matched_entry = None
+        for key, entry in servers.items():
+            if server_entry_matches(key, entry, server):
+                matched_entry = entry
+                media_path = entry.get('path')
+                break
+        if not media_path:
+            continue
+        try:
+            names = sorted(name for name in os.listdir(data_path) if name.lower().endswith('.db3'))
+        except Exception:
+            continue
+        for name in names:
+            path = os.path.join(data_path, name)
+            connection = None
+            try:
+                connection = readonly_database(path)
+                database_paths = connection.execute(
+                    'SELECT v FROM data WHERE k=?', ('path',)).fetchall()
+                if any(normalized_path(row[0]) == normalized_path(media_path)
+                       for row in database_paths):
+                    return path
+            except Exception as error:
+                if len(scan_errors) < 3:
+                    scan_errors.append('%s: %s' % (name, error))
+            finally:
+                if connection:
+                    connection.close()
+    if searched:
+        plugin_log('No active database match for locale=%d server=%r under: %s' % (
+            locale, server, ', '.join(searched)))
+    if scan_errors:
+        plugin_log('Database scan error(s): %s' % ' | '.join(scan_errors))
+    return None
+
+
+def canonical_magic_option(name, display):
+    key = str(name or '').upper()
+    exact = {
+        'MATTR_STR': 'STR', 'MATTR_INT': 'INT', 'MATTR_DUR': 'Durability',
+        'MATTR_HR': 'Attack Rate', 'MATTR_ER': 'Parry Ratio',
+        'MATTR_EVADE_BLOCK': 'Evade Block', 'MATTR_EVADE_CRITICAL': 'Evade Critical',
+        'MATTR_BLOCKRATE': 'Block', 'MATTR_CRITICAL': 'Critical',
+        'MATTR_HP': 'HP', 'MATTR_MP': 'MP', 'MATTR_REGENHPMP': 'HP/MP Recovery',
+        'MATTR_RESIST_FROSTBITE': 'Frostbite Resist',
+        'MATTR_RESIST_BURN': 'Fire Resist', 'MATTR_RESIST_ESHOCK': 'Lightning Resist',
+        'MATTR_RESIST_POISON': 'Poison Resist', 'MATTR_RESIST_ZOMBIE': 'Zombie Resist',
+        'MATTR_RESIST_CSMP': 'CSMP Resist', 'MATTR_RESIST_SLEEP': 'Sleep Resist',
+        'MATTR_RESIST_STUN': 'Stun Resist', 'MATTR_RESIST_DISEASE': 'Disease Resist',
+        'MATTR_RESIST_FEAR': 'Fear Resist', 'MATTR_ATHANASIA': 'Athanasia',
+        'MATTR_SOLID': 'Solid', 'MATTR_LUCK': 'Luck', 'MATTR_REPAIR': 'Repair'
+    }
+    return exact.get(key)
+
+
+def load_magic_option_codes():
+    global magic_option_codes, magic_option_records
+    global magic_database_path, magic_database_identity
+    character = get_character_data() or {}
+    identity = (int(get_locale()), str(character.get('server') or ''))
+    if magic_database_identity == identity:
+        return bool(magic_option_codes)
+    magic_database_identity = identity
+    magic_option_codes = {}
+    magic_option_records = []
+    magic_database_path = active_database_path()
+    if not magic_database_path:
+        plugin_log('Active magic-option database could not be identified; using built-in layouts')
+        return False
+    connection = None
+    try:
+        connection = readonly_database(magic_database_path)
+        for option_id, name, degree, items, display in connection.execute(
+                'SELECT id,name,degree,items,display FROM magicoption'):
+            canonical = canonical_magic_option(name, display)
+            if canonical:
+                record = {
+                    'name': canonical, 'degree': int(degree or 0), 'items': str(items or '')
+                }
+                magic_option_codes[int(option_id)] = record
+                magic_option_records.append(record)
+        plugin_log('Loaded %d magic-option codes from active database %s' % (
+            len(magic_option_codes), os.path.basename(magic_database_path)))
+        return bool(magic_option_codes)
+    except Exception as error:
+        magic_option_codes = {}
+        magic_option_records = []
+        plugin_log('Could not load active magic-option database: %s' % error)
+        return False
+    finally:
+        if connection:
+            connection.close()
 
 
 def fixed_width_text(content, width):
@@ -154,6 +338,58 @@ def discord_clicked():
         set_status('Could not open Discord invite', COLOR_ERROR)
 
 
+def item_degree(item_data):
+    servername = str(item_data.get('servername') or '')
+    for token in re.findall(r'(?:^|_)(\d{1,2})(?:_|$)', servername):
+        degree = int(token)
+        if 1 <= degree <= 15:
+            return degree
+    return None
+
+
+def item_magic_categories(tid2, tid3):
+    if tid2 == 6:
+        return {'weapon'}
+    if tid2 == 4:
+        return {'shield'}
+    if tid2 in (1, 2, 3, 9, 10, 11):
+        categories = {'armor'}
+        piece = {1: 'helm', 3: 'mail', 4: 'pants'}.get(tid3)
+        if piece:
+            categories.add(piece)
+        return categories
+    if tid2 in (5, 12):
+        categories = {'accessory'}
+        subtype = {1: 'earring', 2: 'necklace', 3: 'ring'}.get(tid3)
+        if subtype:
+            categories.add(subtype)
+        return categories
+    return set()
+
+
+def database_available_stats(item_data, tid2, tid3):
+    if not load_magic_option_codes():
+        return []
+    categories = item_magic_categories(tid2, tid3)
+    if not categories:
+        return []
+    degree = item_degree(item_data)
+    matching = []
+    if degree is not None:
+        matching = [record for record in magic_option_records if record['degree'] == degree]
+    if not matching:
+        matching = magic_option_records
+    result = []
+    for record in matching:
+        option_categories = set(value.strip().lower() for value in record['items'].split(',') if value.strip())
+        name = record['name']
+        if categories.isdisjoint(option_categories) or name in IGNORED_RESPONSE_STATS:
+            continue
+        if name not in result:
+            result.append(name)
+    return result
+
+
 def item_classification(item):
     try:
         data = get_item(int(item.get('model', 0)))
@@ -164,15 +400,22 @@ def item_classification(item):
     tid2 = int(data.get('tid2', 0))
     tid3 = int(data.get('tid3', 0))
     if tid2 == 6 and tid3 in WEAPON_NAMES:
-        return ('Weapon', WEAPON_NAMES[tid3], list(WEAPON_STATS))
+        fallback = list(WEAPON_STATS)
+        return ('Weapon', WEAPON_NAMES[tid3], database_available_stats(data, tid2, tid3) or fallback)
     if tid2 == 4 and tid3 in (1, 2):
-        return ('Shield', 'Chinese Shield' if tid3 == 1 else 'European Shield', list(SHIELD_STATS))
+        fallback = list(SHIELD_STATS)
+        return ('Shield', 'Chinese Shield' if tid3 == 1 else 'European Shield',
+                database_available_stats(data, tid2, tid3) or fallback)
     if tid2 in (1, 2, 3, 9, 10, 11) and tid3 in ARMOR_STATS:
         family = {1: 'Garment', 2: 'Protector', 3: 'Armor', 9: 'Robe', 10: 'Light Armor', 11: 'Heavy Armor'}[tid2]
-        return ('Armor', '%s %s' % (family, ARMOR_NAMES[tid3]), list(ARMOR_STATS[tid3]))
+        fallback = list(ARMOR_STATS[tid3])
+        return ('Armor', '%s %s' % (family, ARMOR_NAMES[tid3]),
+                database_available_stats(data, tid2, tid3) or fallback)
     if tid2 in (5, 12) and tid3 in ACCESSORY_STATS:
         race = 'Chinese' if tid2 == 5 else 'European'
-        return ('Accessory', '%s %s' % (race, ACCESSORY_NAMES[tid3]), list(ACCESSORY_STATS[tid3]))
+        fallback = list(ACCESSORY_STATS[tid3])
+        return ('Accessory', '%s %s' % (race, ACCESSORY_NAMES[tid3]),
+                database_available_stats(data, tid2, tid3) or fallback)
     return None
 
 
@@ -250,7 +493,7 @@ def inspect_item(mode):
     state['selected'] = {'slot': item['slot'], 'model': item['model']}
     QtBind.setText(gui, selected_labels[mode], fixed_width_text(
         '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, html_safe(format_item(item))), 350))
-    if mode == 'fortune':
+    if mode in ('fortune', 'pen'):
         state['available'] = list(item['available_stats'])
         state['targets'] = []
         QtBind.clear(gui, stat_lists[mode])
@@ -545,6 +788,29 @@ def parse_fate(data):
 
 
 def parse_fortune(data, item=None):
+    # vSRO responses contain a complete option record section at offset 27:
+    # optionCount at 26, followed by [uint32 magicOptionID][uint32 value].
+    # Resolve those IDs from the database selected by phBot for the active server.
+    if (item is not None and len(data) >= 35 and data[0] == 1 and data[2] == 1 and
+            data[4] == item['slot'] and load_magic_option_codes()):
+        count = data[26]
+        records_start = 27
+        records_end = records_start + count * 8
+        if 1 <= count <= MAX_LINES + 1 and records_end <= len(data):
+            options = []
+            for index in range(count):
+                group = data[records_start + index * 8:records_start + (index + 1) * 8]
+                code = struct.unpack_from('<I', group, 0)[0]
+                value = struct.unpack_from('<I', group, 4)[0]
+                if code == 0:
+                    continue
+                option = magic_option_codes.get(code)
+                options.append({
+                    'name': option['name'] if option else 'Unknown code 0x%08X' % code,
+                    'value': value, 'code': code, 'format': 'active-db'
+                })
+            if options:
+                return options
     classification = None
     if item is not None:
         live_item = find_inventory_item(item['slot'])
@@ -597,22 +863,44 @@ def normalize_fortune_options(item, options):
     return True, ''
 
 
-def parse_pen(data):
+def parse_pen(data, item=None):
     if len(data) < 14 or data[:4] != b'\x01\x02\x01\x02':
         return None
     length = struct.unpack_from('<H', data, 4)[0]
-    end = 6 + length
-    if length < 1 or end + 31 > len(data):
+    key_end = 6 + length
+    item_start = key_end + 8  # uint32 old value + uint32 new value
+    if length < 1 or item_start + 31 > len(data):
         return None
-    count_position = end + 22
-    internal_position = end + 30
-    records_start = end + 31
+    count_position = item_start + 22
+    internal_position = item_start + 30
+    records_start = item_start + 31
     count = data[count_position]
     visible = count - 1
     if count < 2 or visible > MAX_LINES or data[internal_position] != 0x40:
         return None
     if records_start + visible * 8 > len(data):
         return None
+    # Server-specific Pen responses can use the active database's full uint32
+    # magic-option IDs, followed by uint32 values, just like Fortune records.
+    if item is not None and load_magic_option_codes():
+        totals = {}
+        valid = True
+        for index in range(visible):
+            group = data[records_start + index * 8:records_start + (index + 1) * 8]
+            code = struct.unpack_from('<I', group, 0)[0]
+            value = struct.unpack_from('<I', group, 4)[0]
+            option = magic_option_codes.get(code)
+            if not option or value <= 0:
+                valid = False
+                break
+            totals[option['name']] = totals.get(option['name'], 0) + value
+        if valid and totals:
+            classification = item_classification(find_inventory_item(item['slot']))
+            available = classification[2] if classification else []
+            invalid = [name for name in totals if
+                       name not in available and name not in IGNORED_RESPONSE_STATS]
+            if not invalid:
+                return data[item_start], totals
     totals = {}
     for index in range(visible):
         group = data[records_start + index * 8:records_start + (index + 1) * 8]
@@ -623,7 +911,7 @@ def parse_pen(data):
         if not name:
             return None
         totals[name] = totals.get(name, 0) + group[4]
-    return data[end], totals
+    return data[item_start], totals
 
 
 def process_response(data):
@@ -648,6 +936,9 @@ def process_response(data):
     elif mode == 'fortune':
         options = parse_fortune(data, item)
         if not options:
+            plugin_log('Fortune unverified 0xB151 raw (%d bytes): %s%s' % (
+                len(data), ' '.join('%02X' % value for value in data[:512]),
+                ' ...' if len(data) > 512 else ''))
             stop_operation('Fortune response had no verified stats', COLOR_ERROR)
             return
         valid, reason = normalize_fortune_options(item, options)
@@ -663,8 +954,11 @@ def process_response(data):
         reached = all(counts.get(x['name'], 0) >= x['count'] for x in item.get('targets', []))
         set_result(mode, ', '.join('%s x%d' % pair for pair in sorted(counts.items())), COLOR_SUCCESS)
     else:
-        parsed = parse_pen(data)
+        parsed = parse_pen(data, item)
         if not parsed or parsed[0] != item['slot']:
+            plugin_log('Pen unverified 0xB151 raw (%d bytes): %s%s' % (
+                len(data), ' '.join('%02X' % value for value in data[:512]),
+                ' ...' if len(data) > 512 else ''))
             stop_operation('Pen response could not be verified', COLOR_ERROR)
             return
         item['totals'] = parsed[1]
@@ -801,9 +1095,6 @@ for _mode_index, _mode in enumerate(MODES):
             (_targets, 560, 92), (_input, 400, 222), (_add_target, 460, 218),
             (_remove_target, 560, 218), (_add_queue, 400, 248)
         ])
-
-for _name in PEN_STATS:
-    QtBind.append(gui, stat_lists['pen'], _name)
 
 for _mode in MODES:
     _back = QtBind.createButton(gui, _mode + '_setup', '← Item Setup', OFFSCREEN_X, 42)

@@ -69,7 +69,7 @@ downloaded version.
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.1.0 | Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached. |
 | [FTarget](plugins/FTarget/) | 3.5.1 | Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
-| [FWheelManager](plugins/FWheelManager/) | 1.0.1 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
+| [FWheelManager](plugins/FWheelManager/) | 1.3.0 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
 <!-- PLUGIN_TABLE_END -->
 
 Plugin availability, versions, download locations, integrity hashes, and release

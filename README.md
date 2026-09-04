@@ -52,6 +52,7 @@ downloaded version.
 |---|---:|---|
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
+| [FAutoHWT](plugins/FAutoHWT/) | 0.7.2 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
 | [FAutoUnique V2](plugins/FAutoUnique/) | 2.7.2 | Hunts unique monsters through prioritized script or learned coordinate routes. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |

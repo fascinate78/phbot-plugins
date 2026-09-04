@@ -146,6 +146,21 @@
                         "sha256":  "008f4050c415018419e5426e815528690f24b0dff08dc08ffbcfdbdadb08cf5f"
                     },
                     {
+                        "id":  "FDevilAwakener",
+                        "name":  "FDevilAwakener",
+                        "version":  "1.0.2",
+                        "core":  false,
+                        "description":  "Automatically applies Awakening Enhancement Scrolls until a selected Devil\u0027s Spirit reaches the requested enhancement level.",
+                        "changes":  [
+                                        "Fixed locale 65 response `0x18DD` being treated as an equipped-Devil rejection; captures verify that it precedes a successful scroll quantity update and represents a consumed attempt without an enhancement result.",
+                                        "Improved failed-roll handling so awakening continues toward the configured target instead of stopping incorrectly."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/changelog.md",
+                        "install_path":  "FDevilAwakener.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/FDevilAwakener.py",
+                        "sha256":  "5bcf023160bc9a86e3f51fbf10437a6b2196ddcab641bbd701c84597a192d933"
+                    },
+                    {
                         "id":  "FFateManager",
                         "name":  "FFateManager",
                         "version":  "1.0.1",

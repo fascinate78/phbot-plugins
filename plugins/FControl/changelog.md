@@ -1,5 +1,10 @@
 # FControl Changelog
 
+## v1.9.1
+
+### Fixed
+- Fixed generic `USE` commands on locale 65 servers by sending the manually verified expanded four-byte item type.
+
 ## v1.9.0
 
 ### Added

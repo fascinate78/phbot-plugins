@@ -10,7 +10,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.9.0'
+pVersion = '1.9.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1413,7 +1413,7 @@ def UseItem(item):
             return False
         p = struct.pack('<B', item['slot'])
         loc = get_locale()
-        if loc == 18:  # iSRO uses the expanded four-byte item type group.
+        if loc in (18, 65):  # iSRO and locale 65 use the expanded four-byte item type group.
             p += struct.pack(
                 '<BBBB',
                 (3 << 4) + int(bool(item_data.get('cash_item'))),
@@ -1428,7 +1428,7 @@ def UseItem(item):
                 return False
         if loc == 22:  # vSRO
             p += struct.pack('<H', tid)
-        elif loc != 18:
+        elif loc not in (18, 65):
             p += struct.pack('<I', tid)
         log('Plugin: Using item "' + item['name'] + '"...')
         # CLIENT_INVENTORY_ITEM_USE

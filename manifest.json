@@ -109,17 +109,16 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.9.0",
+                        "version":  "1.9.1",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Added a Buttons-page radius field that sends a validated `SR` command through the selected chat channel.",
-                                        "Replaced job-suit inventory selection and scanning with direct `EQ Job` and `UQ Job` command buttons."
+                                        "Fixed generic `USE` commands on locale 65 servers by sending the manually verified expanded four-byte item type."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "430b8c92cb003da42ec006240d956e86c5d0547f1f5919664ed0d91baa92681b"
+                        "sha256":  "008f4050c415018419e5426e815528690f24b0dff08dc08ffbcfdbdadb08cf5f"
                     },
                     {
                         "id":  "FFateManager",

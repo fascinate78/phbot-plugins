@@ -9,10 +9,11 @@ import struct
 import threading
 import sys
 import webbrowser
+import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '2.7.2'
+pVersion = '3.1.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -41,6 +42,7 @@ UI_TEXT = {
         'remove_script': 'Remove Script', 'coordinate_route_heading': 'COORDINATE ROUTE',
         'edit_coordinates': 'Edit Coordinates', 'use_coord': 'Use Coord',
         'first_reverse': 'First use Reverse', 'save_reverse': 'Save Reverse',
+        'ignore_unique': 'Ignore this unique',
         'coordinate_editor': 'COORDINATE EDITOR', 'back': '\u2190 Back',
         'saved_coordinate_route': 'SAVED COORDINATE ROUTE', 'capture_current': 'Capture Current',
         'capture_nearby': 'Capture Nearby', 'manual_coordinate': 'MANUAL COORDINATE', 'add': 'Add',
@@ -48,6 +50,7 @@ UI_TEXT = {
         'seconds': 'seconds', 'hunt_timeout': 'HUNT TIMEOUT', 'enable_hunt_timeout': 'Enable hunt timeout',
         'automation': 'AUTOMATION', 'auto_return': 'Return to town for an unconfigured unique',
         'auto_learn': 'Automatically learn unique coordinates',
+        'kill_nearby': 'Kill nearby field uniques after target',
         'duplicate_help': 'Points within 30m of a saved point are ignored.',
         'diagnostics': 'DIAGNOSTICS', 'debug_logging': 'Detailed debug logging',
         'refresh_alive': 'Refresh Nearby Alive Status', 'log_tracked': 'Log Tracked Uniques',
@@ -55,6 +58,7 @@ UI_TEXT = {
         'activity_help': 'Shows the latest 100 important GUI-visible state changes.',
         'clear_activity': 'Clear Activity', 'language': 'Language:',
         'active': 'ACTIVE', 'disabled': 'DISABLED', 'idle': 'IDLE', 'none': 'None',
+        'ignored': 'Ignored',
         'hunting': 'HUNTING', 'returning': 'RETURNING', 'coordinates': 'Coordinates',
         'ready': 'Ready', 'no_route': 'Needs Setup', 'script_route': 'Script Route',
         'coordinate_route': 'Coordinate Route', 'no_script': 'No script assigned.',
@@ -87,6 +91,7 @@ UI_TEXT = {
         'remove_script': 'Scripti Sil', 'coordinate_route_heading': 'KOORDINAT ROTASI',
         'edit_coordinates': 'Koordinatları Aç', 'use_coord': 'Rota Seç',
         'first_reverse': 'Önce Reverse kullan', 'save_reverse': 'Rev Kaydet',
+        'ignore_unique': 'Bu unique\'i yok say',
         'coordinate_editor': 'KOORDİNAT EDİTÖRÜ', 'back': '\u2190 Geri',
         'saved_coordinate_route': 'KAYITLI KOORDINAT ROTASI', 'capture_current': 'Mevcut Konum',
         'capture_nearby': 'Yakındaki Unique', 'manual_coordinate': 'MANUEL KOORDİNAT', 'add': 'Ekle',
@@ -94,6 +99,7 @@ UI_TEXT = {
         'seconds': 'saniye', 'hunt_timeout': 'AV ZAMAN AŞIMI', 'enable_hunt_timeout': 'Av zaman aşımını etkinleştir',
         'automation': 'OTOMASYON', 'auto_return': 'Ayarsız unique için şehre dön',
         'auto_learn': 'Unique koordinatlarını otomatik öğren',
+        'kill_nearby': 'Hedeften sonra yakındaki alan uniquelerini öldür',
         'duplicate_help': 'Kayıtlı noktaya 30m içindeki noktalar yok sayılır.',
         'diagnostics': 'TANILAMA', 'debug_logging': 'Ayrıntılı teknik kayıt',
         'refresh_alive': 'Yakındaki Durumu Yenile', 'log_tracked': 'İzlenenleri Logla',
@@ -101,6 +107,7 @@ UI_TEXT = {
         'activity_help': 'Kullanıcıya gösterilen son 100 önemli durum değişikliğini gösterir.',
         'clear_activity': 'Hareketleri Temizle', 'language': 'Dil:',
         'active': 'AKTİF', 'disabled': 'DEVRE DIŞI', 'idle': 'BEKLİYOR', 'none': 'Yok',
+        'ignored': 'Yok Sayılıyor',
         'hunting': 'AVLANIYOR', 'returning': 'DÖNÜYOR', 'coordinates': 'Koordinatlar',
         'ready': 'Hazır', 'no_route': 'Ayar Gerekli', 'script_route': 'Script Rotası',
         'coordinate_route': 'Koordinat Rotası', 'no_script': 'Script atanmamış.',
@@ -135,6 +142,7 @@ UI_MESSAGE_TR = {
     'Select a unique before saving Reverse settings.': 'Reverse ayarını kaydetmek için bir unique seçin.',
     'Choose a Reverse location, then save again.': 'Bir Reverse konumu seçip tekrar kaydedin.',
     'Select a unique before enabling First Reverse.': 'First Reverse için önce bir unique seçin.',
+    'Select a unique before changing Ignore.': 'Yok sayma ayarı için önce bir unique seçin.',
     'Script route assigned.': 'Script rotası atandı.',
     'Coordinate route selected.': 'Koordinat rotası seçildi.',
     'Script route selected.': 'Script rotası seçildi.',
@@ -217,6 +225,7 @@ unique_script_map = {}
 unique_coordinate_map = {}
 unique_route_modes = {}
 unique_reverse_settings = {}
+ignored_uniques = set()
 pending_uniques = []
 alive_uniques = {}
 last_check_time = 0
@@ -231,6 +240,7 @@ plugin_active = False
 # (get_training_area()'dan yakalanir: region,x,y,z,radius,path)
 saved_slot = None
 auto_learn_coordinates = False
+kill_nearby_field_uniques = False
 learned_unique_ids = set()
 
 # Coordinate hunt settings. generate_script() itself is limited by phBot to one
@@ -246,7 +256,7 @@ coordinate_timer = None
 last_pathfinding_time = 0.0
 coordinate_run_token = 0
 
-REVERSE_LOCATIONS = [
+DEFAULT_REVERSE_LOCATIONS = [
     'Constantinople', 'Forest of Sorrow', 'Garden of Gods', 'Roc Mountain',
     'Heart Peak', 'Lost Town', 'Shepherd Town', 'Wind Town', 'Niya Remains',
     'Mysterious Death Desert', 'Fertility Temple', 'Hotan', 'Grassland Road',
@@ -255,6 +265,7 @@ REVERSE_LOCATIONS = [
     'Jangan', 'Grassland', "Bandit's Mountain Stronghold",
     'Donwhang Stone Cave', 'Baghdad', 'Kirk', 'Phantom Desert', 'Arabia Coast',
 ]
+REVERSE_LOCATIONS = list(DEFAULT_REVERSE_LOCATIONS)
 REVERSE_LOCATION_PLACEHOLDER = 'Select Reverse location'
 REVERSE_TIMEOUT_SEC = 30.0
 reverse_hunt_pending = None
@@ -346,6 +357,8 @@ COMMON_UNIQUES = [
 ]
 
 discovered_uniques = set()
+database_unique_names = set()
+database_uniques_loaded = False
 
 # GUI-only selection and activity state. Backend collections remain authoritative.
 selected_unique_name = ''
@@ -400,14 +413,33 @@ def is_known_unique(name):
     if not name: return False
     # substring yerine _is_unique_match (exact / "name " / "name(" prefix) kullanÄ±yoruz
     # ki 'Spider', 'Monkey', 'Goon' gibi genel isimler sÄ±radan moblarla yanlÄ±ÅŸlÄ±kla eÅŸleÅŸmesin
-    return any(_is_unique_match(u, name) for u in COMMON_UNIQUES)
+    known_names = database_unique_names if database_uniques_loaded else COMMON_UNIQUES
+    return any(_is_unique_match(u, name) for u in known_names)
 
 def is_unique(name):
     if not name: return False
     if name in discovered_uniques: return True
     if name in unique_script_map: return True
     if name in unique_coordinate_map: return True
+    if name in database_unique_names: return True
     return is_known_unique(name)
+
+
+def is_ignored_unique(name):
+    """Return True when this exact target or its supported mapped variant is ignored."""
+    if not name:
+        return False
+    return any(_is_unique_match(ignored, name) for ignored in ignored_uniques)
+
+
+def _remove_ignored_runtime_entries():
+    """Keep ignored targets out of transient tracking, pending, and queue state."""
+    with _state_lock:
+        unique_queue[:] = [name for name in unique_queue if not is_ignored_unique(name)]
+        pending_uniques[:] = [name for name in pending_uniques if not is_ignored_unique(name)]
+        for name in list(alive_uniques):
+            if is_ignored_unique(name):
+                alive_uniques.pop(name, None)
 
 def has_hunt_route(unique_name):
     """Return True when a unique has either coordinates or a walk script."""
@@ -501,11 +533,13 @@ def save_config():
             'coordinate_mappings': unique_coordinate_map,
             'route_modes': unique_route_modes,
             'reverse_settings': unique_reverse_settings,
+            'ignored_uniques': sorted(ignored_uniques),
             'language': UI_LANGUAGE,
             'discovered_uniques': sorted(list(discovered_uniques)),
             'plugin_active': plugin_active,
             'auto_return_enabled': auto_return_enabled,
             'auto_learn_coordinates': auto_learn_coordinates,
+            'kill_nearby_field_uniques': kill_nearby_field_uniques,
             'saved_slot': saved_slot,
         }
         with open(cfg, 'w', encoding='utf-8') as f:
@@ -516,11 +550,15 @@ def save_config():
 def load_config():
     """Load settings from the current character's JSON file."""
     global unique_script_map, unique_coordinate_map, unique_route_modes, unique_reverse_settings, discovered_uniques
-    global plugin_active, auto_return_enabled, auto_learn_coordinates, saved_slot, UI_LANGUAGE
+    global ignored_uniques
+    global plugin_active, auto_return_enabled, auto_learn_coordinates, kill_nearby_field_uniques, saved_slot, UI_LANGUAGE
     try:
         cfg = getConfig()
+        load_reverse_locations()
+        load_server_unique_names()
         UI_LANGUAGE = 'en'
         unique_reverse_settings = {}
+        ignored_uniques = set()
         if cfg and os.path.exists(cfg):
             with open(cfg, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -549,8 +587,11 @@ def load_config():
                     unique_coordinate_map[unique_name] = valid_points
             saved_uniques = data.get('discovered_uniques', [])
             discovered_uniques = set(saved_uniques)
+            ignored_uniques = set(str(name).strip() for name in data.get('ignored_uniques', [])
+                                  if str(name).strip())
             auto_return_enabled = data.get('auto_return_enabled', False)
             auto_learn_coordinates = data.get('auto_learn_coordinates', False)
+            kill_nearby_field_uniques = data.get('kill_nearby_field_uniques', False)
             saved_slot = data.get('saved_slot', None)
             UI_LANGUAGE = data.get('language', 'en')
             if UI_LANGUAGE not in ('en', 'tr'):
@@ -558,6 +599,7 @@ def load_config():
             try:
                 QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
                 QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
+                QtBind.setChecked(gui, chk_kill_nearby, kill_nearby_field_uniques)
             except: pass
             was_active = data.get('plugin_active', False)
             if was_active:
@@ -568,8 +610,15 @@ def load_config():
                 except: pass
             else:
                 plugin_active = False
-        # Always include the built-in unique names.
-        discovered_uniques.update(COMMON_UNIQUES)
+        if database_uniques_loaded:
+            # Remove legacy built-in-only names saved by older versions, then
+            # populate the browser from this server's actual field uniques.
+            discovered_uniques.difference_update(
+                set(COMMON_UNIQUES) - set(database_unique_names))
+            discovered_uniques.update(database_unique_names)
+        else:
+            discovered_uniques.update(COMMON_UNIQUES)
+        _remove_ignored_runtime_entries()
         refresh_mapping_list()
         refresh_unique_dropdown()
         refresh_coordinate_list()
@@ -582,7 +631,8 @@ def load_config():
 def refresh_unique_dropdown():
     try:
         QtBind.clear(gui, dropdown_unique)
-        all_uniques = sorted(list(discovered_uniques) + [u for u in COMMON_UNIQUES if u not in discovered_uniques])
+        base_names = database_unique_names if database_uniques_loaded else set(COMMON_UNIQUES)
+        all_uniques = sorted(set(discovered_uniques) | set(base_names))
         for unique in all_uniques:
             QtBind.append(gui, dropdown_unique, unique)
         refresh_unique_browser()
@@ -618,8 +668,10 @@ def refresh_mapping_list():
 def refresh_pending_list():
     try:
         QtBind.clear(gui, pending_list)
-        if pending_uniques:
-            for unique in pending_uniques:
+        visible_pending = [unique for unique in pending_uniques
+                           if not is_ignored_unique(unique)]
+        if visible_pending:
+            for unique in visible_pending:
                 marker = '[AYAR YOK]' if UI_LANGUAGE == 'tr' else '[NO ROUTE]'
                 QtBind.append(gui, pending_list, f"{unique}    {marker}")
         else:
@@ -804,6 +856,14 @@ def toggle_auto_learn(checked=None):
     save_config()
     log('[Coordinates] Automatic learning is %s' % ('ON' if auto_learn_coordinates else 'OFF'))
 
+
+def toggle_kill_nearby(checked=None):
+    global kill_nearby_field_uniques
+    kill_nearby_field_uniques = bool(checked)
+    save_config()
+    log('[Nearby] Field unique cleanup is %s' %
+        ('ON' if kill_nearby_field_uniques else 'OFF'))
+
 def use_coordinate_route():
     unique_name = _selected_unique()
     if not unique_name or not unique_coordinate_map.get(unique_name):
@@ -866,6 +926,35 @@ def toggle_unique_reverse(checked=None):
     if selected_location in REVERSE_LOCATIONS:
         setting['location'] = selected_location
     save_config()
+
+
+def toggle_ignore_unique(checked=None):
+    """Persist per-unique exclusion and immediately remove it from runtime work."""
+    unique_name = _selected_unique()
+    if not unique_name:
+        try: QtBind.setChecked(gui, chk_ignore_unique, False)
+        except: pass
+        set_manager_status('Select a unique before changing Ignore.', COLOR_WARNING)
+        return
+    ignored = bool(checked)
+    if ignored:
+        ignored_uniques.add(unique_name)
+        _cancel_pending_reverse('unique ignored')
+        if current_active_unique and is_ignored_unique(current_active_unique):
+            stop_script_btn()
+        _remove_ignored_runtime_entries()
+    else:
+        ignored_uniques.discard(unique_name)
+    save_config()
+    update_queue_label()
+    refresh_pending_list()
+    refresh_unique_browser()
+    refresh_selected_unique_details()
+    refresh_configuration_health()
+    state = 'ignored' if ignored else 'enabled'
+    set_manager_status('%s is now %s.' % (unique_name, state),
+                       COLOR_WARNING if ignored else COLOR_SUCCESS)
+    log('[Ignore] %s is now %s.' % (unique_name, state))
 
 # ================= AUTO RETURN LOGIC =================
 def do_auto_return(unique_name):
@@ -931,7 +1020,7 @@ def force_scan_alive_uniques():
                 for monster_id, monster in monsters.items():
                     name = monster.get('name', '')
                     mtype = monster.get('type', 0)
-                    if (mtype >= 2 or is_unique(name)) and name:
+                    if (mtype >= 2 or is_unique(name)) and name and not is_ignored_unique(name):
                         if name not in alive_uniques or not alive_uniques[name].get('alive', False):
                             alive_uniques[name] = {
                                 'spawn_time': time.time(), 'alive': True,
@@ -947,6 +1036,10 @@ def start_script_btn():
         force_stopped = False
         unique = _selected_unique()
         if unique:
+            if is_ignored_unique(unique):
+                set_manager_status('%s is ignored.' % unique, COLOR_WARNING)
+                log('[Ignore] Manual hunt blocked for %s.' % unique)
+                return
             if get_route_mode(unique) == 'coordinates' and unique_coordinate_map.get(unique):
                 if not plugin_active:
                     log('[Coordinates] Start Monitoring before starting a manual coordinate hunt')
@@ -975,7 +1068,9 @@ def start_script_btn():
                     update_queue_label()
                     log(f"Manual Start: {unique}")
                     return
-        found_alive = [n for n, d in alive_uniques.items() if d.get('alive', False) and has_hunt_route(n)]
+        found_alive = [n for n, d in alive_uniques.items()
+                       if d.get('alive', False) and has_hunt_route(n)
+                       and not is_ignored_unique(n)]
         if found_alive:
             with _state_lock:
                 for uname in found_alive:
@@ -1157,15 +1252,19 @@ def _is_unique_match(unique_name: str, monster_name: str) -> bool:
     """
     Strict matching prevents false positives such as Tiger matching Tiger Girl.
     - exact match
-    - or monster_name starts with unique_name followed by a space or parenthesis
+    - or an explicitly parenthesized variant, such as Unique (INT)
+
+    Square-bracket variants are separate targets. For example, a Harrison route
+    must not engage Harrison [STR] unless that exact variant has its own route.
     """
     u = unique_name.strip().lower()
     m = monster_name.strip().lower()
     if u == m:
         return True
-    if m.startswith(u + " ") or m.startswith(u + "("):
-        return True
-    return False
+    if not u or not m.startswith(u):
+        return False
+    suffix = m[len(u):].lstrip()
+    return suffix.startswith("(")
 
 def _find_mapped_name(spawn_name: str) -> str:
     """
@@ -1488,6 +1587,8 @@ def _on_unique_spawn(unique_name):
     - Start immediately when already in town.
     """
     global bot_state, current_active_unique, force_stopped, just_returned
+    if is_ignored_unique(unique_name):
+        return
     append_activity_once('detected:%s' % unique_name, 'Detected: %s' % unique_name)
 
     # Keep the current hunt running and queue the new mapped unique.
@@ -1577,12 +1678,80 @@ def _on_unique_spawn(unique_name):
     # Start the mapped script flow.
     run_mapped_script(unique_name, 'spawn')
 
+
+def _is_database_field_unique(name):
+    value = str(name or '').strip().lower()
+    return bool(database_uniques_loaded and value and any(
+        value == known.lower() for known in database_unique_names))
+
+
+def _continue_with_nearby_field_unique(completed_name):
+    """Switch the active hunt to a visible, non-ignored DB3 field unique."""
+    global current_active_unique, bot_state, unique_not_found_count
+    if not kill_nearby_field_uniques or not plugin_active or not database_uniques_loaded:
+        return False
+    try:
+        position = phBot.get_position() or {}
+        px = float(position.get('x', 0) or 0)
+        py = float(position.get('y', 0) or 0)
+        candidates = []
+        for monster_id, monster in (phBot.get_monsters() or {}).items():
+            name = str(monster.get('name', '') or '').strip()
+            if not _is_database_field_unique(name) or is_ignored_unique(name):
+                continue
+            # The just-completed name may remain briefly in phBot's nearby list.
+            if name.lower() == str(completed_name or '').strip().lower():
+                continue
+            hp = monster.get('hp')
+            if hp is not None and float(hp or 0) <= 0:
+                continue
+            distance = _distance_2d(px, py, monster.get('x', 0), monster.get('y', 0))
+            candidates.append((distance, name, monster_id, monster))
+        if not candidates:
+            return False
+        candidates.sort(key=lambda item: item[0])
+        distance, name, monster_id, monster = candidates[0]
+        stop_attack_loop()
+        stop_coordinate_hunt()
+        try: stop_script()
+        except: pass
+        current_active_unique = name
+        unique_not_found_count = 0
+        bot_state = 'HUNTING'
+        with _state_lock:
+            unique_queue[:] = [queued for queued in unique_queue
+                               if queued.lower() != name.lower()]
+            alive_uniques[name] = {
+                'spawn_time': time.time(), 'alive': True, 'handled': True,
+                'last_seen': time.time(), 'obj_id': monster_id,
+            }
+        update_queue_label()
+        update_active_unique_label()
+        append_activity_once('nearby:%s' % name, 'Nearby field unique: %s' % name)
+        log('[Nearby] %s completed; continuing with %s (%.0fm away).' %
+            (completed_name, name, distance))
+        start_attack_loop()
+        return True
+    except Exception as error:
+        log('[Nearby] Could not continue with another field unique: %s' % error)
+        return False
+
 def run_mapped_script(unique_name, event_type, allow_outside_coordinate=False):
     global current_active_unique, unique_queue, bot_state, force_stopped, just_returned
     try:
+        if event_type != 'death' and is_ignored_unique(unique_name):
+            return
         # =================== DEATH EVENT ===================
         if event_type == 'death':
             if current_active_unique and current_active_unique.lower() == unique_name.lower():
+                with _state_lock:
+                    if unique_name in alive_uniques:
+                        alive_uniques[unique_name]['alive'] = False
+                        alive_uniques[unique_name]['handled'] = False
+                    if unique_name in unique_queue:
+                        unique_queue.remove(unique_name)
+                if _continue_with_nearby_field_unique(unique_name):
+                    return
                 log(f"{unique_name} DIED. Stopping Bot immediately.")
                 stop_attack_loop()
                 stop_loot_timer()
@@ -2087,7 +2256,15 @@ def auto_start_next_unique():
         with _state_lock:
             if not unique_queue: return
             sort_queue_by_priority()
-            next_unique = unique_queue.pop(0)
+            next_unique = None
+            while unique_queue:
+                candidate = unique_queue.pop(0)
+                if not is_ignored_unique(candidate):
+                    next_unique = candidate
+                    break
+            if not next_unique:
+                update_queue_label()
+                return
         update_queue_label()
         log(f"Auto-starting: {next_unique}")
         if next_unique in alive_uniques:
@@ -2099,6 +2276,10 @@ def auto_start_next_unique():
 def add_to_queue_btn():
     try:
         selected = _selected_unique()
+        if selected and is_ignored_unique(selected):
+            set_manager_status('%s is ignored.' % selected, COLOR_WARNING)
+            log('[Ignore] Queue request blocked for %s.' % selected)
+            return
         if not selected or not has_hunt_route(selected):
             log("Select a mapped unique first")
             return
@@ -2229,6 +2410,8 @@ def handle_presumed_death():
                 alive_uniques[name]['alive'] = False
                 alive_uniques[name]['handled'] = False
         update_queue_label()
+        if _continue_with_nearby_field_unique(name):
+            return
         current_active_unique = None
         unique_not_found_count = 0
         update_active_unique_label()
@@ -2373,6 +2556,215 @@ def refresh_reverse_location_options():
     QtBind.setText(gui, cmb_reverse_location, selected or tr('reverse_placeholder'))
 
 
+def _phbot_root_candidates():
+    """Return likely phBot roots without assuming its process working directory."""
+    candidates = []
+    raw_paths = [os.getcwd(), os.path.dirname(os.path.abspath(__file__))]
+    for getter in (get_config_dir, get_log_dir):
+        try:
+            folder = getter()
+        except Exception:
+            folder = None
+        if folder:
+            raw_paths.append(os.path.dirname(os.path.normpath(folder)))
+    for path in raw_paths:
+        current = os.path.abspath(path)
+        for unused in range(3):
+            if current not in candidates:
+                candidates.append(current)
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+    return candidates
+
+
+def _normalized_identity(value):
+    return ''.join(character.lower() for character in str(value or '')
+                   if character.isalnum())
+
+
+def _server_entry_matches(key, entry, active_server):
+    if not isinstance(entry, dict):
+        return False
+    active = _normalized_identity(active_server)
+    if not active:
+        return False
+    candidates = [key, entry.get('division')]
+    candidates.extend(entry.get('servers', []))
+    for candidate in candidates:
+        value = _normalized_identity(candidate)
+        if value == active:
+            return True
+        if len(value) >= 4 and (value in active or active in value):
+            return True
+    return False
+
+
+def _normalized_path(value):
+    return os.path.normcase(os.path.normpath(
+        str(value or '').replace('/', os.sep)))
+
+
+def _readonly_database(path):
+    """Open phBot's generated database without allowing plugin-side writes."""
+    uri = 'file:' + os.path.abspath(path).replace('\\', '/') + '?mode=ro'
+    try:
+        return sqlite3.connect(uri, uri=True)
+    except Exception:
+        connection = sqlite3.connect(path)
+        connection.execute('PRAGMA query_only = ON')
+        return connection
+
+
+def _vsro_media_path(root, server_name):
+    """Resolve the configured Media path for the active vSRO server."""
+    config_file = os.path.join(root, 'vSRO.json')
+    if not server_name or not os.path.isfile(config_file):
+        return ''
+    try:
+        with open(config_file, 'r', encoding='utf-8-sig') as stream:
+            servers = json.load(stream)
+        for key, entry in servers.items() if isinstance(servers, dict) else []:
+            if not _server_entry_matches(key, entry, server_name):
+                continue
+            return str(entry.get('path', '') or '').strip()
+    except Exception as error:
+        if debug_enabled: log('[Reverse] vSRO server lookup error: %s' % error)
+    return ''
+
+
+def _database_media_path(database_path):
+    """Read the Media path marker stored by phBot in a generated DB3 file."""
+    connection = None
+    try:
+        connection = _readonly_database(database_path)
+        row = connection.execute(
+            'SELECT v FROM data WHERE k=? LIMIT 1', ('path',)).fetchone()
+        return str(row[0] or '').strip() if row else ''
+    except Exception:
+        return ''
+    finally:
+        if connection:
+            connection.close()
+
+
+def _find_phbot_media_database():
+    """Find the generated DB3 belonging to the character's active server."""
+    character = get_character_data() or {}
+    server_name = character.get('server', '')
+    locale = get_locale()
+    locale_files = {18: 'iSRO.db3', 56: 'TRSRO.db3'}
+    client_media_path = ''
+    try:
+        client_path = str((get_client() or {}).get('path', '') or '').strip()
+        if client_path:
+            # get_client()['path'] normally points to the game executable.
+            client_media_path = (client_path if os.path.isdir(client_path)
+                                 else os.path.dirname(client_path))
+    except Exception as error:
+        if debug_enabled: log('[Reverse] Client path lookup error: %s' % error)
+    for root in _phbot_root_candidates():
+        data_dir = os.path.join(root, 'Data')
+        if not os.path.isdir(data_dir):
+            continue
+        fixed_name = locale_files.get(locale)
+        if fixed_name:
+            fixed_path = os.path.join(data_dir, fixed_name)
+            if os.path.isfile(fixed_path):
+                return fixed_path
+        expected_paths = []
+        configured_media_path = _vsro_media_path(root, server_name)
+        for media_path in (client_media_path, configured_media_path):
+            if media_path:
+                normalized = _normalized_path(media_path)
+                if normalized not in expected_paths:
+                    expected_paths.append(normalized)
+        if not expected_paths:
+            continue
+        try:
+            candidates = [name for name in os.listdir(data_dir)
+                          if name.lower().endswith('.db3')]
+        except OSError:
+            continue
+        for filename in candidates:
+            database_path = os.path.join(data_dir, filename)
+            stored = _database_media_path(database_path)
+            if stored and _normalized_path(stored) in expected_paths:
+                return database_path
+    return ''
+
+
+def load_reverse_locations():
+    """Load server-specific Reverse destinations, retaining defaults as fallback."""
+    global REVERSE_LOCATIONS
+    database_path = _find_phbot_media_database()
+    if not database_path:
+        REVERSE_LOCATIONS = list(DEFAULT_REVERSE_LOCATIONS)
+        log('[Reverse] Active server Media DB3 was not found; using %d fallback locations.' %
+            len(REVERSE_LOCATIONS))
+        return False
+    connection = None
+    try:
+        connection = _readonly_database(database_path)
+        rows = connection.execute(
+            'SELECT name FROM reverseteleport WHERE name IS NOT NULL '
+            'ORDER BY id').fetchall()
+        locations = []
+        seen = set()
+        for row in rows:
+            name = str(row[0] or '').strip()
+            key = name.lower()
+            if name and key not in seen:
+                seen.add(key)
+                locations.append(name)
+        if not locations:
+            raise ValueError('reverseteleport table returned no locations')
+        REVERSE_LOCATIONS = locations
+        log('[Reverse] Loaded %d locations from Media DB3 [%s].' %
+            (len(locations), os.path.basename(database_path)))
+        return True
+    except Exception as error:
+        REVERSE_LOCATIONS = list(DEFAULT_REVERSE_LOCATIONS)
+        log('[Reverse] Could not read Media DB3; using fallback locations: %s' % error)
+        return False
+    finally:
+        if connection:
+            connection.close()
+
+
+def load_server_unique_names():
+    """Load normal-field uniques; rarity 8 dungeon bosses are intentionally excluded."""
+    global database_unique_names, database_uniques_loaded
+    database_unique_names = set()
+    database_uniques_loaded = False
+    database_path = _find_phbot_media_database()
+    if not database_path:
+        log('[Uniques] Active server Media DB3 was not found; using the fallback list.')
+        return False
+    connection = None
+    try:
+        connection = _readonly_database(database_path)
+        rows = connection.execute(
+            "SELECT DISTINCT name FROM monsters "
+            "WHERE type=? AND rarity=? AND name IS NOT NULL "
+            "AND TRIM(name) NOT IN ('', '0') ORDER BY name", (2, 3)).fetchall()
+        names = set(str(row[0]).strip() for row in rows if str(row[0]).strip())
+        if not names:
+            raise ValueError('no type=2 rarity=3 unique names were found')
+        database_unique_names = names
+        database_uniques_loaded = True
+        log('[Uniques] Loaded %d field unique names from Media DB3 [%s].' %
+            (len(names), os.path.basename(database_path)))
+        return True
+    except Exception as error:
+        log('[Uniques] Could not read Media DB3; using the fallback list: %s' % error)
+        return False
+    finally:
+        if connection:
+            connection.close()
+
+
 def apply_language():
     try:
         selected_filter = _selected_filter_key()
@@ -2431,12 +2823,15 @@ def _show_screen(visible_widgets):
 
 
 def _all_unique_names():
-    return sorted(set(COMMON_UNIQUES) | set(discovered_uniques) |
+    base_names = database_unique_names if database_uniques_loaded else set(COMMON_UNIQUES)
+    return sorted(set(base_names) | set(discovered_uniques) |
                   set(unique_script_map) | set(unique_coordinate_map) |
-                  set(unique_reverse_settings))
+                  set(unique_reverse_settings) | set(ignored_uniques))
 
 
 def _unique_status(unique_name):
+    if is_ignored_unique(unique_name):
+        return 'IGNORED'
     if not has_hunt_route(unique_name):
         return 'NO ROUTE'
     mode = get_route_mode(unique_name)
@@ -2459,7 +2854,7 @@ def refresh_unique_browser():
             status = _unique_status(unique_name)
             if query and query not in unique_name.lower():
                 continue
-            if selected_filter == 'ready_filter' and status == 'NO ROUTE':
+            if selected_filter == 'ready_filter' and status not in ('SCRIPT', 'COORD'):
                 continue
             if selected_filter == 'needs_setup_filter' and status != 'NO ROUTE':
                 continue
@@ -2469,7 +2864,7 @@ def refresh_unique_browser():
                 continue
             unique_browser_items.append(unique_name)
             status_text = {'NO ROUTE': tr('no_route'), 'SCRIPT': tr('script_route'),
-                           'COORD': tr('coordinate_route')}.get(status, status)
+                           'COORD': tr('coordinate_route'), 'IGNORED': tr('ignored')}.get(status, status)
             QtBind.append(gui, unique_browser_list, '%s    [%s]' % (unique_name, status_text))
         if not unique_browser_items:
             QtBind.append(gui, unique_browser_list, tr('no_matches'))
@@ -2501,7 +2896,7 @@ def set_manager_status(message, color=COLOR_MUTED):
     try:
         message = translate_ui_message(message)
         QtBind.setText(gui, lbl_manager_status, fixed_width_text(
-            '<font color="%s">%s</font>' % (color, message), 360))
+            '<font color="%s">%s</font>' % (color, message), 233))
     except: pass
 
 
@@ -2520,7 +2915,8 @@ def refresh_selected_unique_details():
             name, status, route, priority, script = tr('no_unique_selected'), tr('no_route'), tr('none'), '-', tr('no_script')
         else:
             marker = _unique_status(unique_name)
-            status = tr('no_route') if marker == 'NO ROUTE' else tr('ready')
+            status = (tr('ignored') if marker == 'IGNORED' else
+                      (tr('no_route') if marker == 'NO ROUTE' else tr('ready')))
             route = {'SCRIPT': tr('script_route'), 'COORD': tr('coordinate_route')}.get(marker, tr('none'))
             name = unique_name
             priority = str(get_unique_priority(unique_name))
@@ -2535,6 +2931,8 @@ def refresh_selected_unique_details():
         reverse_setting = unique_reverse_settings.get(unique_name, {}) if unique_name else {}
         QtBind.setChecked(gui, chk_first_reverse,
                           bool(reverse_setting.get('enabled', False)))
+        QtBind.setChecked(gui, chk_ignore_unique,
+                          bool(unique_name and is_ignored_unique(unique_name)))
         reverse_location = reverse_setting.get('location', '')
         QtBind.setText(gui, cmb_reverse_location,
                        reverse_location if reverse_location in REVERSE_LOCATIONS
@@ -2565,8 +2963,9 @@ def refresh_configuration_health():
         names = _all_unique_names()
         script_count = sum(1 for name in names if _unique_status(name) == 'SCRIPT')
         coord_count = sum(1 for name in names if _unique_status(name) == 'COORD')
-        ready_count = sum(1 for name in names if _unique_status(name) != 'NO ROUTE')
-        needs_count = len(names) - ready_count
+        ready_count = sum(1 for name in names if _unique_status(name) in ('SCRIPT', 'COORD'))
+        ignored_count = sum(1 for name in names if _unique_status(name) == 'IGNORED')
+        needs_count = len(names) - ready_count - ignored_count
         labels = ('Toplam', 'Hazir', 'Script', 'Koord', 'Ayar Gerekli') if UI_LANGUAGE == 'tr' else (
             'Total', 'Ready', 'Script', 'Coord', 'Needs Setup')
         summary = ('<b>%s:</b> %d  |  <b>%s:</b> %d  |  '
@@ -2853,9 +3252,13 @@ cmb_reverse_location = _screen_widget(QtBind.createCombobox(gui, OFFSCREEN_X, 24
 refresh_reverse_location_options()
 btn_save_reverse = _screen_widget(_localized(QtBind.createButton(gui, 'save_unique_reverse_setting', 'Save Reverse',
                                                        OFFSCREEN_X, 246), 'save_reverse'), manager_position=(610, 246))
+chk_ignore_unique = _screen_widget(_localized(QtBind.createCheckBox(
+    gui, 'toggle_ignore_unique', 'Ignore this unique', OFFSCREEN_X, 276), 'ignore_unique'),
+    manager_position=(345, 276))
+QtBind.setChecked(gui, chk_ignore_unique, False)
 lbl_manager_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
-    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 360), OFFSCREEN_X, 278),
-    manager_position=(345, 278))
+    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 233), OFFSCREEN_X, 278),
+    manager_position=(475, 278))
 
 # Coordinate Editor: dedicated point-list and capture/manual-editing page.
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE EDITOR</b></font>' % COLOR_PRIMARY,
@@ -2918,6 +3321,9 @@ QtBind.setChecked(gui, chk_auto_return, False)
 chk_auto_learn = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_auto_learn',
     'Automatically learn unique coordinates', OFFSCREEN_X, 218), 'auto_learn'), settings_position=(12, 218))
 QtBind.setChecked(gui, chk_auto_learn, False)
+chk_kill_nearby = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_kill_nearby',
+    'Kill nearby field uniques after target', OFFSCREEN_X, 218), 'kill_nearby'), settings_position=(355, 218))
+QtBind.setChecked(gui, chk_kill_nearby, False)
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s">Points within 30m of a saved point are ignored.</font>' % COLOR_MUTED,
                                   OFFSCREEN_X, 240), 'duplicate_help', 'muted'), settings_position=(32, 240))
 _screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 696, 1), settings_position=(12, 258))
@@ -3048,9 +3454,11 @@ def event_loop():
             if monster_id in learned_unique_ids:
                 continue
             name = (monster.get('name') or '').strip()
-            if not name or not is_unique(name):
+            if not name or not is_unique(name) or is_ignored_unique(name):
                 continue
             mapped_name = _find_mapped_name(name)
+            if is_ignored_unique(mapped_name):
+                continue
             learned_unique_ids.add(monster_id)
             point = {
                 'region': monster.get('region', 0), 'x': monster.get('x', 0),
@@ -3083,7 +3491,7 @@ def handle_event(t, data):
         if t != EVENT_UNIQUE_SPAWN or not data:
             return
         unique_name = str(data).strip()
-        if not unique_name or not is_unique(unique_name):
+        if not unique_name or not is_unique(unique_name) or is_ignored_unique(unique_name):
             return
 
         is_new = False
@@ -3128,7 +3536,7 @@ def _handle_unique_death_notification(unique_name, source_tag):
     _find_mapped_name ile normalize edilip run_mapped_script'e mapped isim geÃ§iliyor,
     yoksa current_active_unique ile eÅŸleÅŸmeyip Ã¶lÃ¼m sinyali sessizce kaybolabiliyordu.
     """
-    if not unique_name or not is_unique(unique_name):
+    if not unique_name or not is_unique(unique_name) or is_ignored_unique(unique_name):
         return
     mapped_name = _find_mapped_name(unique_name)
     append_activity_once('killed:%s' % mapped_name, 'Killed: %s' % mapped_name)
@@ -3191,7 +3599,7 @@ def handle_joymax(opcode, data):
             # --- SPAWN ---
             if event_type == 5 and name:
                 UNIQUE_OBJ_CACHE[obj_id] = name
-                if is_unique(name):
+                if is_unique(name) and not is_ignored_unique(name):
                     # Resolve variants such as Tiger Girl (INT) to the mapped base name.
                     mapped_name = _find_mapped_name(name)
                     is_new = False
@@ -3243,7 +3651,7 @@ def handle_chat(t, player, msg):
         if 'has spawned' in msg_lower or 'has appeared' in msg_lower:
             split_word = 'has spawned' if 'has spawned' in msg_lower else 'has appeared'
             unique_name = msg.split(split_word)[0].strip()
-            if unique_name and is_unique(unique_name):
+            if unique_name and is_unique(unique_name) and not is_ignored_unique(unique_name):
                 is_new = False
                 with _state_lock:
                     if unique_name not in alive_uniques or not alive_uniques[unique_name]['alive']:

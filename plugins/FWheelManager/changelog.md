@@ -1,5 +1,13 @@
 # FWheelManager Changelog
 
+## v1.4.0
+
+### Added
+- Added a per-item Fortune target mode that can stop when either all configured targets or any one configured target is reached.
+
+### Improved
+- Fortune queue entries now display whether they use ALL or ANY target matching.
+
 ## v1.3.0
 
 ### Added

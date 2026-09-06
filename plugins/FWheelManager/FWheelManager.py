@@ -10,7 +10,7 @@ from threading import Timer
 
 
 pName = 'FWheelManager'
-pVersion = '1.3.0'
+pVersion = '1.4.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -582,6 +582,9 @@ def queue_item(mode):
             set_status('Add at least one stat target', COLOR_WARNING)
             return
         queued['targets'] = [dict(value) for value in state['targets']]
+        if mode == 'fortune':
+            match_index = QtBind.currentIndex(gui, match_logic_widgets[mode])
+            queued['match'] = 'any' if match_index == 1 else 'all'
         if mode == 'pen':
             queued['totals'] = {}
     for index, existing in enumerate(state['queue']):
@@ -605,7 +608,9 @@ def target_summary(mode, item):
         current = '?' if item['last_count'] is None else item['last_count']
         return 'blue %s/%d' % (current, item['target'])
     if mode == 'fortune':
-        return ', '.join('%s x%d' % (x['name'], x['count']) for x in item['targets'])
+        logic = str(item.get('match', 'all')).upper()
+        return '%s: %s' % (logic, ', '.join(
+            '%s x%d' % (x['name'], x['count']) for x in item['targets']))
     return ', '.join('%s %s/%d' % (
         x['name'], item['totals'].get(x['name'], '?'), x['value']) for x in item['targets'])
 
@@ -951,7 +956,12 @@ def process_response(data):
         counts = {}
         for option in options:
             counts[option['name']] = counts.get(option['name'], 0) + 1
-        reached = all(counts.get(x['name'], 0) >= x['count'] for x in item.get('targets', []))
+        target_checks = [counts.get(x['name'], 0) >= x['count']
+                         for x in item.get('targets', [])]
+        if item.get('match', 'all') == 'any':
+            reached = any(target_checks)
+        else:
+            reached = all(target_checks)
         set_result(mode, ', '.join('%s x%d' % pair for pair in sorted(counts.items())), COLOR_SUCCESS)
     else:
         parsed = parse_pen(data, item)
@@ -1053,6 +1063,7 @@ selected_labels = {}
 stat_lists = {}
 target_lists = {}
 target_inputs = {}
+match_logic_widgets = {}
 queue_lists = {}
 result_labels = {}
 
@@ -1086,15 +1097,26 @@ for _mode_index, _mode in enumerate(MODES):
         _input = QtBind.createLineEdit(gui, '1' if _mode == 'fortune' else '10', OFFSCREEN_X, 222, 50, 20)
         _add_target = QtBind.createButton(gui, _mode + '_add_target', 'Add / Update', OFFSCREEN_X, 218)
         _remove_target = QtBind.createButton(gui, _mode + '_remove_target', 'Remove Target', OFFSCREEN_X, 248)
-        _add_queue = QtBind.createButton(gui, _mode + '_queue_item', 'Add Item to Queue', OFFSCREEN_X, 248)
+        if _mode == 'fortune':
+            _match_logic = QtBind.createCombobox(gui, OFFSCREEN_X, 248, 120, 20)
+            QtBind.append(gui, _match_logic, 'All targets (AND)')
+            QtBind.append(gui, _match_logic, 'Any target (OR)')
+            match_logic_widgets[_mode] = _match_logic
+            _add_queue = QtBind.createButton(gui, _mode + '_queue_item', 'Add Item to Queue', OFFSCREEN_X, 248)
+        else:
+            _match_logic = None
+            _add_queue = QtBind.createButton(gui, _mode + '_queue_item', 'Add Item to Queue', OFFSCREEN_X, 248)
         stat_lists[_mode] = _stats
         target_lists[_mode] = _targets
         target_inputs[_mode] = _input
         setup_widgets[_mode].extend([
             (_stats_label, 400, 70), (_targets_label, 560, 70), (_stats, 400, 92),
             (_targets, 560, 92), (_input, 400, 222), (_add_target, 460, 218),
-            (_remove_target, 560, 218), (_add_queue, 400, 248)
+            (_remove_target, 560, 218),
+            (_add_queue, 530 if _mode == 'fortune' else 400, 248)
         ])
+        if _match_logic is not None:
+            setup_widgets[_mode].append((_match_logic, 400, 248))
 
 for _mode in MODES:
     _back = QtBind.createButton(gui, _mode + '_setup', '← Item Setup', OFFSCREEN_X, 42)

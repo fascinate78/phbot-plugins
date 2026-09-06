@@ -1,5 +1,57 @@
 # FAutoUnique V2 Changelog
 
+## v3.1.0
+
+### Added
+- Added a persistent `Kill nearby field uniques after target` option that continues the current hunt with visible, non-ignored DB3 `type=2, rarity=3` uniques before returning.
+
+### Improved
+- Applied nearby-field continuation to both confirmed death notifications and the existing lost-target death fallback while preserving the normal loot and return flow when no eligible target remains.
+
+## v3.0.0
+
+### Added
+- Added automatic loading of normal-field unique names from the active server's phBot-generated Media DB3.
+
+### Improved
+- Limited database-discovered uniques to `type=2, rarity=3`, excluding `rarity=8` dungeon bosses that cannot be hunted through normal field routes.
+- Retained configured and manually discovered uniques while using the built-in unique list only when the active server database cannot be read.
+
+## v2.9.0
+
+### Added
+- Added a persistent per-unique `Ignore this unique` option in Unique Manager.
+
+### Improved
+- Ignored uniques are excluded from spawn handling, hunt and pending queues, automatic coordinate learning, Auto Return, nearby scans, and manual hunt actions without deleting their saved routes.
+
+## v2.8.2
+
+### Improved
+- Aligned active Media DB3 discovery with FWheelManager by searching phBot roots derived from the process, plugin, config, and log paths and opening matched databases read-only.
+
+### Fixed
+- Fixed private-server DB3 matching when the active server corresponds to a `vSRO.json` entry key or division, or differs only by spacing, punctuation, or an extended server label.
+
+## v2.8.1
+
+### Fixed
+- Fixed server Media DB3 detection by matching the active game-client path in addition to the `vSRO.json` server mapping, including case-insensitive server-name matching.
+- Made Reverse DB3 fallback visible in the normal phBot log so failed database resolution can be diagnosed without enabling detailed logging.
+
+## v2.8.0
+
+### Added
+- Added automatic loading of the active server's Reverse destinations from phBot's generated Media DB3.
+
+### Improved
+- Removed duplicate Reverse destination names and retained the built-in list as a compatibility fallback when the server database cannot be resolved or read.
+
+## v2.7.3
+
+### Fixed
+- Fixed base-name routes incorrectly engaging square-bracket variants; for example, `Harrison` no longer matches `Harrison [STR]` unless the variant is configured explicitly.
+
 ## v2.7.2
 
 ### Fixed

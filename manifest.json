@@ -72,16 +72,17 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "2.7.2",
+                        "version":  "3.1.0",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Fixed live town detection on phBot builds that expose the current region and zone through `get_stats()`; documented position and zone APIs remain as a compatibility fallback."
+                                        "Added a persistent `Kill nearby field uniques after target` option that continues the current hunt with visible, non-ignored DB3 `type=2, rarity=3` uniques before returning.",
+                                        "Applied nearby-field continuation to both confirmed death notifications and the existing lost-target death fallback while preserving the normal loot and return flow when no eligible target remains."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "5a751d324bf01139e37c2216008b625e7c722b762e4009afdb98f0f43a4b59b7"
+                        "sha256":  "347efe39d68ff394c2dc014fd39337ab8db12e42e35d1439589dce19440c30a5"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -159,6 +160,20 @@
                         "install_path":  "FDevilAwakener.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/FDevilAwakener.py",
                         "sha256":  "5bcf023160bc9a86e3f51fbf10437a6b2196ddcab641bbd701c84597a192d933"
+                    },
+                    {
+                        "id":  "FExchangeManager",
+                        "name":  "FExchangeManager",
+                        "version":  "1.7.1",
+                        "core":  false,
+                        "description":  "Automatically accepts exchange requests from trusted nearby players or optionally from all nearby guild members.",
+                        "changes":  [
+                                        "Reworked the item-filter layout into separate manual-entry and inventory-selection rows with a wider item selector, dedicated add actions, and non-overlapping controls."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FExchangeManager/changelog.md",
+                        "install_path":  "FExchangeManager.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FExchangeManager/FExchangeManager.py",
+                        "sha256":  "cce0764c03771354823e1e72f5e2bdbc2c83cf91b3167938ea129032f130ab9b"
                     },
                     {
                         "id":  "FFateManager",
@@ -323,19 +338,17 @@
                     {
                         "id":  "FWheelManager",
                         "name":  "FWheelManager",
-                        "version":  "1.3.0",
+                        "version":  "1.4.0",
                         "core":  false,
                         "description":  "Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin.",
                         "changes":  [
-                                        "Added automatic discovery of phBot\u0027s active private-server database, including servers reporting locale 22 or 65, with read-only server-specific Fortune and Pen stat decoding.",
-                                        "Added database-backed Available Stats for Fortune and Pen based on the selected item\u0027s equipment category, subtype, and degree.",
-                                        "Improved cross-server safety with verified full-ID response parsing, built-in layout fallbacks, and bounded diagnostics for unrecognized Fortune or Pen responses.",
-                                        "Fixed valid server-specific Fortune and Pen responses being rejected because of database-ID, locale, installation-path, or Pen record-offset differences."
+                                        "Added a per-item Fortune target mode that can stop when either all configured targets or any one configured target is reached.",
+                                        "Fortune queue entries now display whether they use ALL or ANY target matching."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/changelog.md",
                         "install_path":  "FWheelManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/FWheelManager.py",
-                        "sha256":  "cd4d3a503a511d9b3f08014a8afa3223e94f41f2a8e59d1274eabc9a86b569cf"
+                        "sha256":  "13b2c47680eeba12c671dbfbc162daa4901b799aa7493cda3bcdaa19c43f3973"
                     }
                 ]
 }

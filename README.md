@@ -54,7 +54,7 @@ downloaded version.
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
 | [FAutoHWT](plugins/FAutoHWT/) | 0.7.2 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
-| [FAutoUnique V2](plugins/FAutoUnique/) | 3.1.0 | Hunts unique monsters through prioritized script or learned coordinate routes. |
+| [FAutoUnique V2](plugins/FAutoUnique/) | 3.2.0 | Hunts unique monsters through prioritized script or learned coordinate routes. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
@@ -72,7 +72,7 @@ downloaded version.
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.1.0 | Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached. |
 | [FTarget](plugins/FTarget/) | 3.5.1 | Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
-| [FWheelManager](plugins/FWheelManager/) | 1.4.0 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
+| [FWheelManager](plugins/FWheelManager/) | 1.4.1 | Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin. |
 <!-- PLUGIN_TABLE_END -->
 
 Plugin availability, versions, download locations, integrity hashes, and release

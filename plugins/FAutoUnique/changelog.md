@@ -1,5 +1,14 @@
 # FAutoUnique V2 Changelog
 
+## v3.2.0
+
+### Added
+- Added a persistent manual Auto Hunt mode and per-unique `Include in Auto Hunt` allowlist control.
+
+### Improved
+- Limited automatic spawn queueing, Auto Return, alive-target fallback, and nearby field-unique continuation to allowlisted targets while preserving explicit manual Queue and Hunt actions.
+- Kept `Ignore this unique` as the stronger exclusion that also blocks manual actions and coordinate learning.
+
 ## v3.1.0
 
 ### Added

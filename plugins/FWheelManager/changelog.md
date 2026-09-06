@@ -1,5 +1,10 @@
 # FWheelManager Changelog
 
+## v1.4.1
+
+### Fixed
+- Fixed restarted queues processing already completed items again instead of continuing from the first unfinished item.
+
 ## v1.4.0
 
 ### Added

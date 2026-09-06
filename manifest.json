@@ -72,17 +72,18 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.1.0",
+                        "version":  "3.2.0",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Added a persistent `Kill nearby field uniques after target` option that continues the current hunt with visible, non-ignored DB3 `type=2, rarity=3` uniques before returning.",
-                                        "Applied nearby-field continuation to both confirmed death notifications and the existing lost-target death fallback while preserving the normal loot and return flow when no eligible target remains."
+                                        "Added a persistent manual Auto Hunt mode and per-unique `Include in Auto Hunt` allowlist control.",
+                                        "Limited automatic spawn queueing, Auto Return, alive-target fallback, and nearby field-unique continuation to allowlisted targets while preserving explicit manual Queue and Hunt actions.",
+                                        "Kept `Ignore this unique` as the stronger exclusion that also blocks manual actions and coordinate learning."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "347efe39d68ff394c2dc014fd39337ab8db12e42e35d1439589dce19440c30a5"
+                        "sha256":  "00e15bb4d2145ef92bb99bf5fb7f3119bff0c195ef2d05622690b5d72e434ae3"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -338,17 +339,16 @@
                     {
                         "id":  "FWheelManager",
                         "name":  "FWheelManager",
-                        "version":  "1.4.0",
+                        "version":  "1.4.1",
                         "core":  false,
                         "description":  "Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin.",
                         "changes":  [
-                                        "Added a per-item Fortune target mode that can stop when either all configured targets or any one configured target is reached.",
-                                        "Fortune queue entries now display whether they use ALL or ANY target matching."
+                                        "Fixed restarted queues processing already completed items again instead of continuing from the first unfinished item."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/changelog.md",
                         "install_path":  "FWheelManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/FWheelManager.py",
-                        "sha256":  "13b2c47680eeba12c671dbfbc162daa4901b799aa7493cda3bcdaa19c43f3973"
+                        "sha256":  "1387285d21c0208ace92beecbcc8596ddd07b9e72ef6cfa01b29ab4d3179972f"
                     }
                 ]
 }

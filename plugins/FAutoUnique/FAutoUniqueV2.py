@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.1.0'
+pVersion = '3.2.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -43,6 +43,8 @@ UI_TEXT = {
         'edit_coordinates': 'Edit Coordinates', 'use_coord': 'Use Coord',
         'first_reverse': 'First use Reverse', 'save_reverse': 'Save Reverse',
         'ignore_unique': 'Ignore this unique',
+        'manual_hunt_list': 'Use manual Auto Hunt list',
+        'include_auto_hunt': 'Include in Auto Hunt',
         'coordinate_editor': 'COORDINATE EDITOR', 'back': '\u2190 Back',
         'saved_coordinate_route': 'SAVED COORDINATE ROUTE', 'capture_current': 'Capture Current',
         'capture_nearby': 'Capture Nearby', 'manual_coordinate': 'MANUAL COORDINATE', 'add': 'Add',
@@ -92,6 +94,8 @@ UI_TEXT = {
         'edit_coordinates': 'Koordinatları Aç', 'use_coord': 'Rota Seç',
         'first_reverse': 'Önce Reverse kullan', 'save_reverse': 'Rev Kaydet',
         'ignore_unique': 'Bu unique\'i yok say',
+        'manual_hunt_list': 'Manuel Otomatik Av listesini kullan',
+        'include_auto_hunt': 'Otomatik Ava dahil et',
         'coordinate_editor': 'KOORDİNAT EDİTÖRÜ', 'back': '\u2190 Geri',
         'saved_coordinate_route': 'KAYITLI KOORDINAT ROTASI', 'capture_current': 'Mevcut Konum',
         'capture_nearby': 'Yakındaki Unique', 'manual_coordinate': 'MANUEL KOORDİNAT', 'add': 'Ekle',
@@ -226,6 +230,7 @@ unique_coordinate_map = {}
 unique_route_modes = {}
 unique_reverse_settings = {}
 ignored_uniques = set()
+auto_hunt_uniques = set()
 pending_uniques = []
 alive_uniques = {}
 last_check_time = 0
@@ -241,6 +246,7 @@ plugin_active = False
 saved_slot = None
 auto_learn_coordinates = False
 kill_nearby_field_uniques = False
+manual_auto_hunt_enabled = False
 learned_unique_ids = set()
 
 # Coordinate hunt settings. generate_script() itself is limited by phBot to one
@@ -432,6 +438,15 @@ def is_ignored_unique(name):
     return any(_is_unique_match(ignored, name) for ignored in ignored_uniques)
 
 
+def is_auto_hunt_target(name):
+    """Return whether a spawn may enter automated hunt flows."""
+    if is_ignored_unique(name):
+        return False
+    if not manual_auto_hunt_enabled:
+        return True
+    return any(_is_unique_match(selected, name) for selected in auto_hunt_uniques)
+
+
 def _remove_ignored_runtime_entries():
     """Keep ignored targets out of transient tracking, pending, and queue state."""
     with _state_lock:
@@ -440,6 +455,14 @@ def _remove_ignored_runtime_entries():
         for name in list(alive_uniques):
             if is_ignored_unique(name):
                 alive_uniques.pop(name, None)
+
+
+def _filter_automatic_hunt_queue():
+    """Apply the active allowlist to queued automated work."""
+    if not manual_auto_hunt_enabled:
+        return
+    with _state_lock:
+        unique_queue[:] = [name for name in unique_queue if is_auto_hunt_target(name)]
 
 def has_hunt_route(unique_name):
     """Return True when a unique has either coordinates or a walk script."""
@@ -534,12 +557,14 @@ def save_config():
             'route_modes': unique_route_modes,
             'reverse_settings': unique_reverse_settings,
             'ignored_uniques': sorted(ignored_uniques),
+            'auto_hunt_uniques': sorted(auto_hunt_uniques),
             'language': UI_LANGUAGE,
             'discovered_uniques': sorted(list(discovered_uniques)),
             'plugin_active': plugin_active,
             'auto_return_enabled': auto_return_enabled,
             'auto_learn_coordinates': auto_learn_coordinates,
             'kill_nearby_field_uniques': kill_nearby_field_uniques,
+            'manual_auto_hunt_enabled': manual_auto_hunt_enabled,
             'saved_slot': saved_slot,
         }
         with open(cfg, 'w', encoding='utf-8') as f:
@@ -550,8 +575,9 @@ def save_config():
 def load_config():
     """Load settings from the current character's JSON file."""
     global unique_script_map, unique_coordinate_map, unique_route_modes, unique_reverse_settings, discovered_uniques
-    global ignored_uniques
-    global plugin_active, auto_return_enabled, auto_learn_coordinates, kill_nearby_field_uniques, saved_slot, UI_LANGUAGE
+    global ignored_uniques, auto_hunt_uniques
+    global plugin_active, auto_return_enabled, auto_learn_coordinates, kill_nearby_field_uniques
+    global manual_auto_hunt_enabled, saved_slot, UI_LANGUAGE
     try:
         cfg = getConfig()
         load_reverse_locations()
@@ -559,6 +585,9 @@ def load_config():
         UI_LANGUAGE = 'en'
         unique_reverse_settings = {}
         ignored_uniques = set()
+        auto_hunt_uniques = set()
+        manual_auto_hunt_enabled = False
+        kill_nearby_field_uniques = False
         if cfg and os.path.exists(cfg):
             with open(cfg, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -589,9 +618,12 @@ def load_config():
             discovered_uniques = set(saved_uniques)
             ignored_uniques = set(str(name).strip() for name in data.get('ignored_uniques', [])
                                   if str(name).strip())
+            auto_hunt_uniques = set(str(name).strip() for name in data.get('auto_hunt_uniques', [])
+                                    if str(name).strip())
             auto_return_enabled = data.get('auto_return_enabled', False)
             auto_learn_coordinates = data.get('auto_learn_coordinates', False)
             kill_nearby_field_uniques = data.get('kill_nearby_field_uniques', False)
+            manual_auto_hunt_enabled = data.get('manual_auto_hunt_enabled', False)
             saved_slot = data.get('saved_slot', None)
             UI_LANGUAGE = data.get('language', 'en')
             if UI_LANGUAGE not in ('en', 'tr'):
@@ -600,6 +632,7 @@ def load_config():
                 QtBind.setChecked(gui, chk_auto_return, auto_return_enabled)
                 QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
                 QtBind.setChecked(gui, chk_kill_nearby, kill_nearby_field_uniques)
+                QtBind.setChecked(gui, chk_manual_hunt_list, manual_auto_hunt_enabled)
             except: pass
             was_active = data.get('plugin_active', False)
             if was_active:
@@ -619,6 +652,7 @@ def load_config():
         else:
             discovered_uniques.update(COMMON_UNIQUES)
         _remove_ignored_runtime_entries()
+        _filter_automatic_hunt_queue()
         refresh_mapping_list()
         refresh_unique_dropdown()
         refresh_coordinate_list()
@@ -864,6 +898,16 @@ def toggle_kill_nearby(checked=None):
     log('[Nearby] Field unique cleanup is %s' %
         ('ON' if kill_nearby_field_uniques else 'OFF'))
 
+
+def toggle_manual_hunt_list(checked=None):
+    global manual_auto_hunt_enabled
+    manual_auto_hunt_enabled = bool(checked)
+    _filter_automatic_hunt_queue()
+    save_config()
+    update_queue_label()
+    state = 'ON' if manual_auto_hunt_enabled else 'OFF'
+    log('[AutoHunt] Manual Auto Hunt list is %s.' % state)
+
 def use_coordinate_route():
     unique_name = _selected_unique()
     if not unique_name or not unique_coordinate_map.get(unique_name):
@@ -955,6 +999,30 @@ def toggle_ignore_unique(checked=None):
     set_manager_status('%s is now %s.' % (unique_name, state),
                        COLOR_WARNING if ignored else COLOR_SUCCESS)
     log('[Ignore] %s is now %s.' % (unique_name, state))
+
+
+def toggle_auto_hunt_unique(checked=None):
+    unique_name = _selected_unique()
+    if not unique_name:
+        try: QtBind.setChecked(gui, chk_auto_hunt_unique, False)
+        except: pass
+        set_manager_status('Select a unique first.', COLOR_WARNING)
+        return
+    included = bool(checked)
+    if included:
+        auto_hunt_uniques.add(unique_name)
+    else:
+        auto_hunt_uniques.discard(unique_name)
+        if manual_auto_hunt_enabled:
+            with _state_lock:
+                unique_queue[:] = [name for name in unique_queue
+                                   if not _is_unique_match(unique_name, name)]
+    save_config()
+    update_queue_label()
+    state = 'included in' if included else 'removed from'
+    set_manager_status('%s was %s Auto Hunt.' % (unique_name, state),
+                       COLOR_SUCCESS if included else COLOR_WARNING)
+    log('[AutoHunt] %s was %s Auto Hunt.' % (unique_name, state))
 
 # ================= AUTO RETURN LOGIC =================
 def do_auto_return(unique_name):
@@ -1070,7 +1138,7 @@ def start_script_btn():
                     return
         found_alive = [n for n, d in alive_uniques.items()
                        if d.get('alive', False) and has_hunt_route(n)
-                       and not is_ignored_unique(n)]
+                       and is_auto_hunt_target(n)]
         if found_alive:
             with _state_lock:
                 for uname in found_alive:
@@ -1587,7 +1655,7 @@ def _on_unique_spawn(unique_name):
     - Start immediately when already in town.
     """
     global bot_state, current_active_unique, force_stopped, just_returned
-    if is_ignored_unique(unique_name):
+    if not is_auto_hunt_target(unique_name):
         return
     append_activity_once('detected:%s' % unique_name, 'Detected: %s' % unique_name)
 
@@ -1697,7 +1765,7 @@ def _continue_with_nearby_field_unique(completed_name):
         candidates = []
         for monster_id, monster in (phBot.get_monsters() or {}).items():
             name = str(monster.get('name', '') or '').strip()
-            if not _is_database_field_unique(name) or is_ignored_unique(name):
+            if not _is_database_field_unique(name) or not is_auto_hunt_target(name):
                 continue
             # The just-completed name may remain briefly in phBot's nearby list.
             if name.lower() == str(completed_name or '').strip().lower():
@@ -2896,7 +2964,7 @@ def set_manager_status(message, color=COLOR_MUTED):
     try:
         message = translate_ui_message(message)
         QtBind.setText(gui, lbl_manager_status, fixed_width_text(
-            '<font color="%s">%s</font>' % (color, message), 233))
+            '<font color="%s">%s</font>' % (color, message), 360))
     except: pass
 
 
@@ -2933,6 +3001,10 @@ def refresh_selected_unique_details():
                           bool(reverse_setting.get('enabled', False)))
         QtBind.setChecked(gui, chk_ignore_unique,
                           bool(unique_name and is_ignored_unique(unique_name)))
+        QtBind.setChecked(gui, chk_auto_hunt_unique,
+                          bool(unique_name and any(
+                              _is_unique_match(selected, unique_name)
+                              for selected in auto_hunt_uniques)))
         reverse_location = reverse_setting.get('location', '')
         QtBind.setText(gui, cmb_reverse_location,
                        reverse_location if reverse_location in REVERSE_LOCATIONS
@@ -3256,9 +3328,13 @@ chk_ignore_unique = _screen_widget(_localized(QtBind.createCheckBox(
     gui, 'toggle_ignore_unique', 'Ignore this unique', OFFSCREEN_X, 276), 'ignore_unique'),
     manager_position=(345, 276))
 QtBind.setChecked(gui, chk_ignore_unique, False)
+chk_auto_hunt_unique = _screen_widget(_localized(QtBind.createCheckBox(
+    gui, 'toggle_auto_hunt_unique', 'Include in Auto Hunt', OFFSCREEN_X, 276), 'include_auto_hunt'),
+    manager_position=(490, 276))
+QtBind.setChecked(gui, chk_auto_hunt_unique, False)
 lbl_manager_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
-    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 233), OFFSCREEN_X, 278),
-    manager_position=(475, 278))
+    '<font color="%s">Select a unique to configure.</font>' % COLOR_MUTED, 360), OFFSCREEN_X, 297),
+    manager_position=(345, 297))
 
 # Coordinate Editor: dedicated point-list and capture/manual-editing page.
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE EDITOR</b></font>' % COLOR_PRIMARY,
@@ -3318,6 +3394,9 @@ _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>AUTOMATIO
 chk_auto_return = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_auto_return',
     'Return to town for an unconfigured unique', OFFSCREEN_X, 194), 'auto_return'), settings_position=(12, 194))
 QtBind.setChecked(gui, chk_auto_return, False)
+chk_manual_hunt_list = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_manual_hunt_list',
+    'Use manual Auto Hunt list', OFFSCREEN_X, 194), 'manual_hunt_list'), settings_position=(355, 194))
+QtBind.setChecked(gui, chk_manual_hunt_list, False)
 chk_auto_learn = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_auto_learn',
     'Automatically learn unique coordinates', OFFSCREEN_X, 218), 'auto_learn'), settings_position=(12, 218))
 QtBind.setChecked(gui, chk_auto_learn, False)
@@ -3491,7 +3570,7 @@ def handle_event(t, data):
         if t != EVENT_UNIQUE_SPAWN or not data:
             return
         unique_name = str(data).strip()
-        if not unique_name or not is_unique(unique_name) or is_ignored_unique(unique_name):
+        if not unique_name or not is_unique(unique_name) or not is_auto_hunt_target(unique_name):
             return
 
         is_new = False
@@ -3599,7 +3678,7 @@ def handle_joymax(opcode, data):
             # --- SPAWN ---
             if event_type == 5 and name:
                 UNIQUE_OBJ_CACHE[obj_id] = name
-                if is_unique(name) and not is_ignored_unique(name):
+                if is_unique(name) and is_auto_hunt_target(name):
                     # Resolve variants such as Tiger Girl (INT) to the mapped base name.
                     mapped_name = _find_mapped_name(name)
                     is_new = False
@@ -3651,7 +3730,7 @@ def handle_chat(t, player, msg):
         if 'has spawned' in msg_lower or 'has appeared' in msg_lower:
             split_word = 'has spawned' if 'has spawned' in msg_lower else 'has appeared'
             unique_name = msg.split(split_word)[0].strip()
-            if unique_name and is_unique(unique_name) and not is_ignored_unique(unique_name):
+            if unique_name and is_unique(unique_name) and is_auto_hunt_target(unique_name):
                 is_new = False
                 with _state_lock:
                     if unique_name not in alive_uniques or not alive_uniques[unique_name]['alive']:

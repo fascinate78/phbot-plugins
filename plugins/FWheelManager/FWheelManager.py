@@ -10,7 +10,7 @@ from threading import Timer
 
 
 pName = 'FWheelManager'
-pVersion = '1.4.0'
+pVersion = '1.4.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -567,7 +567,10 @@ def queue_item(mode):
     if not item:
         set_status('Select an inventory item first', COLOR_WARNING)
         return
-    queued = {'slot': item['slot'], 'model': item['model'], 'name': item.get('name', 'Unknown')}
+    queued = {
+        'slot': item['slot'], 'model': item['model'],
+        'name': item.get('name', 'Unknown'), 'completed': False
+    }
     if mode == 'fate':
         try:
             target = int(QtBind.text(gui, target_inputs[mode]).strip())
@@ -619,7 +622,12 @@ def refresh_queue(mode):
     QtBind.clear(gui, queue_lists[mode])
     state = states[mode]
     for index, item in enumerate(state['queue']):
-        marker = '>' if active_mode == mode and index == state['index'] else ' '
+        if item.get('completed', False):
+            marker = u'✓'
+        elif active_mode == mode and index == state['index']:
+            marker = '>'
+        else:
+            marker = ' '
         QtBind.append(gui, queue_lists[mode], '%s Slot %d | %s | %s' % (
             marker, item['slot'], target_summary(mode, item), item['name']))
 
@@ -684,6 +692,14 @@ def active_item(mode):
     return state['queue'][state['index']] if 0 <= state['index'] < len(state['queue']) else None
 
 
+def next_pending_index(mode, start=0):
+    queue = states[mode]['queue']
+    for index in range(max(0, start), len(queue)):
+        if not queue[index].get('completed', False):
+            return index
+    return None
+
+
 def send_request(mode):
     global awaiting_response
     if active_mode != mode or awaiting_response:
@@ -717,7 +733,14 @@ def start_mode(mode):
     if not state['queue']:
         set_status('Add at least one item to the %s queue' % MODE_LABELS[mode], COLOR_WARNING)
         return
+    pending_index = next_pending_index(mode)
+    if pending_index is None:
+        set_status('All %s queue items are already complete' % MODE_LABELS[mode], COLOR_SUCCESS)
+        refresh_queue(mode)
+        return
     for item in state['queue']:
+        if item.get('completed', False):
+            continue
         live = find_inventory_item(item['slot'])
         if not live or live.get('model') != item['model']:
             set_status('Queued item changed at slot %d' % item['slot'], COLOR_ERROR)
@@ -725,7 +748,7 @@ def start_mode(mode):
     if find_consumable_slot(mode) is None:
         set_status('%s consumable not found' % MODE_LABELS[mode], COLOR_ERROR)
         return
-    state['index'] = 0
+    state['index'] = pending_index
     active_mode = mode
     single_roll = False
     invalidate_timer()
@@ -980,11 +1003,14 @@ def process_response(data):
         stop_operation('One-roll %s test completed' % MODE_LABELS[mode], COLOR_SUCCESS)
         return
     if reached:
-        states[mode]['index'] += 1
+        item['completed'] = True
+        next_index = next_pending_index(mode, states[mode]['index'] + 1)
         refresh_queue(mode)
-        if states[mode]['index'] >= len(states[mode]['queue']):
+        if next_index is None:
             stop_operation('All %s targets reached' % MODE_LABELS[mode], COLOR_SUCCESS)
         else:
+            states[mode]['index'] = next_index
+            refresh_queue(mode)
             schedule_request(NEXT_ITEM_DELAY, mode)
     else:
         refresh_queue(mode)

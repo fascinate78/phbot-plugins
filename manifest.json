@@ -163,6 +163,21 @@
                         "sha256":  "5bcf023160bc9a86e3f51fbf10437a6b2196ddcab641bbd701c84597a192d933"
                     },
                     {
+                        "id":  "FEventAutomation",
+                        "name":  "FEventAutomation",
+                        "version":  "1.0.1",
+                        "core":  false,
+                        "description":  "Automatically exchanges supported event items through Event So-Ok and opens Silkroad Boxes.",
+                        "changes":  [
+                                        "Fixed intermittent Pledge of Love timeouts by using capture-matched delays between NPC packets.",
+                                        "Fixed inventory sorting being requested while the Event So-Ok conversation was still open."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FEventAutomation/changelog.md",
+                        "install_path":  "FEventAutomation.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FEventAutomation/FEventAutomation.py",
+                        "sha256":  "18b07c0313b4c1d972fc01c2b69632a54405250b7e76a640d4ddcb993c798464"
+                    },
+                    {
                         "id":  "FExchangeManager",
                         "name":  "FExchangeManager",
                         "version":  "1.7.1",

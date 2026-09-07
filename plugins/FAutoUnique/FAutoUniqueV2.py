@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.2.0'
+pVersion = '3.2.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -1099,7 +1099,7 @@ def force_scan_alive_uniques():
         log(f"force_scan_alive_uniques error: {e}")
 
 def start_script_btn():
-    global force_stopped
+    global force_stopped, current_active_unique, bot_state
     try:
         force_stopped = False
         unique = _selected_unique()
@@ -1122,19 +1122,28 @@ def start_script_btn():
                 return
             script_name = unique_script_map.get(unique)
             if script_name:
+                if not plugin_active:
+                    log('[Manual Hunt] Start Monitoring before starting a manual script hunt')
+                    set_manager_status('Start Monitoring before a manual hunt.', COLOR_WARNING)
+                    return
                 script_path = os.path.join(scripts_folder, script_name)
                 if os.path.exists(script_path):
                     with open(script_path, 'r', encoding='utf-8') as f:
                         script_content = f.read()
                     script_content = script_content.replace('{unique}', unique).replace('{event}', 'manual')
+                    current_active_unique = unique
+                    bot_state = 'HUNTING'
+                    update_active_unique_label()
                     phBot.start_script(script_content)
+                    start_attack_loop()
                     append_activity_once('manual-route:%s' % unique,
                                          'Manual route started: %s' % unique)
                     with _state_lock:
                         if unique in unique_queue:
                             unique_queue.remove(unique)
                     update_queue_label()
-                    log(f"Manual Start: {unique}")
+                    log(f"Manual Start: {unique} (tracking enabled)")
+                    log(f"ACTIVE: {current_active_unique}")
                     return
         found_alive = [n for n, d in alive_uniques.items()
                        if d.get('alive', False) and has_hunt_route(n)

@@ -72,18 +72,16 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.2.0",
+                        "version":  "3.2.1",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Added a persistent manual Auto Hunt mode and per-unique `Include in Auto Hunt` allowlist control.",
-                                        "Limited automatic spawn queueing, Auto Return, alive-target fallback, and nearby field-unique continuation to allowlisted targets while preserving explicit manual Queue and Hunt actions.",
-                                        "Kept `Ignore this unique` as the stronger exclusion that also blocks manual actions and coordinate learning."
+                                        "Fixed manually started script hunts not tracking or engaging their selected unique while walking the route."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "00e15bb4d2145ef92bb99bf5fb7f3119bff0c195ef2d05622690b5d72e434ae3"
+                        "sha256":  "520f671e137153c5c0774eeb6cc328c9a4ed19002ef900af93c123a47e7d0358"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -150,17 +148,18 @@
                     {
                         "id":  "FDevilAwakener",
                         "name":  "FDevilAwakener",
-                        "version":  "1.0.2",
+                        "version":  "1.1.1",
                         "core":  false,
-                        "description":  "Automatically applies Awakening Enhancement Scrolls until a selected Devil\u0027s Spirit reaches the requested enhancement level.",
+                        "description":  "Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil\u0027s Spirit until it reaches the requested enhancement level.",
                         "changes":  [
-                                        "Fixed locale 65 response `0x18DD` being treated as an equipped-Devil rejection; captures verify that it precedes a successful scroll quantity update and represents a consumed attempt without an enhancement result.",
-                                        "Improved failed-roll handling so awakening continues toward the configured target instead of stopping incorrectly."
+                                        "Updated the iSRO unequip request to calculate its changing final field from the current free normal-inventory slot count instead of using a fixed captured value.",
+                                        "Added an iSRO-specific item-use encryption profile and a longer post-unequip delay before the first awakening attempt.",
+                                        "Fixed restoration after an item-use rejection by prioritizing the exact inventory slot reported for the unequipped Devil, including when identical Devils make model-based lookup ambiguous."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/changelog.md",
                         "install_path":  "FDevilAwakener.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/FDevilAwakener.py",
-                        "sha256":  "5bcf023160bc9a86e3f51fbf10437a6b2196ddcab641bbd701c84597a192d933"
+                        "sha256":  "e44d64f49832d0c390022428f346fe56db332415d672f8cee29dfd0e652fae30"
                     },
                     {
                         "id":  "FEventAutomation",

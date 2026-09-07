@@ -1,5 +1,24 @@
 # FDevilAwakener Changelog
 
+## v1.1.1
+
+### Improved
+- Updated the iSRO unequip request to calculate its changing final field from the current free normal-inventory slot count instead of using a fixed captured value.
+- Added an iSRO-specific item-use encryption profile and a longer post-unequip delay before the first awakening attempt.
+
+### Fixed
+- Fixed restoration after an item-use rejection by prioritizing the exact inventory slot reported for the unequipped Devil, including when identical Devils make model-based lookup ambiguous.
+
+## v1.1.0
+
+### Added
+- Added iSRO locale 18 support and an `Only use equipped Devil` option that operates exclusively on the Devil in equipment slot 4.
+- Added response-driven Devil unequip and restoration using `0x7034` and `0xB034`, including identity checks that prevent another inventory Devil from being equipped.
+
+### Improved
+- Added restoration handling after target completion, scroll exhaustion, attempt limits, server errors, timeouts, and user stops.
+- Reserved iSRO slots 0-16 from normal inventory Devil selection.
+
 ## v1.0.2
 
 ### Fixed

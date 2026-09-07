@@ -1,5 +1,10 @@
 # FAutoUnique V2 Changelog
 
+## v3.2.1
+
+### Fixed
+- Fixed manually started script hunts not tracking or engaging their selected unique while walking the route.
+
 ## v3.2.0
 
 ### Added

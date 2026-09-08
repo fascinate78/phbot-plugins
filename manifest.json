@@ -351,9 +351,9 @@
                                         "Added a character-specific option to skip training-area validation for automatic"
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
-                        "install_path":  "FSroRAutoTradeTest.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTradeTest.py",
-                        "sha256":  "0df33d50bbf0207f5155c744c90c318c82470f0f3fd972dae02a43697549b99b"
+                        "install_path":  "FSroRAutoTrade.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
+                        "sha256":  "2050801ca69588f796eca942a14e6521ddadcbef380d9dbd54d146e4ab0e5d28"
                     },
                     {
                         "id":  "FTarget",

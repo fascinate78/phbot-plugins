@@ -2,7 +2,6 @@ from phBot import *
 import QtBind
 import phBotChat
 import datetime
-import hashlib
 import json
 import os
 import ssl
@@ -33,7 +32,6 @@ STATE_WAITING_ACTION = 'WAITING_ACTION'
 STATE_SETTLING_POUCH = 'SETTLING_POUCH'
 STATE_DEATH_RECOVERY = 'DEATH_RECOVERY'
 STATE_ERROR_RECOVERY = 'ERROR_RECOVERY'
-STATE_RECONNECT_RECOVERY = 'RECONNECT_RECOVERY'
 STATE_ERROR = 'ERROR'
 
 POLL_SECONDS = 1.0
@@ -58,11 +56,6 @@ DEFAULT_SYNC_CHECK_INTERVAL = 10.0
 PROFILE_VERIFY_DELAY = 5.0
 SYNC_RESPONSE_TIMEOUT = 30.0
 SYNC_PREPARE_TIMEOUT = 30.0
-RECONNECT_RECOVERY_TIMEOUT = 30.0
-RECOVERY_PET_STABLE_READS = 3
-RECOVERY_ROUTE_WINDOW = 12
-RECOVERY_WALK_DISTANCE = 45.0
-RECOVERY_BACKTRACK_WALKS = 2
 
 state = STATE_IDLE
 state_since = time.time()
@@ -116,14 +109,6 @@ telegram_panel_open = False
 telegram_results = []
 telegram_last_events = {}
 recovery_in_progress = False
-reconnect_recovery_pending = False
-reconnect_recovery_deadline = 0.0
-reconnect_recovery_stable_reads = 0
-reconnect_stop_requested = False
-recovery_script_lines = []
-recovery_walk_points = []
-recovery_last_walk_order = -1
-recovery_last_saved_walk_order = -1
 TELEGRAM_TIMEOUT = 8
 TELEGRAM_EVENT_KEYS = (
     'trade_started', 'delivery', 'trade_completed', 'character_died',
@@ -170,14 +155,6 @@ def _settings_path():
     return os.path.join(_config_directory(), 'settings.json')
 
 
-def _recovery_state_path():
-    return os.path.join(_config_directory(), 'trade_recovery.json')
-
-
-def _recovery_script_path():
-    return os.path.join(_config_directory(), 'trade_recovery.script.txt')
-
-
 def _ensure_directories():
     try:
         if not os.path.isdir(_scripts_directory()):
@@ -186,290 +163,6 @@ def _ensure_directories():
     except Exception as ex:
         log('[%s] Config klasoru olusturulamadi: %s' % (pName, ex))
         return False
-
-
-def _script_digest(script_text):
-    return hashlib.sha256(script_text.encode('utf-8')).hexdigest()
-
-
-def _parse_recovery_route(script_text):
-    lines = script_text.splitlines()
-    points = []
-    for line_index, raw_line in enumerate(lines):
-        parts = [part.strip() for part in raw_line.split(',')]
-        if len(parts) < 4 or parts[0].lower() != 'walk':
-            continue
-        try:
-            points.append((line_index, float(parts[1]), float(parts[2]),
-                           float(parts[3])))
-        except (TypeError, ValueError):
-            continue
-    return lines, points
-
-
-def _load_recovery_record():
-    try:
-        with open(_recovery_state_path(), 'r', encoding='utf-8') as handle:
-            value = json.load(handle)
-        return value if isinstance(value, dict) and value.get('active') else None
-    except Exception:
-        return None
-
-
-def _write_recovery_record(record):
-    try:
-        path = _recovery_state_path()
-        temporary = path + '.tmp'
-        with open(temporary, 'w', encoding='utf-8') as handle:
-            json.dump(record, handle, ensure_ascii=False, indent=2,
-                      sort_keys=True)
-        os.replace(temporary, path)
-        return True
-    except Exception as ex:
-        log('[%s] Recovery kaydi yazilamadi: %s' % (pName, ex))
-        return False
-
-
-def _update_recovery_record(**changes):
-    record = _load_recovery_record()
-    if not record:
-        return False
-    record.update(changes)
-    record['updated_at'] = time.time()
-    return _write_recovery_record(record)
-
-
-def _clear_trade_recovery():
-    global recovery_script_lines, recovery_walk_points
-    global recovery_last_walk_order, recovery_last_saved_walk_order
-    global reconnect_recovery_pending, reconnect_recovery_stable_reads
-    global reconnect_stop_requested
-    for path in (_recovery_state_path(), _recovery_script_path()):
-        try:
-            if os.path.isfile(path):
-                os.remove(path)
-        except Exception as ex:
-            log('[%s] Recovery dosyasi temizlenemedi (%s): %s' %
-                (pName, path, ex))
-    recovery_script_lines = []
-    recovery_walk_points = []
-    recovery_last_walk_order = -1
-    recovery_last_saved_walk_order = -1
-    reconnect_recovery_pending = False
-    reconnect_recovery_stable_reads = 0
-    reconnect_stop_requested = False
-
-
-def _begin_trade_recovery_tracking(script_name, script_text):
-    global recovery_script_lines, recovery_walk_points
-    global recovery_last_walk_order, recovery_last_saved_walk_order
-    recovery_script_lines, recovery_walk_points = _parse_recovery_route(script_text)
-    recovery_last_walk_order = -1
-    recovery_last_saved_walk_order = -1
-    if not recovery_walk_points:
-        _fail('Recovery tracking could not find any walk commands in the trade script.')
-        return False
-    try:
-        with open(_recovery_script_path(), 'w', encoding='utf-8') as handle:
-            handle.write(script_text)
-    except Exception as ex:
-        _fail('Recovery script copy could not be created: %s' % ex)
-        return False
-    character_name = _own_name()
-    if not character_name:
-        _fail('Recovery tracking could not identify the current character.')
-        return False
-    record = {
-        'active': True,
-        'character': character_name,
-        'script_name': script_name,
-        'script_hash': _script_digest(script_text),
-        'last_walk_order': -1,
-        'last_walk_line': -1,
-        'delivery_received': False,
-        'complete_received': False,
-        'trade_profile_active': bool(trade_profile_active),
-        'started_at': time.time(),
-        'updated_at': time.time()
-    }
-    if not _write_recovery_record(record):
-        _fail('Recovery state could not be saved; trade was not started safely.')
-        return False
-    return True
-
-
-def _track_trade_script_progress():
-    global recovery_last_walk_order, recovery_last_saved_walk_order
-    if not recovery_walk_points:
-        return
-    try:
-        position = get_position()
-        px = float(position.get('x'))
-        py = float(position.get('y'))
-        pz = float(position.get('z', 0.0) or 0.0)
-    except Exception:
-        return
-    first = max(0, recovery_last_walk_order - 2)
-    if recovery_last_walk_order < 0:
-        first = 0
-    last = min(len(recovery_walk_points), first + RECOVERY_ROUTE_WINDOW)
-    nearest_order = -1
-    nearest_distance = None
-    for order in range(first, last):
-        _, x, y, z = recovery_walk_points[order]
-        distance = ((px - x) ** 2 + (py - y) ** 2 +
-                    min(abs(pz - z), 25.0) ** 2)
-        if nearest_distance is None or distance < nearest_distance:
-            nearest_distance = distance
-            nearest_order = order
-    if (nearest_order < recovery_last_walk_order or nearest_distance is None or
-            nearest_distance > RECOVERY_WALK_DISTANCE ** 2):
-        return
-    recovery_last_walk_order = nearest_order
-    if recovery_last_walk_order == recovery_last_saved_walk_order:
-        return
-    recovery_last_saved_walk_order = recovery_last_walk_order
-    line_index = recovery_walk_points[recovery_last_walk_order][0]
-    _update_recovery_record(last_walk_order=recovery_last_walk_order,
-                            last_walk_line=line_index)
-
-
-def _loaded_transport_box_count():
-    try:
-        pets = get_pets()
-    except Exception:
-        return None
-    if not isinstance(pets, dict):
-        return None
-    found_transport = False
-    total = 0
-    for pet in pets.values():
-        if not isinstance(pet, dict) or pet.get('type') != 'transport':
-            continue
-        try:
-            if float(pet.get('hp', 0) or 0) <= 0:
-                continue
-        except (TypeError, ValueError):
-            continue
-        found_transport = True
-        total += sum(_quantity(item) for item in _iter_items(pet.get('items'))
-                     if _is_specialty_box(item))
-    return total if found_transport else None
-
-
-def _resume_trade_after_reconnect(record):
-    global cycle_active, cycle_armed, trade_command_received
-    global trade_settled_received, trade_complete_time, trade_profile_active
-    global recovery_script_lines, recovery_walk_points
-    global recovery_last_walk_order, recovery_last_saved_walk_order
-    try:
-        with open(_recovery_script_path(), 'r', encoding='utf-8') as handle:
-            script_text = handle.read()
-    except Exception as ex:
-        _fail('Reconnect recovery script could not be read: %s' % ex, False)
-        return False
-    if _script_digest(script_text) != record.get('script_hash'):
-        _fail('Reconnect recovery script changed; automatic resume was blocked.', False)
-        return False
-    recovery_script_lines, recovery_walk_points = _parse_recovery_route(script_text)
-    saved_order = int(record.get('last_walk_order', -1) or -1)
-    if not recovery_walk_points or saved_order < 0:
-        _fail('Reconnect recovery has no confirmed walk progress.', False)
-        return False
-    resume_order = max(0, min(saved_order, len(recovery_walk_points) - 1) -
-                       RECOVERY_BACKTRACK_WALKS)
-    resume_line = recovery_walk_points[resume_order][0]
-    remaining = '\n'.join(recovery_script_lines[resume_line:])
-    if not remaining.strip():
-        _fail('Reconnect recovery produced an empty remaining script.', False)
-        return False
-    recovery_last_walk_order = resume_order
-    recovery_last_saved_walk_order = resume_order
-    cycle_active = True
-    cycle_armed = False
-    trade_settled_received = bool(record.get('delivery_received'))
-    trade_command_received = bool(record.get('complete_received'))
-    trade_complete_time = 0.0
-    trade_profile_active = bool(record.get('trade_profile_active'))
-    try:
-        result = start_script(remaining)
-    except Exception as ex:
-        _fail('Reconnect recovery script could not be started: %s' % ex, False)
-        return False
-    if result is False:
-        _fail('phBot rejected the reconnect recovery script.', False)
-        return False
-    _set_state(STATE_RUNNING_TRADE,
-               'Reconnect recovery resumed the trade near walk point %d.' %
-               resume_order)
-    _update_recovery_record(resumed_at=time.time(),
-                            resume_walk_order=resume_order)
-    return True
-
-
-def _poll_reconnect_recovery(now):
-    global reconnect_recovery_pending, reconnect_recovery_deadline
-    global reconnect_recovery_stable_reads, reconnect_stop_requested
-    if not reconnect_recovery_pending:
-        return False
-    # phBot reconnect auto-start can happen several seconds after joined_game.
-    # Keep the bot stopped for the whole validation window instead of relying
-    # on one timing-sensitive status check.
-    try:
-        stop_bot()
-    except Exception:
-        pass
-    reconnect_stop_requested = False
-    record = _load_recovery_record()
-    if not record:
-        reconnect_recovery_pending = False
-        return False
-    if reconnect_recovery_deadline <= 0:
-        reconnect_recovery_deadline = now + RECONNECT_RECOVERY_TIMEOUT
-    try:
-        character = get_character_data()
-    except Exception:
-        character = None
-    if not character or not character.get('name'):
-        if now >= reconnect_recovery_deadline:
-            _fail('Reconnect recovery timed out waiting for character data.', False)
-            reconnect_recovery_pending = False
-        return True
-    expected = str(record.get('character') or '').strip().lower()
-    actual = str(character.get('name') or '').strip().lower()
-    if expected and expected != actual:
-        reconnect_recovery_pending = False
-        return False
-    identity = _job_identity()
-    job_item = _find_job(identity) if identity else None
-    boxes = _loaded_transport_box_count()
-    ready = (job_item is not None and int(job_item.get('slot', -1)) == 8 and
-             boxes is not None and boxes > 0)
-    if ready:
-        reconnect_recovery_stable_reads += 1
-    else:
-        reconnect_recovery_stable_reads = 0
-    if reconnect_recovery_stable_reads >= RECOVERY_PET_STABLE_READS:
-        try:
-            stop_bot()
-        except Exception:
-            pass
-        try:
-            stop_script()
-        except Exception:
-            pass
-        reconnect_recovery_pending = False
-        return _resume_trade_after_reconnect(record)
-    if now >= reconnect_recovery_deadline:
-        _fail('Reconnect recovery could not confirm equipped job item and loaded '
-              'transport within %d seconds.' % RECONNECT_RECOVERY_TIMEOUT, False)
-        reconnect_recovery_pending = False
-    else:
-        _set_state(STATE_RECONNECT_RECOVERY,
-                   'Reconnect detected; waiting for job item and transport cargo (%d/%d).'
-                   % (reconnect_recovery_stable_reads,
-                      RECOVERY_PET_STABLE_READS))
-    return True
 
 
 def _fixed_width_text(content, width):
@@ -1079,7 +772,6 @@ def _fail(message, allow_recovery=True):
             'recovery_started', message, STATE_ERROR_RECOVERY)
     else:
         cycle_active = False
-        _clear_trade_recovery()
         _set_state(STATE_ERROR, message)
         if was_recovery:
             recovery_in_progress = False
@@ -2291,8 +1983,6 @@ def _start_trade_script():
     trade_command_received = False
     trade_settled_received = False
     trade_complete_time = 0.0
-    if not _begin_trade_recovery_tracking(name, script_text):
-        return
     try:
         result = start_script(script_text)
     except Exception as ex:
@@ -2443,7 +2133,6 @@ def _start_bot_after_profile_restore():
         return
     cycle_active = False
     recovery_in_progress = False
-    _clear_trade_recovery()
     _set_state(STATE_IDLE, 'Kervan tamamlandi; bot bir kez baslatildi.')
     if was_recovery:
         _send_telegram_notification(
@@ -2481,7 +2170,6 @@ def FSroRAutoTrade_settled(arguments):
         return 0
     first_delivery_signal = not trade_settled_received
     trade_settled_received = True
-    _update_recovery_record(delivery_received=True)
     if pending_transport_death_time > 0:
         pending_transport_death_time = 0.0
         _set_message('Trade teslim edildi; bekleyen pet termination eventi yok sayildi.', True)
@@ -2500,7 +2188,6 @@ def FSroRAutoTrade_complete(arguments):
         return 0
     trade_command_received = True
     trade_complete_time = time.time()
-    _update_recovery_record(complete_received=True)
     _set_message('Kervan tamamlama komutu alindi; sehir kontrol ediliyor.', True)
     _try_finish_trade()
     return 0
@@ -2520,31 +2207,8 @@ def teleported():
 
 
 def joined_game():
-    global profile_name, reconnect_recovery_pending
-    global reconnect_recovery_deadline, reconnect_recovery_stable_reads
-    global reconnect_stop_requested
+    global profile_name
     profile_name = 'default'
-    record = _load_recovery_record()
-    reconnect_recovery_pending = bool(record)
-    reconnect_recovery_deadline = (
-        time.time() + RECONNECT_RECOVERY_TIMEOUT if record else 0.0)
-    reconnect_recovery_stable_reads = 0
-    reconnect_stop_requested = bool(record)
-    if record:
-        _set_state(STATE_RECONNECT_RECOVERY,
-                   'Reconnect recovery record found; game data is loading.')
-
-
-def bot_started():
-    global reconnect_stop_requested
-    if reconnect_recovery_pending:
-        reconnect_stop_requested = True
-        try:
-            stop_bot()
-        except Exception:
-            pass
-        _set_message('phBot auto-start detected; bot will be stopped for trade recovery.',
-                     True)
 
 
 def handle_chat(t, player, msg):
@@ -2631,7 +2295,6 @@ def handle_event(event_type, data):
     if not cycle_active:
         return
     if event_type == EVENT_DIED:
-        _clear_trade_recovery()
         pending_action = None
         cycle_armed = True
         death_teleport_received = False
@@ -2676,34 +2339,16 @@ def handle_event(event_type, data):
 
 
 def disconnected():
-    global trade_profile_active, cycle_active, reconnect_recovery_pending
-    global reconnect_recovery_deadline, reconnect_recovery_stable_reads
-    global reconnect_stop_requested
+    global trade_profile_active
     had_activity = cycle_active or sync_phase != 'IDLE'
     if had_activity:
         _send_telegram_notification(
             'disconnected', 'Aktif kervan veya sync sirasinda baglanti kesildi.',
             state)
-    recoverable_trade = bool(
-        cycle_active and state == STATE_RUNNING_TRADE and
-        _load_recovery_record())
-    if recoverable_trade:
-        _update_recovery_record(
-            disconnected_at=time.time(),
-            delivery_received=bool(trade_settled_received),
-            complete_received=bool(trade_command_received),
-            trade_profile_active=bool(trade_profile_active))
-        cycle_active = False
-        reconnect_recovery_pending = True
-        reconnect_recovery_deadline = 0.0
-        reconnect_recovery_stable_reads = 0
-        reconnect_stop_requested = True
-        _set_state(STATE_RECONNECT_RECOVERY,
-                   'Disconnected during trade; reconnect recovery is armed.')
-    elif cycle_active:
+    if cycle_active:
         _fail('Kervan dongusu sirasinda baglanti kesildi; otomatik devam iptal edildi.',
               False)
-        trade_profile_active = False
+    trade_profile_active = False
     _sync_reset('Disconnected; sync reset.')
 
 
@@ -2861,7 +2506,6 @@ def btn_abort_clicked():
     pending_action = None
     pending_transport_death_time = 0.0
     recovery_in_progress = False
-    _clear_trade_recovery()
     try:
         stop_script()
     except Exception:
@@ -3088,13 +2732,8 @@ def event_loop():
     if current_profile != profile_name:
         _load_profile()
 
-    if _poll_reconnect_recovery(now):
-        _refresh_status_panel()
-        return
-
     _refresh_status_panel()
     if cycle_active and state == STATE_RUNNING_TRADE:
-        _track_trade_script_progress()
         _poll_transport_load(now)
     _confirm_pending_transport_death(now)
 
@@ -3135,8 +2774,4 @@ _ensure_directories()
 _refresh_jobs()
 _refresh_scripts()
 _load_profile()
-if _load_recovery_record():
-    reconnect_recovery_pending = True
-    reconnect_recovery_deadline = time.time() + RECONNECT_RECOVERY_TIMEOUT
-    reconnect_stop_requested = True
 log('[%s] Loaded - ⚜ Made By FascinaTe' % pName)

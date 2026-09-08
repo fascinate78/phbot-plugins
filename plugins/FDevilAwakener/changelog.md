@@ -1,5 +1,13 @@
 # FDevilAwakener Changelog
 
+## v1.1.2
+
+### Improved
+- Added iSRO enhancement-result detection through the Devil's `get_inventory()` `plus` value after a matching successful `0xB04C` scroll response.
+
+### Fixed
+- Fixed unrelated slotless iSRO `0xB04C` errors such as `0x183E` and `0x185B` incorrectly stopping an accepted awakening request and interrupting Devil restoration.
+
 ## v1.1.1
 
 ### Improved

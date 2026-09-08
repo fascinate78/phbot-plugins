@@ -59,7 +59,7 @@ downloaded version.
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
 | [FControl](plugins/FControl/) | 1.9.1 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
-| [FDevilAwakener](plugins/FDevilAwakener/) | 1.1.1 | Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil's Spirit until it reaches the requested enhancement level. |
+| [FDevilAwakener](plugins/FDevilAwakener/) | 1.1.2 | Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil's Spirit until it reaches the requested enhancement level. |
 | [FEventAutomation](plugins/FEventAutomation/) | 1.0.1 | Automatically exchanges supported event items through Event So-Ok and opens Silkroad Boxes. |
 | [FExchangeManager](plugins/FExchangeManager/) | 1.7.1 | Automatically accepts exchange requests from trusted nearby players or optionally from all nearby guild members. |
 | [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |

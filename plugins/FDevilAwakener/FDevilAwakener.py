@@ -8,7 +8,7 @@ import webbrowser
 
 
 pName = 'FDevilAwakener'
-pVersion = '1.1.1'
+pVersion = '1.1.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 SUPPORTED_LOCALES = (18, 65)
@@ -26,6 +26,7 @@ DEVIL_EQUIPMENT_SLOT = 4
 ISRO_UNEQUIP_OPERATION = 0x23
 ISRO_EQUIP_OPERATION = 0x24
 ISRO_POST_MOVE_DELAY_SECONDS = 1.5
+ISRO_INVENTORY_SETTLE_SECONDS = 1.5
 ACTION_DELAY_SECONDS = 1.5
 RESULT_TIMEOUT_SECONDS = 8.0
 INVENTORY_REFRESH_SECONDS = 1.0
@@ -648,6 +649,7 @@ def event_loop():
     global last_inventory_refresh, next_action_time, workflow_phase
     global pending_devil_slot, pending_since, restore_required
     global completion_message, completion_color, completion_state
+    global last_plus, last_duration
     now = time.time()
     if not running:
         if now - last_inventory_refresh >= INVENTORY_REFRESH_SECONDS:
@@ -714,6 +716,34 @@ def event_loop():
         elif now - pending_since > RESULT_TIMEOUT_SECONDS:
             restore_required = False
             finish_after_restore(False)
+        return
+    if workflow_phase == 'inventory_result':
+        if now < next_action_time:
+            return
+        items = inventory_items()
+        devil = resolve_devil(items)
+        if not devil:
+            stop_process('Devil inventory result could not be read safely.',
+                         COLOR_ERROR, 'DEVIL LOST')
+            return
+        observed_plus = int(devil.get('plus') or 0)
+        # A random roll can legitimately return the previous value. Wait for
+        # phBot's inventory cache to settle, then accept the observed value.
+        if observed_plus == last_plus and now - pending_since < ISRO_INVENTORY_SETTLE_SECONDS:
+            next_action_time = now + 0.25
+            return
+        last_plus = observed_plus
+        last_duration = 10800
+        update_live_values(items)
+        if last_plus >= target_plus:
+            stop_process('Target reached: +%d from inventory data.' % last_plus,
+                         COLOR_SUCCESS, 'TARGET REACHED')
+        else:
+            workflow_phase = 'awakening'
+            next_action_time = now + ACTION_DELAY_SECONDS
+            set_state('RUNNING', COLOR_SUCCESS)
+            set_message('Inventory result +%d; target is +%d. Continuing...' %
+                        (last_plus, target_plus), COLOR_WARNING)
         return
     if waiting_result:
         if now - pending_since > RESULT_TIMEOUT_SECONDS:
@@ -784,7 +814,30 @@ def handle_joymax(opcode, data):
                 return True
         if not waiting_result:
             return True
-        if opcode == USE_ITEM_RESPONSE_OPCODE and len(data) >= 3 and data[0] == 2:
+        if (opcode == USE_ITEM_RESPONSE_OPCODE and get_locale() == ISRO_LOCALE and
+                len(data) >= 8 and data[0] == 1 and
+                data[1] == pending_scroll_slot and
+                bytes(data[4:8]) == AWAKENING_PAYLOAD_MIDDLE):
+            waiting_result = False
+            results_received += 1
+            workflow_phase = 'inventory_result'
+            pending_since = time.time()
+            next_action_time = pending_since + 0.25
+            remaining_scrolls = struct.unpack_from('<H', data, 2)[0]
+            set_state('READING RESULT', COLOR_WARNING)
+            set_message('Scroll accepted; reading Devil + from inventory (%d left)...' %
+                        remaining_scrolls, COLOR_WARNING)
+            update_live_values()
+        elif (opcode == USE_ITEM_RESPONSE_OPCODE and get_locale() == ISRO_LOCALE and
+              len(data) >= 3 and data[0] == 2):
+            # iSRO emits unrelated, slotless B04C errors such as 0x183E and
+            # 0x185B alongside accepted Awakening requests. They cannot be
+            # correlated to our scroll slot, so keep waiting for a matching
+            # success; the normal timeout remains the failure guard.
+            error_code = struct.unpack_from('<H', data, 1)[0]
+            plugin_log('Ignored uncorrelated iSRO B04C error 0x%04X while waiting.' %
+                       error_code)
+        elif opcode == USE_ITEM_RESPONSE_OPCODE and len(data) >= 3 and data[0] == 2:
             error_code = struct.unpack_from('<H', data, 1)[0]
             if error_code == DEVIL_INACTIVE_ERROR:
                 stop_process('Devil is inactive. Activate it before awakening.',

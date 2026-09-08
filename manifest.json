@@ -148,18 +148,17 @@
                     {
                         "id":  "FDevilAwakener",
                         "name":  "FDevilAwakener",
-                        "version":  "1.1.1",
+                        "version":  "1.1.2",
                         "core":  false,
                         "description":  "Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil\u0027s Spirit until it reaches the requested enhancement level.",
                         "changes":  [
-                                        "Updated the iSRO unequip request to calculate its changing final field from the current free normal-inventory slot count instead of using a fixed captured value.",
-                                        "Added an iSRO-specific item-use encryption profile and a longer post-unequip delay before the first awakening attempt.",
-                                        "Fixed restoration after an item-use rejection by prioritizing the exact inventory slot reported for the unequipped Devil, including when identical Devils make model-based lookup ambiguous."
+                                        "Added iSRO enhancement-result detection through the Devil\u0027s `get_inventory()` `plus` value after a matching successful `0xB04C` scroll response.",
+                                        "Fixed unrelated slotless iSRO `0xB04C` errors such as `0x183E` and `0x185B` incorrectly stopping an accepted awakening request and interrupting Devil restoration."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/changelog.md",
                         "install_path":  "FDevilAwakener.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/FDevilAwakener.py",
-                        "sha256":  "e44d64f49832d0c390022428f346fe56db332415d672f8cee29dfd0e652fae30"
+                        "sha256":  "740d371167537e6a01740f629d90a773889d565806c81b1b2432083ad2aaed76"
                     },
                     {
                         "id":  "FEventAutomation",

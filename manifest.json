@@ -87,16 +87,18 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.2.1",
+                        "version":  "3.2.3",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Fixed manually started script hunts not tracking or engaging their selected unique while walking the route."
+                                        "Hardened visible-target monitoring with isolated monster parsing, generation-based timer ownership, throttled diagnostics, and automatic retries after transient phBot API errors.",
+                                        "Fixed script hunts occasionally passing a visible active unique by adding a main event-loop engagement fallback shared with the timer monitor.",
+                                        "Fixed script-route hunts resuming their assigned Training Script after engaging a visible target, which could overwrite the target area and continue walking."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "520f671e137153c5c0774eeb6cc328c9a4ed19002ef900af93c123a47e7d0358"
+                        "sha256":  "144d5f1c30a92f8cf06aa660e510e339322e24be419ebcdd263921556e1c583c"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -163,17 +165,18 @@
                     {
                         "id":  "FDevilAwakener",
                         "name":  "FDevilAwakener",
-                        "version":  "1.1.2",
+                        "version":  "1.1.3",
                         "core":  false,
                         "description":  "Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil\u0027s Spirit until it reaches the requested enhancement level.",
                         "changes":  [
-                                        "Added iSRO enhancement-result detection through the Devil\u0027s `get_inventory()` `plus` value after a matching successful `0xB04C` scroll response.",
-                                        "Fixed unrelated slotless iSRO `0xB04C` errors such as `0x183E` and `0x185B` incorrectly stopping an accepted awakening request and interrupting Devil restoration."
+                                        "Fixed equipped-only mode incorrectly searching normal `get_inventory()` slot 4 for a Devil that phBot does not expose until it is unequipped.",
+                                        "Fixed unequip destination handling by treating the successful `0xB034` destination as authoritative instead of deriving it from the request\u0027s changing final byte.",
+                                        "Added post-unequip item verification so scrolls are used only after the item appearing in the reported inventory slot is confirmed as a supported Devil; other avatar items are restored immediately."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/changelog.md",
                         "install_path":  "FDevilAwakener.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FDevilAwakener/FDevilAwakener.py",
-                        "sha256":  "740d371167537e6a01740f629d90a773889d565806c81b1b2432083ad2aaed76"
+                        "sha256":  "315daa8753b3cbe58422d21d186e483442f8bf0d6511146367a0fac4c5cc4e29"
                     },
                     {
                         "id":  "FEventAutomation",
@@ -280,18 +283,17 @@
                     {
                         "id":  "FScriptHelper",
                         "name":  "FScriptHelper",
-                        "version":  "1.1.1",
+                        "version":  "1.2.0",
                         "core":  true,
-                        "description":  "Records and replays NPC interactions as reusable script commands.",
+                        "description":  "Records NPC interactions and replays them from phBot scripts.",
                         "changes":  [
-                                        "Improved header spacing and shortened translated text to prevent clipping.",
-                                        "Aligned the record and command action buttons into consistent columns.",
-                                        "Wrapped the recording instructions and simplified nearby NPC rows for readability."
+                                        "Added recording triggers for `0x7C45` selections and original-UID replay when NPC metadata is unavailable.",
+                                        "Removed the default opcode filter so outgoing NPC dialog and other interaction packets are captured without enabling advanced recording."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/changelog.md",
                         "install_path":  "FScriptHelper.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/FScriptHelper.py",
-                        "sha256":  "0466341ea2b05f69664b24901a8a440f6ee8adb4287c4e11e26417788ae46d1c"
+                        "sha256":  "761df09fdca49e72c75c95a5771a42ea2740b721ffe129078316dcc75e3c0ce9"
                     },
                     {
                         "id":  "FSereness",
@@ -320,6 +322,24 @@
                         "install_path":  "FShining.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FShining/FShining.py",
                         "sha256":  "2e0b034c5a71ec73faae037c633721bac78eb82024b2f83c301d1b5de02d4b71"
+                    },
+                    {
+                        "id":  "FSilkroadBox",
+                        "name":  "FSilkroadBox",
+                        "version":  "1.0.0",
+                        "core":  false,
+                        "description":  "Opens Silkroad Boxes automatically from selected inventory pages in sequential or random order.",
+                        "changes":  [
+                                        "Added automatic discovery and opening of `ITEM_PRE_MALL_SILKROAD_BOX` items.",
+                                        "Added inventory page selection for all available pages or one specific page.",
+                                        "Added sequential and random opening modes.",
+                                        "Added a configurable opening delay with a default of 250 ms.",
+                                        "Added live progress, activity logging, manual stop, and disconnect-safe cancellation."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSilkroadBox/changelog.md",
+                        "install_path":  "FSilkroadBox.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSilkroadBox/FSilkroadBox.py",
+                        "sha256":  "080aa71e9bd16b259eb87e4baf7e71f87147704b30aa0829d710788d09faac3c"
                     },
                     {
                         "id":  "FSroRAutoTrade",

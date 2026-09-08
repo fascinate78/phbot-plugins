@@ -1,5 +1,14 @@
 # FDevilAwakener Changelog
 
+## v1.1.3
+
+### Fixed
+- Fixed equipped-only mode incorrectly searching normal `get_inventory()` slot 4 for a Devil that phBot does not expose until it is unequipped.
+- Fixed unequip destination handling by treating the successful `0xB034` destination as authoritative instead of deriving it from the request's changing final byte.
+
+### Improved
+- Added post-unequip item verification so scrolls are used only after the item appearing in the reported inventory slot is confirmed as a supported Devil; other avatar items are restored immediately.
+
 ## v1.1.2
 
 ### Improved

@@ -1,5 +1,13 @@
 # FScriptHelper Changelog
 
+## v1.2.0
+
+### Added
+- Added recording triggers for `0x7C45` selections and original-UID replay when NPC metadata is unavailable.
+
+### Fixed
+- Removed the default opcode filter so outgoing NPC dialog and other interaction packets are captured without enabling advanced recording.
+
 ## v1.1.1
 
 - Improved header spacing and shortened translated text to prevent clipping.

@@ -8,7 +8,7 @@ import webbrowser
 
 
 pName = 'FDevilAwakener'
-pVersion = '1.1.2'
+pVersion = '1.1.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 SUPPORTED_LOCALES = (18, 65)
@@ -25,6 +25,7 @@ MOVE_ITEM_RESPONSE_OPCODE = 0xB034
 DEVIL_EQUIPMENT_SLOT = 4
 ISRO_UNEQUIP_OPERATION = 0x23
 ISRO_EQUIP_OPERATION = 0x24
+ISRO_UNEQUIP_PARAMETER = 0x23
 ISRO_POST_MOVE_DELAY_SECONDS = 1.5
 ISRO_INVENTORY_SETTLE_SECONDS = 1.5
 ACTION_DELAY_SECONDS = 1.5
@@ -152,18 +153,14 @@ def first_normal_inventory_slot():
     return 17 if get_locale() == ISRO_LOCALE else 13
 
 
-def empty_normal_inventory_slots(items):
-    first_slot = first_normal_inventory_slot()
-    return sum(1 for slot in range(first_slot, len(items)) if not items[slot])
-
-
 def resolve_restore_slot(items):
     # B034 supplies the exact slot used by the Devil that this run unequipped.
     # Prefer it over a model search, which is ambiguous with duplicate Devils.
-    if (pending_devil_slot >= first_normal_inventory_slot() and
-            pending_devil_slot < len(items) and
-            identity_matches(items[pending_devil_slot], original_devil_identity)):
-        return pending_devil_slot
+    if pending_devil_slot >= first_normal_inventory_slot() and pending_devil_slot < len(items):
+        if original_devil_identity is None:
+            return pending_devil_slot
+        if identity_matches(items[pending_devil_slot], original_devil_identity):
+            return pending_devil_slot
     return find_identity_in_inventory(items, original_devil_identity)
 
 
@@ -560,20 +557,10 @@ def start_clicked():
         restore_required = False
         original_devil_identity = None
         if equipped_only_run:
-            if len(items) <= DEVIL_EQUIPMENT_SLOT or not is_devil(items[DEVIL_EQUIPMENT_SLOT]):
-                set_state('EQUIPPED DEVIL NOT FOUND', COLOR_ERROR)
-                set_message('No Devil is equipped in slot 4.', COLOR_ERROR)
-                equipped_only_run = False
-                return
-            free_slots = empty_normal_inventory_slots(items)
-            if free_slots <= 0:
-                set_state('INVENTORY FULL', COLOR_ERROR)
-                set_message('A free inventory slot is required to unequip the Devil.', COLOR_ERROR)
-                equipped_only_run = False
-                return
-            equipped_item = items[DEVIL_EQUIPMENT_SLOT]
-            original_devil_identity = item_identity(DEVIL_EQUIPMENT_SLOT, equipped_item)
-            last_plus = int(equipped_item.get('plus') or 0)
+            # phBot does not expose the equipped Devil/avatar through
+            # get_inventory(). It becomes visible only after a successful
+            # 0x23 unequip response, so identity and plus are verified then.
+            last_plus = 0
             devil = None
         else:
             devil = resolve_devil(items)
@@ -587,11 +574,11 @@ def start_clicked():
         running = True
         next_action_time = time.time()
         if equipped_only_run:
-            update_devil_label('%s (equipped)' % original_devil_identity['name'])
+            update_devil_label('Avatar slot 4 (verifying)')
         else:
             update_devil_label('%s (slot %d)' % (devil['name'], devil['slot']))
         update_live_values(items)
-        if last_plus >= target_plus:
+        if not equipped_only_run and last_plus >= target_plus:
             restore_required = False
             equipped_only_run = False
             stop_process('Target already reached at +%d.' % last_plus, COLOR_SUCCESS, 'TARGET REACHED')
@@ -603,11 +590,10 @@ def start_clicked():
             inject_joymax(
                 MOVE_ITEM_OPCODE,
                 bytes([ISRO_UNEQUIP_OPERATION, DEVIL_EQUIPMENT_SLOT,
-                       min(255, free_slots)]),
+                       ISRO_UNEQUIP_PARAMETER]),
                 False)
             set_state('UNEQUIPPING DEVIL', COLOR_WARNING)
-            set_message('Removing Devil with %d free inventory slot(s)...' % free_slots,
-                        COLOR_WARNING)
+            set_message('Removing and verifying avatar slot 4...', COLOR_WARNING)
         else:
             workflow_phase = 'awakening'
             set_state('RUNNING', COLOR_SUCCESS)
@@ -650,6 +636,7 @@ def event_loop():
     global pending_devil_slot, pending_since, restore_required
     global completion_message, completion_color, completion_state
     global last_plus, last_duration
+    global original_devil_identity
     now = time.time()
     if not running:
         if now - last_inventory_refresh >= INVENTORY_REFRESH_SECONDS:
@@ -658,7 +645,8 @@ def event_loop():
         return
     if workflow_phase in ('unequipping', 'cancel_after_unequip'):
         items = inventory_items()
-        moved_slot = find_identity_in_inventory(items, original_devil_identity)
+        moved_slot = (-1 if original_devil_identity is None else
+                      find_identity_in_inventory(items, original_devil_identity))
         if moved_slot >= 0:
             pending_devil_slot = moved_slot
             update_devil_label('%s (slot %d)' %
@@ -674,6 +662,11 @@ def event_loop():
                 set_message('Equipped Devil removed; awakening will begin.', COLOR_SUCCESS)
             return
         if now - pending_since > RESULT_TIMEOUT_SECONDS:
+            if original_devil_identity is None:
+                restore_required = False
+                stop_process('Unequip response timed out; check avatar slot 4 manually.',
+                             COLOR_ERROR, 'UNEQUIP TIMEOUT')
+                return
             restore_required_now = (len(items) > DEVIL_EQUIPMENT_SLOT and
                                     identity_matches(items[DEVIL_EQUIPMENT_SLOT],
                                                      original_devil_identity))
@@ -685,6 +678,46 @@ def event_loop():
                 finish_after_restore(True)
             else:
                 stop_process('Timed out while removing the equipped Devil.', COLOR_ERROR, 'TIMEOUT')
+        return
+    if workflow_phase == 'verify_unequipped':
+        items = inventory_items()
+        if pending_devil_slot < 0 or pending_devil_slot >= len(items):
+            restore_required = False
+            stop_process('Server returned an invalid unequip destination.',
+                         COLOR_ERROR, 'INVALID SLOT')
+            return
+        moved_item = items[pending_devil_slot]
+        if not moved_item:
+            if now - pending_since <= RESULT_TIMEOUT_SECONDS:
+                return
+            completion_message = 'Unequipped avatar was not visible in inventory.'
+            completion_color = COLOR_ERROR
+            completion_state = 'VERIFY TIMEOUT'
+            workflow_phase = 'restore_pending'
+            return
+        original_devil_identity = item_identity(pending_devil_slot, moved_item)
+        if not is_devil(moved_item):
+            completion_message = 'Equipped avatar is not a supported Devil.'
+            completion_color = COLOR_ERROR
+            completion_state = 'NOT A DEVIL'
+            workflow_phase = 'restore_pending'
+            set_state('RESTORING AVATAR', COLOR_WARNING)
+            set_message('Slot 4 item is not a Devil; restoring it...', COLOR_WARNING)
+            return
+        last_plus = int(moved_item.get('plus') or 0)
+        update_devil_label('%s (slot %d)' %
+                           (original_devil_identity['name'], pending_devil_slot))
+        update_live_values(items)
+        if last_plus >= target_plus:
+            completion_message = 'Target already reached at +%d.' % last_plus
+            completion_color = COLOR_SUCCESS
+            completion_state = 'TARGET REACHED'
+            workflow_phase = 'restore_pending'
+            return
+        workflow_phase = 'awakening'
+        next_action_time = now + ISRO_POST_MOVE_DELAY_SECONDS
+        set_state('RUNNING', COLOR_SUCCESS)
+        set_message('Equipped Devil verified; awakening will begin.', COLOR_SUCCESS)
         return
     if workflow_phase == 'restore_pending':
         items = inventory_items()
@@ -787,17 +820,16 @@ def handle_joymax(opcode, data):
                     data[1] == ISRO_UNEQUIP_OPERATION):
                 if data[0] == 1 and len(data) >= 4:
                     pending_devil_slot = data[3]
-                    update_devil_label('%s (slot %d)' %
-                                       (original_devil_identity['name'], pending_devil_slot))
                     if workflow_phase == 'cancel_after_unequip':
                         workflow_phase = 'restore_pending'
                         set_state('RESTORING DEVIL', COLOR_WARNING)
                         set_message('Stop confirmed; restoring the Devil...', COLOR_WARNING)
                     else:
-                        workflow_phase = 'awakening'
-                        next_action_time = time.time() + ISRO_POST_MOVE_DELAY_SECONDS
-                        set_state('RUNNING', COLOR_SUCCESS)
-                        set_message('Equipped Devil removed; awakening will begin.', COLOR_SUCCESS)
+                        workflow_phase = 'verify_unequipped'
+                        pending_since = time.time()
+                        update_devil_label('Inventory slot %d (verifying)' % pending_devil_slot)
+                        set_state('VERIFYING DEVIL', COLOR_WARNING)
+                        set_message('Reading the unequipped slot from inventory...', COLOR_WARNING)
                 else:
                     restore_required = False
                     stop_process('Server rejected the Devil unequip request.',

@@ -1,5 +1,14 @@
 # FAutoUnique V2 Changelog
 
+## v3.2.3
+
+### Improved
+- Hardened visible-target monitoring with isolated monster parsing, generation-based timer ownership, throttled diagnostics, and automatic retries after transient phBot API errors.
+
+### Fixed
+- Fixed script hunts occasionally passing a visible active unique by adding a main event-loop engagement fallback shared with the timer monitor.
+- Fixed script-route hunts resuming their assigned Training Script after engaging a visible target, which could overwrite the target area and continue walking.
+
 ## v3.2.1
 
 ### Fixed

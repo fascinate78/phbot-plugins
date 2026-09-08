@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.2.1'
+pVersion = '3.2.3'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -237,6 +237,8 @@ last_check_time = 0
 check_interval = 1.0
 debug_enabled = False
 attack_timer = None
+attack_run_token = 0
+attack_engaged_target = None
 loot_timer = None
 current_active_unique = None
 unique_queue = []
@@ -830,11 +832,18 @@ def _find_visible_unique(unique_name):
     px = float(character_position.get('x', 0) or 0)
     py = float(character_position.get('y', 0) or 0)
     for monster_id, monster in (phBot.get_monsters() or {}).items():
-        if not _is_unique_match(unique_name, monster.get('name', '')):
-            continue
-        distance = _distance_2d(px, py, monster.get('x', 0), monster.get('y', 0))
-        if best is None or distance < best[0]:
-            best = (distance, monster_id, monster)
+        try:
+            if not isinstance(monster, dict):
+                continue
+            monster_name = str(monster.get('name') or '').strip()
+            if not _is_unique_match(str(unique_name or ''), monster_name):
+                continue
+            distance = _distance_2d(px, py, monster.get('x', 0), monster.get('y', 0))
+            if best is None or distance < best[0]:
+                best = (distance, monster_id, monster)
+        except Exception as error:
+            if debug_enabled:
+                log('[Visible Target] Skipped monster %s: %s' % (monster_id, error))
     return best
 
 def add_nearby_unique_position():
@@ -2379,61 +2388,108 @@ def get_timeout_seconds():
         return 1200
     except: return 1200
 
+def _engage_visible_script_target(unique_name, monster_id, monster, source='Attack Monitor'):
+    """Engage an active script target once, regardless of which monitor found it."""
+    global attack_engaged_target, script_finished
+    target_key = str(unique_name or '').strip().lower()
+    if not target_key or not isinstance(monster, dict):
+        return False
+    with _state_lock:
+        if (not plugin_active or not current_active_unique or
+                current_active_unique.strip().lower() != target_key or
+                attack_engaged_target == target_key):
+            return False
+        attack_engaged_target = target_key
+        script_finished = True
+
+    monster_name = str(monster.get('name') or unique_name).strip()
+    log('[Engage] Found %s via %s -> stop script, set training pos, start bot' %
+        (monster_name, source))
+    try: phBot.stop_script()
+    except: pass
+    try: phBot.stop_bot()
+    except: pass
+    try:
+        # Script-route hunts also assign this file as phBot's Training Script.
+        # stop_script() only stops the current runner; start_bot() would execute
+        # the assigned route again unless it is cleared before the target area
+        # is configured.
+        set_training_script('')
+        mx = float(monster.get('x', 0) or 0)
+        my = float(monster.get('y', 0) or 0)
+        region = int(monster.get('region', 0) or 0)
+        if region == 0:
+            position = phBot.get_position() or {}
+            region = int(position.get('region', 0) or 0)
+        if region == 0:
+            raise ValueError('monster and character region are unavailable')
+        position_set = set_training_position(region, mx, my, 0.0)
+        set_training_radius(UNIQUE_TRAINING_RADIUS)
+        if position_set is False:
+            log('[Engage] Training position could not be set; select an active Training Area')
+        phBot.start_bot()
+        log('[Engage] Training area set to (%.0f,%.0f) region=%d UID=%s' %
+            (mx, my, region, monster_id))
+        return True
+    except Exception as error:
+        log('[Engage] Could not start combat for %s: %s' % (monster_name, error))
+        with _state_lock:
+            if attack_engaged_target == target_key:
+                attack_engaged_target = None
+        return False
+
+
 def start_attack_loop():
-    global attack_timer, unique_not_found_count, script_finished
-    if attack_timer: attack_timer.cancel()
+    global attack_timer, attack_run_token, attack_engaged_target
+    global unique_not_found_count, script_finished
+    if attack_timer:
+        attack_timer.cancel()
+    attack_run_token += 1
+    token = attack_run_token
+    attack_engaged_target = None
     unique_not_found_count = 0
     script_finished = False
-    engaged = [False]        # Ensure the engage setup runs only once.
     lost_after_engage = [0]  # Consecutive missing ticks after engagement.
+    diagnostics = {'error': 0.0, 'heartbeat': 0.0, 'tracking': 0.0}
 
     def attack_tick():
         global attack_timer, unique_not_found_count, script_finished, current_active_unique
-        if not current_active_unique or not plugin_active: return
+        if token != attack_run_token or not current_active_unique or not plugin_active:
+            return
         try:
-            monsters = phBot.get_monsters()
+            monsters = phBot.get_monsters() or {}
             unique_found = False
-            target_name = current_active_unique.lower()
+            target_name = str(current_active_unique or '').strip()
             if monsters:
                 for monster_id, monster in monsters.items():
-                    monster_name = monster.get('name', '').lower()
-                    if _is_unique_match(target_name, monster_name):
+                    try:
+                        if not isinstance(monster, dict):
+                            continue
+                        monster_name = str(monster.get('name') or '').strip()
+                        if not _is_unique_match(target_name, monster_name):
+                            continue
                         unique_found = True
                         unique_not_found_count = 0
                         lost_after_engage[0] = 0
-
-                        # On first contact, stop the route and center the training area on the target.
-                        if not engaged[0]:
-                            engaged[0] = True
-                            script_finished = True
-                            log(f"[Engage] Found {monster.get('name')} -> stop script, set training pos, start bot")
-                            try: phBot.stop_script()
-                            except: pass
-                            try: phBot.stop_bot()
-                            except: pass
-                            try:
-                                mx = float(monster.get('x', 0))
-                                my = float(monster.get('y', 0))
-                                region = int(monster.get('region', 0) or 0)
-                                if region == 0:
-                                    pos = phBot.get_position()
-                                    if pos: region = int(pos.get('region', 0) or 0)
-                                if region != 0:
-                                    # Bos training script vermek area'yi resetledigi icin
-                                    # burada yalnizca koordinat ve radius degistirilir.
-                                    position_set = set_training_position(region, mx, my, 0.0)
-                                    radius_set = set_training_radius(UNIQUE_TRAINING_RADIUS)
-                                    if position_set is False:
-                                        log("[Engage] Training position ayarlanamadi; aktif Training Area secili mi?")
-                                    phBot.start_bot()
-                                    log(f"[Engage] Training area set to ({mx:.0f},{my:.0f}) region={region}")
-                            except Exception as e:
-                                if debug_enabled: log(f"[Engage] error: {e}")
-
-                        # phBot selects the unique through its own target settings.
-                        # There is no public set_target/attack_monster plugin API.
-                        if debug_enabled: log(f"Tracking {monster.get('name')}")
+                        _engage_visible_script_target(
+                            target_name, monster_id, monster, 'Attack Monitor')
+                        now = time.time()
+                        if debug_enabled and now - diagnostics['tracking'] >= 2.0:
+                            diagnostics['tracking'] = now
+                            log('Tracking %s (UID=%s)' % (monster_name, monster_id))
                         break
+                    except Exception as monster_error:
+                        now = time.time()
+                        if debug_enabled and now - diagnostics['error'] >= 3.0:
+                            diagnostics['error'] = now
+                            log('[Attack Monitor] Skipped monster %s: %s' %
+                                (monster_id, monster_error))
+
+            now = time.time()
+            if debug_enabled and now - diagnostics['heartbeat'] >= 3.0:
+                diagnostics['heartbeat'] = now
+                log('[Attack Monitor] target=%s visible=%d matched=%s token=%d' %
+                    (target_name, len(monsters), unique_found, token))
 
             if not unique_found:
                 # ===== GENEL TIMEOUT: script_finished ÅŸartÄ± olmadan hunt baÅŸÄ±ndan beri sayar =====
@@ -2451,16 +2507,20 @@ def start_attack_loop():
                 # (muhtemelen Ã¶ldÃ¼ ama chat/packet death tespiti bunu yakalamadÄ±) â†’ tam
                 # timeout sÃ¼resini (dakikalarca) beklemeden kÄ±sa bir grace period sonunda
                 # Ã¶lmÃ¼ÅŸ gibi davranÄ±p loot bekle + ÅŸehre dÃ¶n akÄ±ÅŸÄ±nÄ± tetikle.
-                if engaged[0]:
+                if attack_engaged_target == target_name.lower():
                     lost_after_engage[0] += 1
                     grace_attempts = LOST_TARGET_GRACE_SEC / 0.1
                     if lost_after_engage[0] >= grace_attempts:
                         log(f"[LostTarget] {current_active_unique} disappeared after engage -> assuming dead, returning.")
                         handle_presumed_death()
                         return
-        except: pass
+        except Exception as error:
+            now = time.time()
+            if now - diagnostics['error'] >= 3.0:
+                diagnostics['error'] = now
+                log('[Attack Monitor] Error: %s; retrying' % error)
 
-        if current_active_unique and plugin_active:
+        if token == attack_run_token and current_active_unique and plugin_active:
             attack_timer = threading.Timer(0.1, attack_tick)
             attack_timer.start()
 
@@ -2504,7 +2564,9 @@ def handle_presumed_death():
         bot_state = 'IDLE'
 
 def stop_attack_loop():
-    global attack_timer
+    global attack_timer, attack_run_token, attack_engaged_target
+    attack_run_token += 1
+    attack_engaged_target = None
     if attack_timer:
         attack_timer.cancel()
         attack_timer = None
@@ -3534,6 +3596,21 @@ def event_loop():
     """Learn one spawn point per visible unique instance when enabled."""
     # Keep GUI-only runtime labels synchronized without changing hunt state.
     refresh_runtime_dashboard()
+
+    # Main-thread fallback for script hunts. Some phBot builds can transiently
+    # fail get_monsters() from a Timer thread; never let that make us walk past
+    # the selected target.
+    if (plugin_active and current_active_unique and bot_state == 'HUNTING' and
+            not coordinate_hunt and attack_engaged_target is None):
+        try:
+            visible = _find_visible_unique(current_active_unique)
+            if visible:
+                _engage_visible_script_target(
+                    current_active_unique, visible[1], visible[2], 'Event Loop Fallback')
+        except Exception as error:
+            if debug_enabled:
+                log('[Attack Fallback] Visible target check error: %s' % error)
+
     if not auto_learn_coordinates:
         return
     try:

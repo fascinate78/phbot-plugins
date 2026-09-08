@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FScriptHelper'
-pVersion = '1.1.1'
+pVersion = '1.2.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 DEFAULT_LANGUAGE = 'en'
@@ -27,7 +27,7 @@ TEXT = {
         'record_name': 'Record name',
         'start_recording': '● Start Recording',
         'finish_recording': '■ Save & Finish',
-        'raw_packets': 'Record all C→S packets (advanced)',
+        'raw_packets': 'Recording: all C→S packets',
         'record_help': 'Start recording and click the target NPC.<br>Then perform the actions in game.',
         'saved_commands': '▣ SAVED NPC COMMANDS',
         'record_count': '%d records',
@@ -78,7 +78,7 @@ TEXT = {
         'record_name': 'Kayıt adı',
         'start_recording': '● Kaydı Başlat',
         'finish_recording': '■ Kaydet & Bitir',
-        'raw_packets': 'Tüm C→S paketlerini kaydet (gelişmiş)',
+        'raw_packets': 'Kayıt: tüm C→S paketleri',
         'record_help': 'Kaydı başlatıp hedef NPC’ye tıklayın.<br>Ardından oyun içindeki işlemleri yapın.',
         'saved_commands': '▣ KAYITLI NPC KOMUTLARI',
         'record_count': '%d kayıt',
@@ -133,19 +133,6 @@ STATE_IDLE = 'IDLE'
 STATE_RECORDING = 'RECORDING'
 STATE_PLAYING = 'PLAYING'
 
-# NPC etkileşimlerinde yaygın kullanılan C->S paketleri. "Ham paketler" seçeneği
-# kapalıyken hareket, chat ve savaş paketlerinin yanlışlıkla kaydı engellenir.
-NPC_OPCODES = set([
-    0x7034,                         # inventory operation (buy/sell/move)
-    0x7045, 0x7046,                # select / deselect entity
-    0x704B, 0x704C, 0x704D, 0x704E, 0x704F,
-    0x7050, 0x7051, 0x7052, 0x7053, 0x7054, 0x7055,
-    0x7056, 0x7057, 0x7058, 0x7059, 0x705A,
-    0x7068, 0x7069, 0x706A,        # storage-related variants
-    0x70B1, 0x70B2, 0x70B3, 0x70B4,
-    0x70D3, 0x70D4, 0x70D5, 0x70D6,
-    0x7112, 0x7113, 0x7114, 0x7115
-])
 MAX_PACKETS = 100
 MAX_PACKET_BYTES = 4096
 MAX_DELAY_MS = 10000
@@ -479,7 +466,12 @@ def play_command(name, stop_during=True, from_script=False):
         _set_status('error', 'record_invalid', color=COLOR_DANGER)
         _log('Kayıt geçersiz, çalıştırılamadı: %s' % name)
         return False
-    found = _find_live_npc(command['npc'])
+    if command['npc'].get('raw_selection'):
+        # Without metadata, replay the original UID like ScriptCommands.
+        found = (int(command['npc']['uid']), command['npc'])
+        _log('NPC metadata unavailable; replaying the recorded UID unchanged.')
+    else:
+        found = _find_live_npc(command['npc'])
     if not found:
         _set_status('error', 'npc_not_nearby', color=COLOR_DANGER)
         _log('NPC bulunamadı: %s' % command['npc'].get('name', '?'))
@@ -553,17 +545,22 @@ def handle_silkroad(opcode, data):
         raw = bytes(data)
 
         # Kayıt başladıktan sonra oyun içindeki ilk NPC tıklaması hedefi belirler.
-        # Oyuncu/monster gibi NPC listesinde olmayan entity seçimleri yok sayılır.
+        # NPC metadata is optional, as in ScriptCommands.
         if record_npc is None:
-            if opcode != 0x7045 or len(raw) < 4:
+            if opcode not in (0x7045, 0x7C45) or len(raw) < 4:
                 return True
             selected_uid = struct.unpack_from('<I', raw, 0)[0]
-            npc = (get_npcs() or {}).get(selected_uid)
+            try:
+                npc = (get_npcs() or {}).get(selected_uid)
+            except Exception:
+                npc = None
+            record_npc = _npc_identity(selected_uid, npc or {})
             if npc is None:
-                return True
-            record_npc = _npc_identity(selected_uid, npc)
+                record_npc['raw_selection'] = True
+                record_npc['name'] = 'UID %d' % selected_uid
+                _log('NPC metadata unavailable; recording the original selection UID.')
             recorded_packets.append({
-                'opcode': 0x7045,
+                'opcode': int(opcode),
                 'data': _to_hex(raw),
                 'delay_ms': 0
             })
@@ -576,8 +573,6 @@ def handle_silkroad(opcode, data):
         if len(recorded_packets) >= MAX_PACKETS:
             _log('Paket sınırına ulaşıldı; kayıt otomatik tamamlanıyor.')
             finish_recording()
-            return True
-        if not QtBind.isChecked(gui, cbxRawPackets) and opcode not in NPC_OPCODES:
             return True
         if len(raw) > MAX_PACKET_BYTES:
             _log('Çok büyük paket atlandı: 0x%04X' % opcode)
@@ -690,7 +685,7 @@ def apply_gui_language():
                    (COLOR_MUTED, tr('record_name')))
     QtBind.setText(gui, btnStart, tr('start_recording'))
     QtBind.setText(gui, btnFinish, tr('finish_recording'))
-    QtBind.setText(gui, cbxRawPackets, tr('raw_packets'))
+    QtBind.setText(gui, lblRecordingMode, fixed_width_text(tr('raw_packets'), 256))
     QtBind.setText(gui, lblRecordHelp,
                    '<table width="270"><tr><td><font color="%s">%s</font></td></tr></table>' %
                    (COLOR_MUTED, tr('record_help')))
@@ -744,8 +739,8 @@ lblRecordName = QtBind.createLabel(gui, '', 452, 65)
 tbxName = QtBind.createLineEdit(gui, '', 535, 60, 188, 22)
 btnStart = QtBind.createButton(gui, 'start_recording', '', 452, 88)
 btnFinish = QtBind.createButton(gui, 'finish_recording', '', 590, 88)
-cbxRawPackets = QtBind.createCheckBox(gui, 'noop_checked', '', 452, 119)
-QtBind.setChecked(gui, cbxRawPackets, False)
+lblRecordingMode = QtBind.createLabel(
+    gui, fixed_width_text(tr('raw_packets'), 256), 452, 119)
 lblRecordHelp = QtBind.createLabel(gui, '', 452, 143)
 
 QtBind.createLineEdit(gui, '', 12, 188, 716, 1)

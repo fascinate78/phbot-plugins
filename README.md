@@ -51,9 +51,10 @@ downloaded version.
 | Plugin | Version | Description |
 |---|---:|---|
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog. |
+| [FAutoCaptcha](plugins/FAutoCaptcha/) | 1.0.1 | Automatically captures and periodically replays MaxiGuard's server-specific 0xC011 packet. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
 | [FAutoHWT](plugins/FAutoHWT/) | 0.7.2 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
-| [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.0 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
+| [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.1 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
 | [FAutoUnique V2](plugins/FAutoUnique/) | 3.2.1 | Hunts unique monsters through prioritized script or learned coordinate routes. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
 | [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |

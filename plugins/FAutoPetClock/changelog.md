@@ -1,5 +1,14 @@
 # FAutoPetClock Changelog
 
+## v1.5.1
+
+### Fixed
+- Stopped unrelated item-use replies from filling the log, including while monitoring is disabled or paused.
+- Limited repeated monitoring errors and summon-test blocking warnings to one message per category every 60 seconds.
+
+### Added
+- Added an optional source-level packet debug switch, disabled by default, for Clock and summon-test diagnostics.
+
 ## v1.5.0
 
 ### Improved

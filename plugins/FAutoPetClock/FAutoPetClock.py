@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FAutoPetClock'
-pVersion = '1.5.0'
+pVersion = '1.5.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -34,6 +34,11 @@ DEFAULT_SETTINGS = {
     'scan_interval_seconds': 10,
     'clock_priority': 'Shortest duration first'
 }
+
+# Enable temporarily when diagnosing Clock packets; disabled for normal use.
+DEBUG_PACKET_LOGGING = False
+REPEATED_LOG_INTERVAL_SECONDS = 60.0
+last_diagnostic_logs = {}
 
 RESPONSE_TIMEOUT_SECONDS = 10.0
 VERIFY_TIMEOUT_SECONDS = 12.0
@@ -242,6 +247,23 @@ CUSTOM_PANEL_LAYOUT = (
 
 def plugin_log(message):
     log('[%s] %s' % (pName, message))
+
+
+def diagnostic_log(key, message, activity=False):
+    now = time.monotonic()
+    previous = last_diagnostic_logs.get(key)
+    if previous is not None and now - previous < REPEATED_LOG_INTERVAL_SECONDS:
+        return
+    last_diagnostic_logs[key] = now
+    if activity:
+        add_activity(message)
+    else:
+        plugin_log(message)
+
+
+def debug_packet(message):
+    if DEBUG_PACKET_LOGGING:
+        add_activity(message)
 
 
 def set_status(message, color=COLOR_MUTED):
@@ -579,7 +601,7 @@ def active_pick_pets():
                 entry['id'] = int(pet_id)
                 result.append(entry)
     except Exception as error:
-        plugin_log('Active Pick Pet inspection error: %s' % error)
+        diagnostic_log('active-pet-error', 'Active Pick Pet inspection error: %s' % error)
     return result
 
 
@@ -705,7 +727,8 @@ def begin_summon_test_cycle(pets, manual_only=False):
 
     active = active_pick_pets()
     if len(active) > 1:
-        add_activity('Summon test stopped: multiple active Pick Pets detected.')
+        diagnostic_log('multiple-active-pets',
+                       'Summon test stopped: multiple active Pick Pets detected.', True)
         return False
 
     original = None
@@ -714,8 +737,9 @@ def begin_summon_test_cycle(pets, manual_only=False):
                    if summon_tail_for(item)
                    if active_pet_matches_item(active[0], item)]
         if not matches:
-            add_activity(
-                'Summon test stopped: active Pick Pet cannot be restored safely.')
+            diagnostic_log(
+                'unrestorable-active-pet',
+                'Summon test stopped: active Pick Pet cannot be restored safely.', True)
             return False
         original = dict(matches[0])
         summon_test_states[target_key(original)] = 'alive'
@@ -864,7 +888,7 @@ def scan_inventory():
                             or is_configured_custom_pet_servername(servername)):
                 active_pet_keys.append(pet_key)
     except Exception as error:
-        plugin_log('Active Pick Pet inspection error: %s' % error)
+        diagnostic_log('active-pet-error', 'Active Pick Pet inspection error: %s' % error)
 
     for item in pets:
         scroll_key = pick_pet_server_key(item.get('servername'))
@@ -1073,10 +1097,10 @@ def start_clock_operation(target, clock):
     set_status('WAITING FOR SERVER', COLOR_WARNING)
     set_current('%s (slot %d)' %
                 (pending_operation['pet_name'], pet_slot), COLOR_WARNING)
-    add_activity('Requested %s for %s (slots %d -> %d, packet %s).' %
+    add_activity('Requested %s for %s (slots %d -> %d).' %
                  (pending_operation['clock_name'], pending_operation['pet_name'],
-                  clock_slot, pet_slot,
-                  ' '.join('%02X' % value for value in packet)))
+                  clock_slot, pet_slot))
+    debug_packet('CLOCK REQUEST 0x704C: %s' % packet_hex(packet))
     return True
 
 
@@ -1330,23 +1354,23 @@ def disconnected():
 
 
 def handle_silkroad(opcode, data):
-    if opcode == 0x704C and data:
+    if DEBUG_PACKET_LOGGING and opcode == 0x704C and data:
         raw = bytes(data)
         pets, clocks = scan_inventory()
         clock_slots = set(int(item['slot']) for item in clocks
                           if 0 <= int(item['slot']) <= 255)
         if raw[0] in clock_slots:
-            add_activity('MANUAL CLOCK CAPTURE 0x704C: %s' % packet_hex(raw))
+            debug_packet('MANUAL CLOCK CAPTURE 0x704C: %s' % packet_hex(raw))
     return True
 
 
 def handle_joymax(opcode, data):
     if opcode == 0xB04C and data:
         raw = bytes(data)
-        add_activity('SERVER 0xB04C: %s' % packet_hex(raw))
         if (summon_test
                 and summon_test.get('phase') == 'waiting-summon'
                 and raw == EXPIRED_SUMMON_RESPONSE):
+            debug_packet('SERVER 0xB04C: %s' % packet_hex(raw))
             reject_current_summon_test(True)
             return True
         if not pending_operation:
@@ -1357,9 +1381,11 @@ def handle_joymax(opcode, data):
         response_matches = (
             (len(raw) >= 2
              and raw[1] == pending_operation['clock_slot'])
-            or response_tid == pending_operation.get('use_tid'))
+            or (response_tid is not None
+                and response_tid == pending_operation.get('use_tid')))
         if (pending_operation['phase'] == 'waiting-response'
                 and response_matches):
+            debug_packet('SERVER 0xB04C: %s' % packet_hex(raw))
             if raw[0] == 1:
                 if settings.get('detect_expired_by_summon', False):
                     clock_verification_targets.add(
@@ -1379,8 +1405,6 @@ def handle_joymax(opcode, data):
                 status = raw[0]
                 finish_operation(
                     False, 'Server rejected the Clock (status %d).' % status, True)
-        elif pending_operation['phase'] == 'waiting-response':
-            add_activity('The item-use response did not match the pending Clock.')
     return True
 
 
@@ -1421,7 +1445,7 @@ def event_loop():
         perform_scan(True)
     except Exception as error:
         set_status('MONITORING ERROR', COLOR_ERROR)
-        plugin_log('Event loop error: %s' % error)
+        diagnostic_log('event-loop-error', 'Event loop error: %s' % error)
 
 
 apply_settings_to_gui()

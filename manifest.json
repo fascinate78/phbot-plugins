@@ -16,6 +16,20 @@
                         "sha256":  "fdb191c54598e52a46df8ee71f6deb6cedee34efc0e0c2025bdcc0b79ad85561"
                     },
                     {
+                        "id":  "FAutoCaptcha",
+                        "name":  "FAutoCaptcha",
+                        "version":  "1.0.1",
+                        "core":  false,
+                        "description":  "Automatically captures and periodically replays MaxiGuard\u0027s server-specific 0xC011 packet.",
+                        "changes":  [
+                                        "Added a prominent GUI notice and documentation stating that the plugin is intended only for MaxiGuard-protected servers."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoCaptcha/changelog.md",
+                        "install_path":  "FAutoCaptcha.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoCaptcha/FAutoCaptcha.py",
+                        "sha256":  "fbc3fb7f27dff8babacbb86dfb5d3e3d660dfee255ef6f5044df9591c8e99893"
+                    },
+                    {
                         "id":  "FAutoGS",
                         "name":  "FAutoGS",
                         "version":  "1.1.0",
@@ -57,17 +71,18 @@
                     {
                         "id":  "FAutoPetClock",
                         "name":  "FAutoPetClock",
-                        "version":  "1.5.0",
+                        "version":  "1.5.1",
                         "core":  false,
                         "description":  "Monitors Pick Pets and safely renews expired or expiring pets with available clocks.",
                         "changes":  [
-                                        "Accelerated expired-pet detection by immediately handling the verified locale 22 `02 A4 18` summon rejection instead of waiting for two nine-second timeouts.",
-                                        "Kept the two-attempt safety check and `get_pets()` confirmation for successful summons."
+                                        "Stopped unrelated item-use replies from filling the log, including while monitoring is disabled or paused.",
+                                        "Limited repeated monitoring errors and summon-test blocking warnings to one message per category every 60 seconds.",
+                                        "Added an optional source-level packet debug switch, disabled by default, for Clock and summon-test diagnostics."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/changelog.md",
                         "install_path":  "FAutoPetClock.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoPetClock/FAutoPetClock.py",
-                        "sha256":  "f89787d15615eb70b42c45c6bc8c13e58c0074102f9cc24d3b945c6a0cb41e71"
+                        "sha256":  "7fd7d0cd38e90cc7ec0ebcb6e453615965881151d8ae90409c52a537c9265873"
                     },
                     {
                         "id":  "FAutoUnique",

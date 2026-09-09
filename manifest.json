@@ -387,16 +387,16 @@
                     {
                         "id":  "FWheelManager",
                         "name":  "FWheelManager",
-                        "version":  "1.5.0",
+                        "version":  "1.6.1",
                         "core":  false,
                         "description":  "Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin.",
                         "changes":  [
-                                        "Added a Fortune STR+INT target that succeeds when the combined STR and INT line count reaches or exceeds the configured count, with existing AND/OR target matching."
+                                        "Fate now uses only Wheel of Fate and stops when none remain instead of consuming Wheel of Fortune."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/changelog.md",
                         "install_path":  "FWheelManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/FWheelManager.py",
-                        "sha256":  "3916a978842ee7299fe399ab0232238b3b7a64b5b982c81cd92943dee9bae4cc"
+                        "sha256":  "b9280c63d620d321861e56d517fa8a14f716c7e78c45c9ec2979c6b6e8c8547b"
                     }
                 ]
 }

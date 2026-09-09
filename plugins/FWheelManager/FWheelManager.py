@@ -6,11 +6,13 @@ import re
 import sqlite3
 import struct
 import webbrowser
-from threading import Timer
+import time
+from datetime import datetime
+from threading import Timer, RLock
 
 
 pName = 'FWheelManager'
-pVersion = '1.5.0'
+pVersion = '1.6.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -30,7 +32,7 @@ MODE_LABELS = {'fate': 'Fate', 'fortune': 'Fortune', 'pen': 'Pen'}
 MODE_DELAYS = {'fate': 0.55, 'fortune': 0.45, 'pen': 1.55}
 NEXT_ITEM_DELAY = 0.85
 CONSUMABLE_NAMES = {
-    'fate': ('Wheel of Fate', 'Wheel of Fortune'),
+    'fate': ('Wheel of Fate',),
     'fortune': ('Wheel of Fortune',),
     'pen': ('Feather Pen of Fortune',)
 }
@@ -127,6 +129,98 @@ magic_option_codes = {}
 magic_option_records = []
 magic_database_path = None
 magic_database_identity = None
+debug_enabled = False
+debug_path = None
+debug_lock = RLock()
+debug_last_request = None
+DEBUG_MAX_BYTES = 10 * 1024 * 1024
+
+
+def debug_write(message):
+    global debug_enabled
+    with debug_lock:
+        if not debug_enabled or not debug_path:
+            return
+        try:
+            if os.path.getsize(debug_path) >= DEBUG_MAX_BYTES:
+                raise ValueError('Debug file reached 10 MB; start a new capture')
+            with open(debug_path, 'a', encoding='utf-8') as output:
+                output.write('%s %s\n' % (datetime.now().isoformat(), message))
+        except Exception:
+            debug_enabled = False
+            QtBind.setChecked(gui, chk_debug, False)
+            set_status('Debug capture stopped: file unavailable or 10 MB limit reached', COLOR_ERROR)
+
+
+def debug_changed(checked):
+    global debug_enabled, debug_path, debug_last_request
+    with debug_lock:
+        if not checked:
+            debug_write('CAPTURE STOPPED')
+            debug_enabled = False
+            set_status('Debug saved in Log/FWheelManager; use Debug Folder', COLOR_MUTED)
+            return
+        try:
+            folder = os.path.join(get_log_dir(), pName)
+            os.makedirs(folder, exist_ok=True)
+            path = os.path.join(folder, '%s_debug_%s_%d.txt' % (
+                pName, datetime.now().strftime('%Y%m%d_%H%M%S_%f'), os.getpid()))
+            with open(path, 'x', encoding='utf-8') as output:
+                output.write('%s v%s diagnostic capture\n' % (pName, pVersion))
+            debug_path = path
+            debug_enabled = True
+            debug_last_request = None
+            character = get_character_data() or {}
+            debug_write('SESSION ' + json.dumps({
+                'server': character.get('server'), 'locale': get_locale(),
+                'database': magic_database_path, 'database_codes': len(magic_option_codes),
+                'mode_delays': MODE_DELAYS, 'active_mode': active_mode,
+                'awaiting_response': awaiting_response}, ensure_ascii=True))
+            set_status('Debug TXT: Log/FWheelManager (Debug Folder opens location)', COLOR_SUCCESS)
+        except Exception:
+            debug_enabled = False
+            QtBind.setChecked(gui, chk_debug, False)
+            set_status('Could not create debug TXT in the phBot Log folder', COLOR_ERROR)
+
+
+def debug_folder_clicked():
+    try:
+        folder = os.path.dirname(debug_path) if debug_path else os.path.join(get_log_dir(), pName)
+        os.makedirs(folder, exist_ok=True)
+        os.startfile(folder)
+        set_status('Debug folder opened; send the latest FWheelManager_debug_*.txt', COLOR_SUCCESS)
+    except Exception:
+        set_status('Could not open debug folder: check phBot Log/FWheelManager', COLOR_ERROR)
+
+
+def debug_packet(direction, opcode, data, source):
+    global debug_last_request
+    if not debug_enabled:
+        return
+    try:
+        with debug_lock:
+            now = time.monotonic()
+            details = {'source': source, 'active_mode': active_mode,
+                       'awaiting_response': awaiting_response, 'bytes': len(data),
+                       'hex': ' '.join('%02X' % value for value in data[:4096]),
+                       'truncated': len(data) > 4096}
+            if direction == 'TX':
+                debug_last_request = (now, source)
+                if len(data) >= 5 and data[:3] == b'\x02\x19\x02':
+                    for label, slot in (('item', data[3]), ('consumable', data[4])):
+                        item = find_inventory_item(slot) or {}
+                        details[label] = dict((key, item.get(key)) for key in
+                                              ('model', 'name', 'servername', 'quantity', 'plus'))
+                        details[label]['slot'] = slot
+                if source == 'plugin' and active_mode:
+                    details['target'] = active_item(active_mode)
+            elif debug_last_request:
+                details['ms_since_last_observed_request'] = round((now - debug_last_request[0]) * 1000, 1)
+                details['last_request_source'] = debug_last_request[1]
+                debug_last_request = None
+            debug_write('%s 0x%04X %s' % (direction, opcode, json.dumps(details, ensure_ascii=True)))
+    except Exception as error:
+        debug_write('Capture metadata error: %s' % error)
 
 
 def plugin_log(message):
@@ -319,11 +413,13 @@ def html_safe(value):
 
 
 def set_status(message, color=COLOR_MUTED):
+    debug_write('STATUS %s' % message)
     QtBind.setText(gui, lbl_status, fixed_width_text(
         '<font color="%s"><b>%s</b></font>' % (color, html_safe(message)), 680))
 
 
 def set_result(mode, message, color=COLOR_MUTED):
+    debug_write('RESULT %s: %s' % (mode, message))
     states[mode]['last_result'] = message
     QtBind.setText(gui, result_labels[mode], fixed_width_text(
         '<font color="%s">%s</font>' % (color, html_safe(message)), 680))
@@ -722,7 +818,9 @@ def send_request(mode):
         stop_operation('Inventory slot is outside packet range', COLOR_ERROR)
         return
     awaiting_response = True
-    inject_joymax(OPCODE_REQUEST, b'\x02\x19\x02' + bytes([item['slot'], consumable_slot]), False)
+    request = b'\x02\x19\x02' + bytes([item['slot'], consumable_slot])
+    debug_packet('TX', OPCODE_REQUEST, request, 'plugin')
+    inject_joymax(OPCODE_REQUEST, request, False)
     set_status('%s is rolling slot %d...' % (MODE_LABELS[mode], item['slot']), COLOR_WARNING)
 
 
@@ -966,14 +1064,14 @@ def process_response(data):
     elif mode == 'fortune':
         options = parse_fortune(data, item)
         if not options:
-            plugin_log('Fortune unverified 0xB151 raw (%d bytes): %s%s' % (
+            debug_write('Fortune unverified 0xB151 raw (%d bytes): %s%s' % (
                 len(data), ' '.join('%02X' % value for value in data[:512]),
                 ' ...' if len(data) > 512 else ''))
             stop_operation('Fortune response had no verified stats', COLOR_ERROR)
             return
         valid, reason = normalize_fortune_options(item, options)
         if not valid:
-            plugin_log('Fortune unsafe layout 0xB151 raw (%d bytes): %s%s' % (
+            debug_write('Fortune unsafe layout 0xB151 raw (%d bytes): %s%s' % (
                 len(data), ' '.join('%02X' % value for value in data[:512]),
                 ' ...' if len(data) > 512 else ''))
             stop_operation(reason, COLOR_ERROR)
@@ -993,7 +1091,7 @@ def process_response(data):
     else:
         parsed = parse_pen(data, item)
         if not parsed or parsed[0] != item['slot']:
-            plugin_log('Pen unverified 0xB151 raw (%d bytes): %s%s' % (
+            debug_write('Pen unverified 0xB151 raw (%d bytes): %s%s' % (
                 len(data), ' '.join('%02X' % value for value in data[:512]),
                 ' ...' if len(data) > 512 else ''))
             stop_operation('Pen response could not be verified', COLOR_ERROR)
@@ -1021,7 +1119,15 @@ def process_response(data):
         schedule_request(MODE_DELAYS[mode], mode)
 
 
+def handle_silkroad(opcode, data):
+    if opcode == OPCODE_REQUEST:
+        debug_packet('TX', opcode, data, 'client-hook')
+    return True
+
+
 def handle_joymax(opcode, data):
+    if opcode == OPCODE_RESPONSE:
+        debug_packet('RX', opcode, data, 'server')
     try:
         if opcode == OPCODE_RESPONSE and active_mode is not None:
             process_response(data)
@@ -1082,7 +1188,9 @@ QtBind.createButton(gui, 'show_fortune', 'Fortune', 300, 6)
 QtBind.createButton(gui, 'show_pen', 'Pen', 370, 6)
 QtBind.createButton(gui, 'discord_clicked', u'\U0001f4ac Discord', 462, 6)
 QtBind.createLabel(gui, u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' % COLOR_PRIMARY, 565, 11)
-QtBind.createLineEdit(gui, '', 12, 30, 716, 1)
+QtBind.createLineEdit(gui, '', 12, 30, 696, 1)
+chk_debug = QtBind.createCheckBox(gui, 'debug_changed', 'Debug to TXT', 190, 42)
+QtBind.createButton(gui, 'debug_folder_clicked', 'Debug Folder', 310, 38)
 lbl_view = QtBind.createLabel(gui, fixed_width_text('<font color="%s"><b>FATE / SETUP</b></font>' % COLOR_PRIMARY, 160), 12, 42)
 lbl_status = QtBind.createLabel(gui, fixed_width_text('<font color="%s"><b>Ready</b></font>' % COLOR_MUTED, 680), 12, 294)
 

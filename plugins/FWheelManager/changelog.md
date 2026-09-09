@@ -1,5 +1,21 @@
 # FWheelManager Changelog
 
+## v1.6.1
+
+### Fixed
+- Fate now uses only Wheel of Fate and stops when none remain instead of consuming Wheel of Fortune.
+
+## v1.6.0
+
+### Added
+- Added optional timestamped TXT debug captures for plugin and client wheel/alchemy packets, item/consumable details, target settings, timing, and results, with a Debug Folder button for sharing captures.
+
+### Improved
+- Raw unverified Fortune/Pen packet diagnostics now go only to the enabled TXT capture instead of the phBot log.
+
+### Fixed
+- Kept the header separator within the 720 px viewport.
+
 ## v1.5.0
 
 ### Added

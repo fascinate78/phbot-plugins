@@ -1,5 +1,10 @@
 # FWheelManager Changelog
 
+## v1.7.0
+
+### Added
+- Added a Pen STR+INT target based on the combined current STR and INT values, with combined totals in the queue and results and existing all-target matching.
+
 ## v1.6.1
 
 ### Fixed

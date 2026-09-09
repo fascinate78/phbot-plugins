@@ -12,7 +12,7 @@ from threading import Timer, RLock
 
 
 pName = 'FWheelManager'
-pVersion = '1.6.1'
+pVersion = '1.7.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -591,7 +591,7 @@ def inspect_item(mode):
         '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, html_safe(format_item(item))), 350))
     if mode in ('fortune', 'pen'):
         state['available'] = list(item['available_stats'])
-        if mode == 'fortune' and all(name in state['available'] for name in ('STR', 'INT')):
+        if all(name in state['available'] for name in ('STR', 'INT')):
             state['available'].insert(state['available'].index('INT') + 1, 'STR+INT')
         state['targets'] = []
         QtBind.clear(gui, stat_lists[mode])
@@ -1097,6 +1097,8 @@ def process_response(data):
             stop_operation('Pen response could not be verified', COLOR_ERROR)
             return
         item['totals'] = parsed[1]
+        if any(target['name'] == 'STR+INT' for target in item.get('targets', [])):
+            item['totals']['STR+INT'] = parsed[1].get('STR', 0) + parsed[1].get('INT', 0)
         reached = all(parsed[1].get(x['name'], 0) >= x['value'] for x in item.get('targets', []))
         set_result(mode, ', '.join('%s=%d' % pair for pair in sorted(parsed[1].items())), COLOR_SUCCESS)
     plugin_log('%s slot %d response processed' % (MODE_LABELS[mode], item['slot']))

@@ -1,5 +1,10 @@
 # FWheelManager Changelog
 
+## v1.5.0
+
+### Added
+- Added a Fortune STR+INT target that succeeds when the combined STR and INT line count reaches or exceeds the configured count, with existing AND/OR target matching.
+
 ## v1.4.1
 
 ### Fixed

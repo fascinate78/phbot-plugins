@@ -10,7 +10,7 @@ from threading import Timer
 
 
 pName = 'FWheelManager'
-pVersion = '1.4.1'
+pVersion = '1.5.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -495,6 +495,8 @@ def inspect_item(mode):
         '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, html_safe(format_item(item))), 350))
     if mode in ('fortune', 'pen'):
         state['available'] = list(item['available_stats'])
+        if mode == 'fortune' and all(name in state['available'] for name in ('STR', 'INT')):
+            state['available'].insert(state['available'].index('INT') + 1, 'STR+INT')
         state['targets'] = []
         QtBind.clear(gui, stat_lists[mode])
         QtBind.clear(gui, target_lists[mode])
@@ -979,6 +981,8 @@ def process_response(data):
         counts = {}
         for option in options:
             counts[option['name']] = counts.get(option['name'], 0) + 1
+        if any(target['name'] == 'STR+INT' for target in item.get('targets', [])):
+            counts['STR+INT'] = counts.get('STR', 0) + counts.get('INT', 0)
         target_checks = [counts.get(x['name'], 0) >= x['count']
                          for x in item.get('targets', [])]
         if item.get('match', 'all') == 'any':

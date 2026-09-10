@@ -1,5 +1,10 @@
 # FWheelManager Changelog
 
+## v1.7.1
+
+### Fixed
+- Fixed Fortune rejecting responses containing the verified leading metadata record as an unknown stat, while preserving validation of other unknown records.
+
 ## v1.7.0
 
 ### Added

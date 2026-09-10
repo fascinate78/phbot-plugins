@@ -387,16 +387,16 @@
                     {
                         "id":  "FWheelManager",
                         "name":  "FWheelManager",
-                        "version":  "1.7.0",
+                        "version":  "1.7.1",
                         "core":  false,
                         "description":  "Combines Fate, Fortune, and Pen equipment rolling into one safely coordinated phBot plugin.",
                         "changes":  [
-                                        "Added a Pen STR+INT target based on the combined current STR and INT values, with combined totals in the queue and results and existing all-target matching."
+                                        "Fixed Fortune rejecting responses containing the verified leading metadata record as an unknown stat, while preserving validation of other unknown records."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/changelog.md",
                         "install_path":  "FWheelManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FWheelManager/FWheelManager.py",
-                        "sha256":  "de21f1b2d8cd68b9c77ea023dab5c17a044f1eb088a687535204cf6ebf6999f2"
+                        "sha256":  "5032d7a17447dcc9b702753a78f8c87835c97b76e5faf56942244e1e23a03640"
                     }
                 ]
 }

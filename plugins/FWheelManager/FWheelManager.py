@@ -12,7 +12,7 @@ from threading import Timer, RLock
 
 
 pName = 'FWheelManager'
-pVersion = '1.7.0'
+pVersion = '1.7.1'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 OPCODE_REQUEST = 0x7151
@@ -928,6 +928,11 @@ def parse_fortune(data, item=None):
             options = []
             for index in range(count):
                 group = data[records_start + index * 8:records_start + (index + 1) * 8]
+                # Verified leading metadata record in Fortune responses.
+                # Match its full bytes and position; unknown stat IDs elsewhere
+                # must still pass through the normal safety validation.
+                if index == 0 and group == b'\x01\x02\x00\x00\x00\x00\x00\x40':
+                    continue
                 code = struct.unpack_from('<I', group, 0)[0]
                 value = struct.unpack_from('<I', group, 4)[0]
                 if code == 0:

@@ -8,7 +8,7 @@ import webbrowser
 
 
 pName = 'FEventAutomation'
-pVersion = '1.0.1'
+pVersion = '1.0.4'
 SHOW_PACKET_RECORDER = False
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
@@ -141,6 +141,8 @@ auto_sort_started_ms = 0
 auto_sort_last_activity_ms = 0
 auto_sort_signature = None
 auto_mode = 'jewel_box'
+auto_retry_count = 0
+auto_empty_sort_retry_count = 0
 
 JEWEL_SERVERNAME = 'ITEM_ETC_E050618_TREASUREBOX'
 PLEDGE_LEFT_SERVERNAME = 'ITEM_ETC_E070523_LEFT_HEART'
@@ -152,6 +154,9 @@ AUTO_PACKET_DELAY_MS = 850
 PLEDGE_NPC_DELAY_MS = 1300
 PLEDGE_CONFIRM_DELAY_MS = 1800
 AUTO_RESULT_TIMEOUT_MS = 12000
+AUTO_MAX_RETRIES = 2
+AUTO_RETRY_CLOSE_DELAY_MS = 2000
+AUTO_EMPTY_SORT_RETRY_DELAY_MS = 2000
 AUTO_POST_CLOSE_SORT_DELAY_MS = 1200
 AUTO_SORT_QUIET_MS = 12000
 AUTO_SORT_TIMEOUT_MS = 120000
@@ -541,7 +546,8 @@ def stop_clicked():
 def _auto_stop(reason):
     global auto_running, auto_stage, auto_due_ms, auto_step
     global auto_sort_started_ms, auto_sort_last_activity_ms
-    global auto_sort_signature
+    global auto_sort_signature, auto_retry_count
+    global auto_empty_sort_retry_count
     auto_running = False
     auto_stage = 'idle'
     auto_due_ms = 0
@@ -549,6 +555,8 @@ def _auto_stop(reason):
     auto_sort_started_ms = 0
     auto_sort_last_activity_ms = 0
     auto_sort_signature = None
+    auto_retry_count = 0
+    auto_empty_sort_retry_count = 0
     _set_status('Automation stopped: %s' % reason)
     _event('Automation stopped: %s' % reason)
 
@@ -634,7 +642,8 @@ def _run_silkroad_box():
 
 def auto_start_clicked():
     global auto_running, auto_stage, auto_due_ms, auto_step
-    global auto_start_state, auto_cycles, auto_mode
+    global auto_start_state, auto_cycles, auto_mode, auto_retry_count
+    global auto_empty_sort_retry_count
     global last_inventory, last_exchange_state
     if auto_running:
         _event('Automation is already running.')
@@ -665,6 +674,8 @@ def auto_start_clicked():
     auto_step = 0
     auto_start_state = state
     auto_cycles = 0
+    auto_retry_count = 0
+    auto_empty_sort_retry_count = 0
     last_inventory = snapshot
     last_exchange_state = state
     _set_status('Automation started')
@@ -700,11 +711,19 @@ def _auto_packet_delay(mode, sent_index):
     return PLEDGE_NPC_DELAY_MS
 
 
+def _inject_npc_close():
+    # Event So-Ok uses the same close/cleanup sequence for all supported
+    # exchanges. The 0x3567 packet prevents the conversation from remaining
+    # on the End Conversation screen after 0x30D4/05.
+    inject_joymax(0x30D4, b'\x05', False)
+    inject_joymax(0x3567, b'\x0B\x00', False)
+
+
 def _run_auto():
     global auto_stage, auto_due_ms, auto_step, auto_start_state
-    global auto_cycles
+    global auto_cycles, auto_retry_count
     global auto_sort_started_ms, auto_sort_last_activity_ms
-    global auto_sort_signature
+    global auto_sort_signature, auto_empty_sort_retry_count
     if not auto_running or _now_ms() < auto_due_ms:
         return
 
@@ -734,15 +753,56 @@ def _run_auto():
             return
 
     if auto_stage == 'waiting_result':
-        _auto_stop('%s count did not decrease (timeout)' %
-                   _mode_name(auto_mode))
+        if (auto_mode == 'pledge_of_love' and
+                auto_retry_count < AUTO_MAX_RETRIES):
+            auto_retry_count += 1
+            try:
+                _inject_npc_close()
+            except Exception as ex:
+                _auto_stop('retry close error: %s' % ex)
+                return
+            auto_stage = 'retry_prepare'
+            auto_due_ms = _now_ms() + AUTO_RETRY_CLOSE_DELAY_MS
+            _set_status('Retrying Pledge of Love: %s/%s' %
+                        (auto_retry_count, AUTO_MAX_RETRIES))
+            _event('Pledge of Love did not decrease; retry %s/%s queued.' %
+                   (auto_retry_count, AUTO_MAX_RETRIES))
+            return
+        _auto_stop('%s count did not decrease after %s attempt(s)' %
+                   (_mode_name(auto_mode), auto_retry_count + 1))
+        return
+
+    if auto_stage == 'retry_prepare':
+        snapshot = _inventory_snapshot()
+        state = _exchange_state(snapshot, auto_mode)
+        # Let event_loop process a reward that arrived just after the timeout.
+        if _state_consumed(auto_start_state, state, auto_mode):
+            auto_stage = 'waiting_result'
+            auto_due_ms = _now_ms() + 1000
+            return
+        if not _find_sook_uid():
+            _auto_stop('Event So-Ok left the visible area before retry')
+            return
+        count = _exchange_count(state, auto_mode)
+        if count < MIN_JEWEL_COUNT:
+            _auto_stop('No Pledge of Love pairs remaining before retry')
+            return
+        free_slots = _free_inventory_slots(snapshot)
+        if free_slots < MIN_FREE_SLOTS:
+            _auto_stop('not enough free slots before retry (%s/%s)' %
+                       (free_slots, MIN_FREE_SLOTS))
+            return
+        auto_start_state = state
+        auto_step = 0
+        auto_stage = 'sending'
+        auto_due_ms = _now_ms() + 300
+        _set_status('Starting Pledge of Love retry %s/%s' %
+                    (auto_retry_count, AUTO_MAX_RETRIES))
         return
 
     if auto_stage == 'closing':
         try:
-            inject_joymax(0x30D4, b'\x05', False)
-            if auto_mode == 'jewel_box':
-                inject_joymax(0x3567, b'\x0B\x00', False)
+            _inject_npc_close()
         except Exception as ex:
             _auto_stop('NPC close error: %s' % ex)
             return
@@ -777,6 +837,21 @@ def _run_auto():
         auto_stage = 'next_cycle'
         auto_due_ms = now
 
+    if auto_stage == 'empty_sort_retry':
+        try:
+            result = sort_inventory()
+            _event('Empty-slot retry sort_inventory(): %s' % result)
+        except Exception as ex:
+            _auto_stop('empty-slot retry sort error: %s' % ex)
+            return
+        auto_stage = 'sorting_wait'
+        auto_sort_started_ms = _now_ms()
+        auto_sort_last_activity_ms = _now_ms()
+        auto_sort_signature = _inventory_signature(_inventory_snapshot())
+        auto_due_ms = _now_ms() + 500
+        _set_status('Waiting for retry inventory sort to finish')
+        return
+
     if auto_stage == 'next_cycle':
         snapshot = _inventory_snapshot()
         state = _exchange_state(snapshot, auto_mode)
@@ -786,10 +861,21 @@ def _run_auto():
             _auto_stop('No %s pairs/items remaining' % _mode_name(auto_mode))
             return
         if free_slots < MIN_FREE_SLOTS:
-            _auto_stop('not enough free slots (%s/%s)' %
+            if auto_empty_sort_retry_count < 1:
+                auto_empty_sort_retry_count += 1
+                auto_stage = 'empty_sort_retry'
+                auto_due_ms = (_now_ms() +
+                               AUTO_EMPTY_SORT_RETRY_DELAY_MS)
+                _set_status('No free slots; retrying inventory sort')
+                _event('No free slots after sorting; a second inventory '
+                       'sort will run in 2 seconds.')
+                return
+            _auto_stop('not enough free slots after retry sort (%s/%s)' %
                        (free_slots, MIN_FREE_SLOTS))
             return
         auto_start_state = state
+        auto_retry_count = 0
+        auto_empty_sort_retry_count = 0
         auto_step = 0
         auto_stage = 'sending'
         auto_due_ms = _now_ms() + 300
@@ -878,7 +964,7 @@ def event_loop():
     _event('Inventory changed; %s -> %s' %
            (_state_text(old_state, mode), _state_text(state, mode)))
     auto_result = (
-        auto_running and auto_stage == 'waiting_result' and
+        auto_running and auto_stage in ('waiting_result', 'retry_prepare') and
         auto_start_state is not None and
         _state_consumed(auto_start_state, state, auto_mode)
     )

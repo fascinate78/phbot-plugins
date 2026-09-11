@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.2.3'
+pVersion = '3.2.8'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -41,6 +41,15 @@ UI_TEXT = {
         'assign_script': 'Assign Script', 'use_script_route': 'Use Script Route',
         'remove_script': 'Remove Script', 'coordinate_route_heading': 'COORDINATE ROUTE',
         'edit_coordinates': 'Edit Coordinates', 'use_coord': 'Use Coord',
+        'get_server_coordinates': 'Get Coord from Server',
+        'copy_coordinates': 'Copy Coordinates to Unique',
+        'coordinates_copied': 'Added %d points to the target unique.',
+        'coordinates_copy_empty': 'No saved coordinates for the selected unique.',
+        'coordinates_copy_failed': 'Could not copy coordinates. See phBot log.',
+        'coordinates_copy_target': 'Select a different target unique.',
+        'db_import_ready': 'Import coordinates for all server uniques.',
+        'db_import_result': 'Added %d points for %d uniques.',
+        'db_import_failed': 'Import failed. See phBot log for details.',
         'first_reverse': 'First use Reverse', 'save_reverse': 'Save Reverse',
         'ignore_unique': 'Ignore this unique',
         'manual_hunt_list': 'Use manual Auto Hunt list',
@@ -92,6 +101,15 @@ UI_TEXT = {
         'assign_script': 'Script Ata', 'use_script_route': 'Script Rotası',
         'remove_script': 'Scripti Sil', 'coordinate_route_heading': 'KOORDINAT ROTASI',
         'edit_coordinates': 'Koordinatları Aç', 'use_coord': 'Rota Seç',
+        'get_server_coordinates': 'Sunucudan Koordinat Al',
+        'copy_coordinates': 'Unique’e Koordinat Kopyala',
+        'coordinates_copied': 'Hedef unique’e %d nokta eklendi.',
+        'coordinates_copy_target': 'Farklı bir hedef unique seçin.',
+        'coordinates_copy_empty': 'Seçili unique için kayıtlı koordinat yok.',
+        'coordinates_copy_failed': 'Koordinatlar kopyalanamadı. phBot loguna bakın.',
+        'db_import_ready': 'Tüm sunucu uniquelerinin koordinatlarını al.',
+        'db_import_result': '%d nokta, %d unique için eklendi.',
+        'db_import_failed': 'Aktarım başarısız. Ayrıntılar phBot logunda.',
         'first_reverse': 'Önce Reverse kullan', 'save_reverse': 'Rev Kaydet',
         'ignore_unique': 'Bu unique\'i yok say',
         'manual_hunt_list': 'Manuel Otomatik Av listesini kullan',
@@ -157,7 +175,11 @@ UI_MESSAGE_TR = {
     'Selected coordinate removed.': 'Seçili koordinat silindi.',
     'Coordinate saved': 'Koordinat kaydedildi',
     'Select a unique first': 'Once bir unique secin',
+    'Add coordinates in the Coordinate Editor first.': 'Önce Koordinat Editöründe nokta ekleyin.',
+    'No new DB coordinates found. Existing points preserved.': 'Yeni DB koordinatı bulunamadı. Mevcut noktalar korundu.',
+    'Server coordinates added and saved.': 'Sunucu koordinatları eklendi ve kaydedildi.',
     'Invalid coordinate values': 'Koordinat değerleri geçersiz',
+    'No DB coordinates found; add points manually.': 'DB koordinatı bulunamadı; noktaları elle ekleyin.',
     'Region and coordinates are required': 'Region ve koordinatlar gerekli',
     'A saved point is already within 30m': '30m içinde kayıtlı bir nokta zaten var',
 }
@@ -919,14 +941,155 @@ def toggle_manual_hunt_list(checked=None):
 
 def use_coordinate_route():
     unique_name = _selected_unique()
-    if not unique_name or not unique_coordinate_map.get(unique_name):
-        log('[Coordinates] Add at least one point for the selected unique first')
+    if not unique_name:
+        set_manager_status('Select a unique first.', COLOR_WARNING)
+        return
+    if not unique_coordinate_map.get(unique_name):
+        set_manager_status('Add coordinates in the Coordinate Editor first.', COLOR_WARNING)
         return
     unique_route_modes[unique_name] = 'coordinates'
     save_config()
     refresh_mapping_list()
+    refresh_coordinate_list()
     set_manager_status('Coordinate route selected.', COLOR_SUCCESS)
     log('[Coordinates] %s will use its coordinate list' % unique_name)
+
+
+def get_coordinates_from_server():
+    try:
+        if not (get_character_data() or {}).get('name'):
+            raise ValueError('Join the game before importing coordinates.')
+        unique_count, point_count = import_database_coordinates()
+        if point_count:
+            save_config()
+            refresh_mapping_list()
+            refresh_unique_dropdown()
+            refresh_coordinate_list()
+        message = tr('db_import_result') % (point_count, unique_count)
+        color = COLOR_SUCCESS if point_count else COLOR_WARNING
+        log('[Coordinates] ' + message)
+    except Exception as error:
+        message = tr('db_import_failed')
+        color = COLOR_ERROR
+        log('[Coordinates] DB import failed: %s' % error)
+    QtBind.setText(gui, lbl_server_coordinate_status, fixed_width_text(
+        '<font color="%s">%s</font>' % (color, message), 350))
+
+
+def _database_coordinate_point(region, x, y, z):
+    """Convert Media local offsets to phBot world coordinates (outdoor only)."""
+    region = int(region)
+    if not 0 < region < 32768:
+        raise ValueError('instance region is not supported for DB import')
+    x, y, z = float(x), float(y), float(z)
+    if not all(math.isfinite(value) for value in (x, y, z)):
+        raise ValueError('non-finite database coordinate')
+    return {
+        'region': region,
+        'x': ((region & 255) - 135) * 192 + x / 10.0,
+        'y': ((region >> 8) - 92) * 192 + y / 10.0,
+        'z': z / 10.0,
+        'source': 'DB3',
+    }
+
+
+def import_database_coordinates():
+    """Merge all supported active-server unique positions in one database read."""
+    database_path = _find_phbot_media_database()
+    if not database_path:
+        raise ValueError('Active server Media DB3 was not found')
+    connection = _readonly_database(database_path)
+    try:
+        rows = connection.execute(
+            'SELECT TRIM(m.name), n.region, n.x, n.y, n.z FROM npcpos n '
+            'JOIN monsters m ON m.id=n.id '
+            "WHERE m.type=2 AND m.rarity=3 AND m.name IS NOT NULL "
+            "AND TRIM(m.name) NOT IN ('', '0') ORDER BY m.id, n.rowid").fetchall()
+    finally:
+        connection.close()
+    updated = {}
+    matched_names = set()
+    added = 0
+    for row in rows:
+        unique_name = str(row[0])
+        try:
+            point = _database_coordinate_point(*row[1:])
+        except (TypeError, ValueError, OverflowError):
+            continue
+        matched_names.add(unique_name)
+        points = updated.get(unique_name)
+        if points is None:
+            points = list(unique_coordinate_map.get(unique_name, []))
+        if any(saved['region'] == point['region'] and
+               _distance_2d(saved['x'], saved['y'], point['x'], point['y'])
+               <= COORDINATE_DUPLICATE_DISTANCE for saved in points):
+            continue
+        points.append(point)
+        updated[unique_name] = points
+        added += 1
+    for unique_name in sorted(matched_names):
+        previous_count = len(unique_coordinate_map.get(unique_name, []))
+        total_count = len(updated.get(unique_name, unique_coordinate_map.get(unique_name, [])))
+        log('[Coordinates] %s: %d points added, %d saved total.' %
+            (unique_name, total_count - previous_count, total_count))
+    unique_coordinate_map.update(updated)
+    discovered_uniques.update(updated)
+    return len(updated), added
+
+
+def refresh_coordinate_copy_targets():
+    source = _selected_unique()
+    QtBind.clear(gui, cmb_coordinate_target)
+    QtBind.append(gui, cmb_coordinate_target, '')
+    for name in sorted(_all_unique_names()):
+        if name != source:
+            QtBind.append(gui, cmb_coordinate_target, name)
+    QtBind.setText(gui, cmb_coordinate_target, '')
+
+
+def _copy_coordinate_points(source, target):
+    """Merge independent point copies while preserving route preferences."""
+    if not source or not target or source == target:
+        raise ValueError('Source and target must be different uniques')
+    points = list(unique_coordinate_map.get(target, []))
+    original_count = len(points)
+    for saved in unique_coordinate_map.get(source, []):
+        point = _normalise_point(saved)
+        if any(int(existing['region']) == point['region'] and
+               _distance_2d(existing['x'], existing['y'], point['x'], point['y'])
+               <= COORDINATE_DUPLICATE_DISTANCE for existing in points):
+            continue
+        points.append(point)
+    added = len(points) - original_count
+    if added:
+        unique_coordinate_map[target] = points
+        discovered_uniques.add(target)
+    return added
+
+
+def copy_unique_coordinates():
+    source = _selected_unique()
+    target = QtBind.text(gui, cmb_coordinate_target).strip()
+    if not unique_coordinate_map.get(source):
+        set_coordinate_editor_status(tr('coordinates_copy_empty'), COLOR_WARNING)
+        return
+    if not target or target == source or target not in _all_unique_names():
+        set_coordinate_editor_status(tr('coordinates_copy_target'), COLOR_WARNING)
+        return
+    try:
+        added = _copy_coordinate_points(source, target)
+        if added:
+            save_config()
+            refresh_mapping_list()
+            refresh_coordinate_list()
+        log('[Coordinates] Copied %s -> %s: %d points added, %d saved total.' %
+            (source, target, added, len(unique_coordinate_map.get(target, []))))
+        set_coordinate_editor_status(tr('coordinates_copied') % added,
+                                     COLOR_SUCCESS if added else COLOR_WARNING)
+    except Exception as error:
+        log('[Coordinates] Copy error: %s' % error)
+        set_coordinate_editor_status(tr('coordinates_copy_failed'), COLOR_ERROR)
+
 
 def use_script_route():
     unique_name = _selected_unique()
@@ -3219,12 +3382,13 @@ def show_coordinate_editor():
         return
     _show_screen(coordinate_editor_widgets)
     QtBind.setText(gui, lbl_coordinate_editor_unique, fixed_width_text(
-        '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, unique_name), 500))
+        '<font color="%s"><b>%s</b></font>' % (COLOR_TEXT, unique_name), 390))
     QtBind.setText(gui, txt_coord_region, '')
     QtBind.setText(gui, txt_coord_x, '')
     QtBind.setText(gui, txt_coord_y, '')
     QtBind.setText(gui, txt_coord_z, '0')
     refresh_coordinate_list()
+    refresh_coordinate_copy_targets()
     set_coordinate_editor_status('Editing saved points for %s.' % unique_name, COLOR_MUTED)
 
 
@@ -3413,7 +3577,7 @@ _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINAT
 _screen_widget(_localized(QtBind.createButton(gui, 'back_to_unique_manager', u'\u2190 Back', OFFSCREEN_X, 64),
                'back'), editor_position=(650, 64))
 lbl_coordinate_editor_unique = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
-    '<font color="%s"><b>No unique selected</b></font>' % COLOR_TEXT, 500), OFFSCREEN_X, 87),
+    '<font color="%s"><b>No unique selected</b></font>' % COLOR_TEXT, 390), OFFSCREEN_X, 87),
     editor_position=(12, 87))
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>SAVED COORDINATE ROUTE</b></font>' % COLOR_PRIMARY,
                                   OFFSCREEN_X, 108), 'saved_coordinate_route', 'heading'), editor_position=(12, 108))
@@ -3425,6 +3589,11 @@ btn_add_current = _screen_widget(_localized(QtBind.createButton(gui, 'add_my_cur
                                                       OFFSCREEN_X, 211), 'capture_current'), editor_position=(150, 211))
 btn_add_nearby = _screen_widget(_localized(QtBind.createButton(gui, 'add_nearby_unique_position', 'Capture Nearby',
                                                      OFFSCREEN_X, 211), 'capture_nearby'), editor_position=(270, 211))
+btn_copy_coordinates = _screen_widget(_localized(QtBind.createButton(
+    gui, 'copy_unique_coordinates', 'Copy Coordinates to Unique', OFFSCREEN_X, 64),
+    'copy_coordinates'), editor_position=(420, 64))
+cmb_coordinate_target = _screen_widget(QtBind.createCombobox(
+    gui, OFFSCREEN_X, 90, 288, 22), editor_position=(420, 90))
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>MANUAL COORDINATE</b></font>' % COLOR_PRIMARY,
                                   OFFSCREEN_X, 236), 'manual_coordinate', 'heading'), editor_position=(12, 236))
 for text_value, x in (('R', 12), ('X', 120), ('Y', 285), ('Z', 450)):
@@ -3444,6 +3613,11 @@ lbl_coordinate_editor_status = _screen_widget(QtBind.createLabel(gui, fixed_widt
     editor_position=(12, 283))
 
 # Hunt Settings
+btn_get_server_coordinates = _screen_widget(_localized(QtBind.createButton(
+    gui, 'get_coordinates_from_server', 'Get Coord from Server', OFFSCREEN_X, 65),
+    'get_server_coordinates'), settings_position=(355, 65))
+lbl_server_coordinate_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
+    tr('db_import_ready'), 350), OFFSCREEN_X, 92), settings_position=(355, 92))
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>LOOT BEHAVIOR</b></font>' % COLOR_PRIMARY,
                                   OFFSCREEN_X, 65), 'loot_behavior', 'heading'), settings_position=(12, 65))
 cbx_loot_wait = _screen_widget(_localized(QtBind.createCheckBox(gui, 'do_nothing', 'Wait after unique death', OFFSCREEN_X, 86),

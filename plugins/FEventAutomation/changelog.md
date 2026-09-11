@@ -1,5 +1,20 @@
 # FEventAutomation Changelog
 
+## v1.0.4
+
+### Fixed
+- Fixed Pledge of Love leaving Event So-Ok open by applying the same close and event-cleanup packet sequence used by Jewel Box automation.
+
+## v1.0.3
+
+### Improved
+- Added one delayed inventory-sort retry when the normal post-exchange sort leaves no free slot, allowing automation to continue if the retry frees space.
+
+## v1.0.2
+
+### Added
+- Added up to two safe retries when a Pledge of Love exchange produces no Left/Right quantity change.
+
 ## v1.0.1
 
 ### Fixed

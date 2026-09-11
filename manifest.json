@@ -87,18 +87,18 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.2.3",
+                        "version":  "3.2.8",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Hardened visible-target monitoring with isolated monster parsing, generation-based timer ownership, throttled diagnostics, and automatic retries after transient phBot API errors.",
-                                        "Fixed script hunts occasionally passing a visible active unique by adding a main event-loop engagement fallback shared with the timer monitor.",
-                                        "Fixed script-route hunts resuming their assigned Training Script after engaging a visible target, which could overwrite the target area and continue walking."
+                                        "Added `Get Coord from Server` in Hunt Settings to import all supported outdoor unique coordinates from the active server\u0027s Media DB3 in one click, without selecting a unique. Points are converted to game coordinates and saved per character, preserving existing points and skipping same-region duplicates within 30 meters.",
+                                        "Added an import summary and per-unique logs showing newly added points and saved totals, including matches with no new points on repeat imports.",
+                                        "Added a destination selector and `Copy Coordinates to Unique` in the Coordinate Editor to copy missing points to another unique while preserving existing points, skipping same-region duplicates within 30 meters, and leaving the source and route preferences unchanged."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "144d5f1c30a92f8cf06aa660e510e339322e24be419ebcdd263921556e1c583c"
+                        "sha256":  "5ebd42345070e6a68d1aaaf60c55ace74ab583fc8849fbf8591a314cac3d3696"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -181,17 +181,16 @@
                     {
                         "id":  "FEventAutomation",
                         "name":  "FEventAutomation",
-                        "version":  "1.0.1",
+                        "version":  "1.0.4",
                         "core":  false,
                         "description":  "Automatically exchanges supported event items through Event So-Ok and opens Silkroad Boxes.",
                         "changes":  [
-                                        "Fixed intermittent Pledge of Love timeouts by using capture-matched delays between NPC packets.",
-                                        "Fixed inventory sorting being requested while the Event So-Ok conversation was still open."
+                                        "Fixed Pledge of Love leaving Event So-Ok open by applying the same close and event-cleanup packet sequence used by Jewel Box automation."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FEventAutomation/changelog.md",
                         "install_path":  "FEventAutomation.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FEventAutomation/FEventAutomation.py",
-                        "sha256":  "18b07c0313b4c1d972fc01c2b69632a54405250b7e76a640d4ddcb993c798464"
+                        "sha256":  "3121b478b390efc4fac46d30d91725db7dbb80381681acc5cff6f92023e39686"
                     },
                     {
                         "id":  "FExchangeManager",

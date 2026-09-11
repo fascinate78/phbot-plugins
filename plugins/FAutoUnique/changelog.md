@@ -1,5 +1,12 @@
 # FAutoUnique V2 Changelog
 
+## v3.2.8
+
+### Added
+- Added `Get Coord from Server` in Hunt Settings to import all supported outdoor unique coordinates from the active server's Media DB3 in one click, without selecting a unique. Points are converted to game coordinates and saved per character, preserving existing points and skipping same-region duplicates within 30 meters.
+- Added an import summary and per-unique logs showing newly added points and saved totals, including matches with no new points on repeat imports.
+- Added a destination selector and `Copy Coordinates to Unique` in the Coordinate Editor to copy missing points to another unique while preserving existing points, skipping same-region duplicates within 30 meters, and leaving the source and route preferences unchanged.
+
 ## v3.2.3
 
 ### Improved

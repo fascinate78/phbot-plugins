@@ -282,17 +282,16 @@
                     {
                         "id":  "FScriptHelper",
                         "name":  "FScriptHelper",
-                        "version":  "1.2.0",
+                        "version":  "1.2.2",
                         "core":  true,
                         "description":  "Records NPC interactions and replays them from phBot scripts.",
                         "changes":  [
-                                        "Added recording triggers for `0x7C45` selections and original-UID replay when NPC metadata is unavailable.",
-                                        "Removed the default opcode filter so outgoing NPC dialog and other interaction packets are captured without enabling advanced recording."
+                                        "Restored NPC verification for the first recorded selection; unknown targets and unavailable NPC data now leave recording waiting for a valid NPC instead of creating a raw-UID recording."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/changelog.md",
                         "install_path":  "FScriptHelper.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FScriptHelper/FScriptHelper.py",
-                        "sha256":  "761df09fdca49e72c75c95a5771a42ea2740b721ffe129078316dcc75e3c0ce9"
+                        "sha256":  "f06a1078c0e9358fa900b362513afbe90d628ff12bb483a275da65f47995f418"
                     },
                     {
                         "id":  "FSereness",

@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FScriptHelper'
-pVersion = '1.2.0'
+pVersion = '1.2.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 DEFAULT_LANGUAGE = 'en'
@@ -138,6 +138,7 @@ MAX_PACKET_BYTES = 4096
 MAX_DELAY_MS = 10000
 DEFAULT_DELAY_MS = 1200
 SCRIPT_FINISH_BUFFER_MS = 2000
+EVENT_LOOP_INTERVAL_MS = 500
 
 state = STATE_IDLE
 record_name = ''
@@ -154,9 +155,6 @@ play_stop_bot = True
 play_bot_was_running = False
 play_live_uid = 0
 play_recorded_uid = 0
-play_command_name = ''
-play_started_from_script = False
-resume_skip_name = ''
 status_key = 'ready'
 status_detail_key = 'ready_detail'
 status_args = ()
@@ -451,7 +449,6 @@ def _bot_is_running():
 def play_command(name, stop_during=True, from_script=False):
     global state, play_packets, play_index, play_next_at, play_stop_bot
     global play_bot_was_running, play_live_uid, play_recorded_uid
-    global play_command_name, play_started_from_script
     if state != STATE_IDLE:
         _log('Başka bir işlem devam ediyor.')
         return False
@@ -478,12 +475,12 @@ def play_command(name, stop_during=True, from_script=False):
         return False
     play_live_uid = found[0]
     play_recorded_uid = int(command['npc'].get('uid', 0) or 0)
-    play_command_name = name
-    play_started_from_script = bool(from_script)
     play_packets = list(command['packets'])
     play_index = 0
     play_next_at = time.time()
-    play_stop_bot = bool(stop_during)
+    # Restarting the bot can rewind the walk script to earlier NPC commands.
+    # Script callers pause through their returned delay instead.
+    play_stop_bot = bool(stop_during) and not from_script
     play_bot_was_running = _bot_is_running()
     if play_stop_bot and play_bot_was_running:
         stop_bot()
@@ -503,15 +500,10 @@ def _replace_npc_uid(data):
 
 def _finish_playback():
     global state, play_packets, play_index, play_next_at
-    global resume_skip_name
     state = STATE_IDLE
     play_packets = []
     play_index = 0
     play_next_at = 0.0
-    # stop_bot sonrası yürüyüş scripti aynı FSH_NPC satırından devam edebilir.
-    # Bir sonraki aynı çağrıyı yalnızca bir kez tüketerek tekrar döngüsünü önle.
-    if play_started_from_script and play_stop_bot and play_bot_was_running:
-        resume_skip_name = play_command_name
     if play_stop_bot and play_bot_was_running:
         start_bot()
     _set_status('completed', 'play_completed', color=COLOR_SUCCESS)
@@ -545,7 +537,7 @@ def handle_silkroad(opcode, data):
         raw = bytes(data)
 
         # Kayıt başladıktan sonra oyun içindeki ilk NPC tıklaması hedefi belirler.
-        # NPC metadata is optional, as in ScriptCommands.
+        # Only a selection verified by get_npcs() can start a recording.
         if record_npc is None:
             if opcode not in (0x7045, 0x7C45) or len(raw) < 4:
                 return True
@@ -554,11 +546,10 @@ def handle_silkroad(opcode, data):
                 npc = (get_npcs() or {}).get(selected_uid)
             except Exception:
                 npc = None
-            record_npc = _npc_identity(selected_uid, npc or {})
             if npc is None:
-                record_npc['raw_selection'] = True
-                record_npc['name'] = 'UID %d' % selected_uid
-                _log('NPC metadata unavailable; recording the original selection UID.')
+                _log('Selection ignored: NPC not found; waiting for a valid NPC selection.')
+                return True
+            record_npc = _npc_identity(selected_uid, npc)
             recorded_packets.append({
                 'opcode': int(opcode),
                 'data': _to_hex(raw),
@@ -619,31 +610,24 @@ def event_loop():
 
 
 # Script komutları
-# FSH_NPC,kayit_adi[,true|false]  -> kaydı oynatır; true botu geçici durdurur.
+# FSH_NPC,record_name[,true|false] -> replay and pause the script without restarting the bot.
 def FSH_NPC(args):
-    global resume_skip_name
     if len(args) < 2 or len(args) > 3:
         _log('Kullanım: FSH_NPC,kayit_adi[,true|false]')
         return 0
     command_name = str(args[1]).strip()
-    if resume_skip_name and command_name.lower() == resume_skip_name.lower():
-        resume_skip_name = ''
-        _log('Script devam çağrısı onaylandı: %s' % command_name)
-        return 0
     stop_during = True
     if len(args) == 3:
         stop_during = str(args[2]).strip().lower() not in ('false', '0', 'no', 'off')
     if not play_command(command_name, stop_during, True):
         return 0
-    # Bot kapalıysa veya kullanıcı stop_during=false seçtiyse stop_bot çağrılmaz.
-    # Yürüyüş scripti, asenkron paket oynatımı tamamlanana kadar bekletilir ve
-    # böylece phBot scripti yeniden başlatmadan doğrudan sonraki satıra geçer.
-    if not play_bot_was_running or not stop_during:
-        total_delay = SCRIPT_FINISH_BUFFER_MS
-        for packet in play_packets[1:]:
-            total_delay += _safe_int(packet.get('delay_ms'), DEFAULT_DELAY_MS, 0, MAX_DELAY_MS)
-        return total_delay
-    return 0
+    # Each packet needs an event-loop tick, even with a zero recorded delay.
+    # Include tick rounding as well as the final completion/server buffer.
+    total_delay = SCRIPT_FINISH_BUFFER_MS + len(play_packets) * EVENT_LOOP_INTERVAL_MS
+    for packet in play_packets[1:]:
+        total_delay += _safe_int(packet.get('delay_ms'), DEFAULT_DELAY_MS, 0, MAX_DELAY_MS)
+    return total_delay
+
 
 
 def FSH_SELECT(args):

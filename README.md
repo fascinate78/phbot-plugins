@@ -68,7 +68,7 @@ downloaded version.
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.4 | Sorts character inventory and personal storage with configurable category rules. |
 | [FPenManager](plugins/FPenManager/) | 1.0.0 | Automatically applies Feather Pen of Fortune until each queued equipment item reaches its configured total stat values. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
-| [FScriptHelper](plugins/FScriptHelper/) | 1.2.0 | Records NPC interactions and replays them from phBot scripts. |
+| [FScriptHelper](plugins/FScriptHelper/) | 1.2.2 | Records NPC interactions and replays them from phBot scripts. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
 | [FSilkroadBox](plugins/FSilkroadBox/) | 1.0.0 | Opens Silkroad Boxes automatically from selected inventory pages in sequential or random order. |

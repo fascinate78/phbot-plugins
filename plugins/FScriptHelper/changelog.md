@@ -1,5 +1,16 @@
 # FScriptHelper Changelog
 
+## v1.2.2
+
+### Fixed
+- Restored NPC verification for the first recorded selection; unknown targets and unavailable NPC data now leave recording waiting for a valid NPC instead of creating a raw-UID recording.
+
+## v1.2.1
+
+### Fixed
+- Fixed consecutive `FSH_NPC,...,true` commands replaying earlier commands by waiting within the script instead of stopping and restarting the bot. Both boolean values remain accepted; GUI playback retains its bot pause option.
+- Included the per-packet playback tick in script wait times to prevent the next command from arriving before longer recordings finish.
+
 ## v1.2.0
 
 ### Added

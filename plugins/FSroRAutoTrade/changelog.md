@@ -1,5 +1,11 @@
 # FSroRAutoTrade Changelog
 
+## v4.1.1
+
+### Improved
+
+- Increased the caravan-script completion timeout from 30 to 90 minutes for long trade routes.
+
 ## v4.1.0
 
 ### Added

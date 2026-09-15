@@ -342,16 +342,16 @@
                     {
                         "id":  "FSroRAutoTrade",
                         "name":  "FSroRAutoTrade",
-                        "version":  "4.1.0",
+                        "version":  "4.1.1",
                         "core":  false,
                         "description":  "Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached.",
                         "changes":  [
-                                        "Added a character-specific option to skip training-area validation for automatic"
+                                        "Increased the caravan-script completion timeout from 30 to 90 minutes for long trade routes."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/changelog.md",
                         "install_path":  "FSroRAutoTrade.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSroRAutoTrade/FSroRAutoTrade.py",
-                        "sha256":  "2050801ca69588f796eca942a14e6521ddadcbef380d9dbd54d146e4ab0e5d28"
+                        "sha256":  "a2890075dc8c605d3ada97634aabbb1946175af9be617fc8c46a1b486166cf7f"
                     },
                     {
                         "id":  "FTarget",

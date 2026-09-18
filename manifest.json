@@ -85,6 +85,20 @@
                         "sha256":  "7fd7d0cd38e90cc7ec0ebcb6e453615965881151d8ae90409c52a537c9265873"
                     },
                     {
+                        "id":  "FAutoTrade",
+                        "name":  "FAutoTrade",
+                        "version":  "2.2.0",
+                        "core":  false,
+                        "description":  "Automates town-specific trade NPC click sequences and paired travel scripts.",
+                        "changes":  [
+                                        "Added a Discord button beside Notifications and a visible `⚜ Made By FascinaTe` signature."
+                                    ],
+                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoTrade/changelog.md",
+                        "install_path":  "FAutoTrade.py",
+                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoTrade/FAutoTrade.py",
+                        "sha256":  "fcf0a28d278141b7d78eaaae1ebb3b529d48fd343f272ac03cfec8c7bf1739ef"
+                    },
+                    {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
                         "version":  "3.2.8",

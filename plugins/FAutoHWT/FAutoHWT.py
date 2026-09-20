@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FAutoHWT'
-pVersion = '0.7.2'
+pVersion = '0.7.6'
 LEGACY_PLUGIN_NAME = 'FHWTGate'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
@@ -21,6 +21,7 @@ PROTOCOL_VERSION = '6'
 GATE_REGION = 19019
 GATE_SERVERNAME = 'GATE_TOMB_GATE_IN'
 GATE_MODEL = 25593
+GATE_PATH_TARGET = (-11380.0, -3278.0, 562.0)
 DEFAULT_GATE_DISTANCE = 50.0
 PREPARE_RETRY_SECONDS = 4.0
 PREPARE_MAX_ATTEMPTS = 3
@@ -104,6 +105,464 @@ OFFSCREEN_X = 2000
 SCHEDULE_MODES = ('Disabled', 'Daily', 'Selected days', 'One time')
 DAY_KEYS = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
 HWT_DIFFICULTIES = ('Beginner', 'Intermediate', 'Advanced')
+BUILTIN_INSIDE_SCRIPTS = {
+    'Beginner': '''
+walk,10917,4593,724
+walk,10933,4593,650
+walk,10955,4593,650
+AttackArea2,250
+walk,10957,4593,650
+walk,10969,4593,652
+walk,10990,4593,701
+walk,11008,4593,724
+walk,11024,4593,751
+walk,11048,4593,743
+walk,11074,4593,743
+walk,11089,4593,757
+walk,11103,4593,737
+walk,11128,4593,660
+walk,11141,4594,674
+walk,11156,4595,712
+walk,11176,4597,739
+wait,300
+walk,11182,4578,737
+walk,11191,4567,739
+walk,11198,4553,770
+wait,200
+walk,11196,4539,812
+walk,11196,4521,829
+walk,11199,4501,812
+wait,300
+walk,11191,4499,812
+walk,11171,4500,812
+walk,11155,4503,812
+walk,11136,4507,812
+walk,11120,4509,812
+wait,300
+walk,11120,4496,812
+walk,11122,4480,812
+walk,11126,4472,827
+walk,11126,4462,827
+walk,11125,4439,801
+walk,11122,4418,801
+walk,11118,4398,801
+walk,11115,4383,809
+walk,11111,4361,801
+walk,11107,4338,793
+walk,11099,4310,801
+walk,11094,4290,801
+walk,11086,4275,801
+walk,11085,4269,793
+AttackArea2,250
+walk,11089,4268,801
+walk,11113,4269,801
+walk,11125,4268,801
+AttackArea2,250
+walk,11129,4267,801
+walk,11155,4269,801
+walk,11167,4269,793
+AttackArea2,250
+walk,11163,4271,801
+walk,11152,4283,801
+walk,11147,4297,801
+walk,11142,4321,795
+walk,11139,4345,798
+walk,11135,4370,809
+walk,11130,4397,801
+walk,11128,4418,801
+walk,11126,4437,801
+walk,11127,4453,827
+walk,11126,4477,812
+walk,11125,4490,812
+walk,11120,4508,812
+wait,300
+walk,11134,4507,812
+walk,11159,4504,812
+walk,11180,4502,812
+walk,11199,4500,812
+wait,300
+walk,11198,4509,812
+walk,11197,4526,828
+walk,11197,4543,806
+walk,11197,4557,770
+walk,11192,4566,739
+walk,11185,4574,739
+walk,11170,4594,739
+walk,11171,4599,739
+walk,11179,4610,737
+walk,11189,4624,739
+walk,11196,4632,770
+walk,11199,4638,784
+wait,222
+walk,11197,4647,813
+walk,11195,4659,828
+walk,11195,4674,815
+walk,11198,4686,815
+wait,300
+walk,11187,4686,815
+walk,11163,4682,815
+walk,11145,4680,815
+walk,11121,4678,815
+wait,300
+walk,11120,4681,815
+walk,11123,4694,815
+walk,11125,4718,833
+walk,11125,4742,808
+walk,11128,4768,806
+walk,11133,4790,806
+walk,11136,4809,814
+walk,11141,4827,808
+walk,11145,4851,798
+walk,11148,4869,798
+walk,11150,4880,806
+walk,11156,4897,806
+walk,11167,4907,806
+walk,11168,4917,798
+AttackArea2,250
+walk,11162,4917,806
+walk,11136,4919,806
+walk,11126,4918,806
+AttackArea2,250
+walk,11122,4918,806
+walk,11095,4917,806
+walk,11084,4917,798
+AttackArea2,250
+walk,11091,4911,806
+walk,11100,4895,806
+walk,11102,4880,806
+walk,11109,4848,798
+walk,11114,4824,808
+walk,11119,4799,814
+walk,11122,4778,806
+walk,11124,4759,806
+walk,11125,4736,819
+walk,11126,4721,832
+walk,11125,4698,815
+walk,11123,4680,815
+walk,11122,4679,815
+wait,300
+walk,11128,4679,815
+walk,11145,4681,815
+walk,11172,4684,815
+walk,11199,4686,815
+wait,300
+walk,11199,4681,815
+walk,11197,4670,823
+walk,11194,4653,828
+walk,11192,4640,806
+walk,11191,4629,770
+walk,11192,4624,739
+walk,11195,4619,739
+wait,111
+walk,11203,4612,739
+walk,11209,4603,739
+walk,11220,4590,739
+wait,222
+walk,11225,4587,739
+walk,11230,4587,739
+walk,11244,4591,739
+walk,11267,4593,772
+walk,11282,4593,810
+walk,11301,4593,829
+walk,11324,4593,815
+walk,11343,4593,830
+walk,11369,4592,805
+walk,11386,4592,803
+walk,11414,4593,810
+walk,11434,4593,830
+walk,11454,4592,814
+walk,11467,4589,814
+walk,11469,4591,814
+wait,300
+walk,11467,4603,814
+walk,11463,4622,814
+walk,11459,4640,814
+wait,300
+walk,11463,4640,814
+walk,11477,4636,822
+walk,11488,4635,830
+walk,11510,4634,806
+walk,11532,4635,804
+walk,11552,4634,804
+walk,11572,4635,804
+walk,11591,4635,804
+walk,11607,4634,804
+walk,11629,4635,804
+walk,11647,4635,817
+walk,11674,4635,804
+AttackArea2,250
+walk,11677,4635,804
+walk,11693,4635,804
+walk,11714,4635,804
+walk,11731,4635,830
+walk,11753,4635,815
+walk,11768,4640,815
+wait,300
+walk,11768,4633,815
+walk,11766,4618,815
+walk,11765,4600,815
+walk,11764,4574,815
+walk,11763,4555,815
+walk,11763,4535,831
+walk,11763,4517,830
+walk,11763,4507,830
+walk,11764,4488,706
+walk,11764,4464,624
+walk,11764,4440,624
+AttackArea2,250
+walk,11745,4425,624
+walk,11731,4408,624
+AttackArea2,250
+walk,11740,4384,624
+walk,11764,4375,624
+AttackArea2,250
+walk,11787,4382,624
+walk,11798,4408,624
+AttackArea2,250
+walk,11784,4432,624
+walk,11765,4409,624
+AttackArea2,250
+walk,11764,4405,624
+walk,11764,4384,624
+walk,11765,4358,624
+walk,11764,4323,721
+AttackArea2,250
+walk,11763,4315,778
+wait,2000
+FHWTG_DUNGEON_COMPLETE
+''',
+    'Intermediate': '''
+walk,10909,5937,724
+walk,10917,5937,724
+walk,10932,5937,650
+walk,10943,5937,651
+walk,10952,5950,651
+AttackArea,250
+walk,10959,5944,650
+walk,10964,5936,650
+AttackArea,250
+walk,10978,5937,650
+walk,10989,5938,696
+walk,10998,5937,724
+walk,11019,5937,741
+walk,11033,5937,751
+walk,11054,5937,743
+walk,11075,5937,747
+walk,11090,5937,757
+walk,11105,5937,737
+walk,11126,5937,660
+walk,11154,5937,703
+walk,11165,5937,739
+walk,11174,5937,739
+walk,11179,5950,737
+walk,11190,5959,739
+walk,11196,5970,751
+walk,11196,5983,795
+walk,11196,5995,827
+walk,11196,6009,829
+walk,11197,6024,815
+walk,11195,6029,815
+walk,11184,6028,815
+walk,11168,6027,815
+walk,11147,6026,815
+walk,11130,6024,815
+walk,11124,6025,815
+walk,11124,6035,815
+walk,11125,6048,815
+walk,11126,6060,833
+walk,11125,6074,831
+walk,11125,6090,806
+walk,11125,6115,806
+walk,11125,6143,814
+walk,11125,6163,814
+walk,11126,6185,806
+walk,11125,6204,806
+walk,11126,6221,806
+walk,11126,6239,806
+walk,11127,6255,806
+walk,11127,6260,806
+AttackArea,250
+walk,11128,6272,806
+walk,11140,6270,806
+walk,11146,6263,806
+AttackArea,250
+walk,11147,6249,806
+walk,11135,6239,806
+walk,11128,6238,806
+walk,11115,6238,806
+walk,11099,6245,806
+walk,11089,6246,806
+AttackArea,250
+walk,11108,6240,806
+walk,11120,6236,806
+walk,11126,6232,806
+walk,11125,6214,806
+walk,11126,6192,806
+walk,11125,6173,806
+walk,11125,6155,818
+walk,11125,6141,814
+walk,11126,6123,806
+walk,11126,6101,806
+walk,11125,6079,822
+walk,11125,6064,833
+walk,11125,6044,815
+walk,11125,6030,815
+walk,11123,6025,815
+walk,11134,6025,815
+walk,11152,6025,815
+walk,11173,6028,815
+walk,11189,6029,815
+walk,11196,6027,815
+walk,11197,6014,822
+walk,11196,6002,828
+walk,11195,5986,806
+walk,11196,5973,770
+walk,11190,5961,739
+walk,11180,5953,737
+walk,11173,5946,739
+walk,11174,5938,739
+walk,11177,5927,739
+walk,11179,5919,737
+walk,11186,5913,739
+walk,11194,5909,739
+walk,11196,5904,756
+walk,11195,5891,798
+walk,11195,5877,828
+walk,11196,5863,828
+walk,11197,5849,812
+walk,11195,5845,812
+walk,11184,5846,812
+walk,11166,5846,812
+walk,11157,5847,812
+walk,11136,5848,812
+walk,11124,5847,812
+walk,11125,5831,812
+walk,11125,5817,823
+walk,11126,5801,827
+walk,11126,5783,801
+walk,11126,5763,801
+walk,11126,5745,801
+walk,11126,5729,813
+walk,11125,5716,814
+walk,11125,5689,802
+walk,11125,5689,802
+walk,11126,5668,801
+walk,11125,5651,801
+walk,11125,5627,801
+walk,11125,5619,801
+AttackArea,250
+walk,11148,5618,801
+walk,11155,5619,801
+AttackArea,250
+walk,11123,5616,801
+walk,11103,5612,801
+walk,11092,5613,801
+AttackArea,250
+walk,11117,5620,801
+walk,11125,5628,801
+walk,11125,5644,801
+walk,11126,5661,801
+walk,11126,5681,801
+walk,11126,5697,801
+walk,11126,5714,814
+walk,11126,5728,814
+walk,11125,5759,801
+walk,11125,5782,801
+walk,11125,5801,827
+walk,11125,5815,827
+walk,11125,5837,812
+walk,11125,5847,812
+walk,11131,5850,812
+walk,11157,5848,812
+walk,11178,5848,812
+walk,11194,5849,812
+walk,11196,5858,815
+walk,11196,5871,828
+walk,11195,5887,806
+walk,11195,5900,770
+walk,11202,5912,739
+walk,11207,5920,739
+walk,11209,5930,739
+walk,11210,5937,739
+walk,11221,5938,739
+walk,11242,5937,739
+walk,11260,5937,741
+walk,11275,5937,797
+walk,11289,5937,828
+walk,11304,5938,829
+walk,11324,5937,815
+walk,11340,5938,827
+walk,11356,5937,829
+walk,11370,5937,805
+walk,11389,5937,803
+walk,11414,5937,810
+walk,11433,5937,830
+walk,11457,5938,814
+walk,11465,5937,814
+walk,11464,5960,814
+walk,11462,5977,814
+walk,11469,5980,814
+walk,11481,5979,829
+walk,11498,5979,830
+walk,11518,5979,804
+walk,11545,5979,804
+walk,11563,5979,804
+walk,11583,5979,804
+walk,11601,5979,804
+walk,11621,5979,804
+walk,11633,5979,804
+AttackArea,250
+walk,11640,5960,804
+walk,11649,5956,804
+AttackArea,250
+walk,11653,5978,817
+walk,11654,5989,812
+AttackArea,250
+walk,11670,5981,804
+walk,11690,5979,804
+walk,11712,5979,804
+walk,11727,5979,826
+walk,11745,5979,831
+walk,11759,5978,815
+walk,11765,5976,815
+walk,11764,5960,815
+walk,11763,5941,815
+walk,11763,5913,815
+walk,11764,5892,815
+walk,11763,5875,831
+walk,11764,5857,830
+walk,11764,5850,830
+walk,11764,5836,734
+walk,11764,5836,730
+walk,11764,5822,634
+walk,11764,5803,624
+walk,11750,5783,624
+walk,11741,5773,624
+AttackArea,250
+walk,11742,5767,626
+walk,11750,5752,624
+AttackArea,250
+walk,11764,5747,625
+walk,11784,5751,624
+walk,11789,5753,624
+AttackArea,250
+walk,11786,5739,624
+walk,11776,5731,624
+walk,11766,5714,624
+walk,11765,5700,624
+walk,11765,5681,627
+walk,11764,5676,655
+walk,11765,5670,701
+walk,11764,5663,746
+walk,11764,5658,779
+walk,11764,5655,804
+walk,11764,5653,821
+walk,11764,5650,830
+walk,11764,5648,830
+wait,5000
+FHWTG_DUNGEON_COMPLETE
+''',
+}
 TELEPORT_LANGUAGES = ('Auto', 'English', 'Turkish')
 
 
@@ -572,15 +1031,24 @@ def _send_private(target, command, argument=''):
 
 def _run_gate_script():
     file_name = _selected_script()
-    if not file_name or os.path.basename(file_name) != file_name:
-        _fail('Select a valid gate script')
-        return False
-    path = _script_path(file_name)
     try:
-        _debug('Gate script requested: character=%s path=%s region=%s position=%s' % (
-            _own_name(), path, (get_position() or {}).get('region'), get_position()))
-        with open(path, 'r', encoding='utf-8-sig') as handle:
-            script = handle.read()
+        if file_name:
+            if os.path.basename(file_name) != file_name:
+                _fail('Select a valid gate script')
+                return False
+            path = _script_path(file_name)
+            _debug('Gate script requested: character=%s path=%s region=%s position=%s' % (
+                _own_name(), path, (get_position() or {}).get('region'), get_position()))
+            with open(path, 'r', encoding='utf-8-sig') as handle:
+                script = handle.read()
+            route_name = file_name
+        else:
+            commands = generate_script(GATE_REGION, *GATE_PATH_TARGET)
+            if not isinstance(commands, list) or not commands:
+                _fail('phBot could not generate the built-in gate route')
+                return False
+            script = '\n'.join(commands)
+            route_name = 'Built-in gate path'
         if not script.strip():
             _fail('Gate script is empty')
             return False
@@ -591,8 +1059,9 @@ def _run_gate_script():
         if start_script(script) is False:
             _fail('phBot could not start the gate script')
             return False
-        _set_status(STATE_TRAVELING, 'Running city-to-gate script', COLOR_WARNING)
-        _debug('Gate script accepted by phBot: %s (%d chars)' % (file_name, len(script)))
+        _set_status(STATE_TRAVELING, 'Running city-to-gate route: %s' % route_name,
+                    COLOR_WARNING)
+        _debug('Gate route accepted by phBot: %s (%d chars)' % (route_name, len(script)))
         return True
     except Exception as error:
         _fail('Gate script error: %s' % error)
@@ -602,15 +1071,21 @@ def _run_gate_script():
 def _run_inside_script():
     global deadline
     file_name = _selected_inside_script()
-    if not file_name or os.path.basename(file_name) != file_name:
-        _fail('Select a valid HWT inside script')
-        return False
-    path = _script_path(file_name)
     try:
-        with open(path, 'r', encoding='utf-8-sig') as handle:
-            script = handle.read()
+        if file_name:
+            if os.path.basename(file_name) != file_name:
+                _fail('Select a valid HWT inside script')
+                return False
+            with open(_script_path(file_name), 'r', encoding='utf-8-sig') as handle:
+                script = handle.read()
+            route_name = file_name
+        else:
+            difficulty = _hwt_difficulty()
+            script = BUILTIN_INSIDE_SCRIPTS.get(difficulty, '')
+            route_name = 'Built-in %s route' % difficulty
         if not script.strip():
-            _fail('HWT inside script is empty')
+            _fail('No built-in HWT route for %s; select a custom script' %
+                  _hwt_difficulty())
             return False
         stop_bot()
         stop_script()
@@ -619,9 +1094,9 @@ def _run_inside_script():
             return False
         deadline = 0.0
         _set_status(STATE_RUNNING_HWT,
-                    'Running HWT script: %s' % file_name, COLOR_SUCCESS)
-        _debug('HWT inside script accepted: character=%s file=%s chars=%s region=%s' %
-               (_own_name(), file_name, len(script),
+                    'Running HWT script: %s' % route_name, COLOR_SUCCESS)
+        _debug('HWT inside script accepted: character=%s route=%s chars=%s region=%s' %
+               (_own_name(), route_name, len(script),
                 (get_position() or {}).get('region')))
         return True
     except Exception as error:
@@ -631,17 +1106,35 @@ def _run_inside_script():
 
 def _run_return_script():
     file_name = _selected_return_script()
-    if not file_name or os.path.basename(file_name) != file_name:
-        _fail('Select a valid leader return script')
-        return False
     try:
-        with open(_script_path(file_name), 'r',
-                  encoding='utf-8-sig') as handle:
-            script = handle.read()
+        if file_name:
+            if os.path.basename(file_name) != file_name:
+                _fail('Select a valid leader return script')
+                return False
+            with open(_script_path(file_name), 'r',
+                      encoding='utf-8-sig') as handle:
+                script = handle.read()
+            route_name = file_name
+        else:
+            commands = generate_script(GATE_REGION, *GATE_PATH_TARGET)
+            if not isinstance(commands, list):
+                _fail('phBot could not generate the built-in return route')
+                return False
+            script = '\n'.join(commands)
+            route_name = 'Built-in gate return path'
+            if not script.strip():
+                confirmed, detail = _gate_evidence()
+                if confirmed:
+                    _set_status(STATE_RETURNING_GATE,
+                                'Already at HWT gate', COLOR_SUCCESS)
+                    return True
+                _fail('Built-in return route is empty; %s' % detail)
+                return False
         if not script.strip() or start_script(script) is False:
             _fail('Leader return script could not be started')
             return False
-        _set_status(STATE_RETURNING_GATE, 'Leader returning to HWT gate',
+        _set_status(STATE_RETURNING_GATE, 'Leader returning to HWT gate: %s' %
+                    route_name,
                     COLOR_WARNING)
         return True
     except Exception as error:
@@ -961,26 +1454,28 @@ def refresh_scripts(preferred=None, preferred_inside=None, preferred_return=None
                     scripts.append(file_name)
         scripts.sort(key=lambda value: value.lower())
         QtBind.clear(gui, cmbScript)
-        QtBind.append(gui, cmbScript, '-- Select gate script --')
+        QtBind.append(gui, cmbScript, '-- Built-in gate path (default) --')
         for file_name in scripts:
             QtBind.append(gui, cmbScript, file_name)
         QtBind.setText(gui, cmbScript,
-                       selected if selected in scripts else '-- Select gate script --')
+                       selected if selected in scripts
+                       else '-- Built-in gate path (default) --')
         QtBind.clear(gui, cmbInsideScript)
-        QtBind.append(gui, cmbInsideScript, '-- Select HWT inside script --')
+        QtBind.append(gui, cmbInsideScript, '-- Built-in HWT route (default) --')
         for file_name in scripts:
             QtBind.append(gui, cmbInsideScript, file_name)
         QtBind.setText(
             gui, cmbInsideScript,
             selected_inside if selected_inside in scripts
-            else '-- Select HWT inside script --')
+            else '-- Built-in HWT route (default) --')
         QtBind.clear(gui, cmbReturnScript)
-        QtBind.append(gui, cmbReturnScript, '-- Select leader return script --')
+        QtBind.append(gui, cmbReturnScript,
+                      '-- Built-in gate return (default) --')
         for file_name in scripts:
             QtBind.append(gui, cmbReturnScript, file_name)
         QtBind.setText(gui, cmbReturnScript,
                        selected_return if selected_return in scripts
-                       else '-- Select leader return script --')
+                       else '-- Built-in gate return (default) --')
     except Exception as error:
         log('[%s] Script refresh error: %s' % (pName, error))
     return scripts
@@ -1144,14 +1639,14 @@ def _start_run(start_mode):
     if not _is_solo_role() and not members:
         _set_status(STATE_FAILED, 'Add at least one party member', COLOR_ERROR)
         return
-    if not _selected_inside_script():
-        _set_status(STATE_FAILED, 'Select an HWT inside script', COLOR_ERROR)
+    if (not _selected_inside_script() and
+            _hwt_difficulty() not in BUILTIN_INSIDE_SCRIPTS):
+        _set_status(STATE_FAILED,
+                    'No built-in route for %s; select an HWT script' %
+                    _hwt_difficulty(), COLOR_ERROR)
         return
     if _travel_profile() is None:
         _set_status(STATE_FAILED, 'Select a Slot Profile', COLOR_ERROR)
-        return
-    if _runs_per_cycle() > 1 and not _selected_return_script():
-        _set_status(STATE_FAILED, 'Select a leader return script', COLOR_ERROR)
         return
     if state not in (STATE_IDLE, STATE_COMPLETE, STATE_FAILED):
         _set_status(state, 'A gate run is already active', COLOR_WARNING)
@@ -1974,7 +2469,7 @@ QtBind.setChecked(gui, cbxArmed, True)
 lblLeaderName = QtBind.createLabel(gui, '<font color="%s">Leader name</font>' % COLOR_MUTED, 12, 108)
 tbxLeaderName = QtBind.createLineEdit(gui, '', 95, 104, 190, 20)
 
-lblScriptHeader = QtBind.createLabel(gui, '<font color="%s"><b>GATE SCRIPT</b></font>' % COLOR_PRIMARY, 12, 140)
+lblScriptHeader = QtBind.createLabel(gui, '<font color="%s"><b>GATE ROUTE</b></font>' % COLOR_PRIMARY, 12, 140)
 cmbScript = QtBind.createCombobox(gui, 12, 160, 220, 20)
 btnRefresh = QtBind.createButton(gui, 'refresh_clicked', '↻ Refresh', 238, 158)
 lblTimeout = QtBind.createLabel(gui, '<font color="%s">Timeout</font>' % COLOR_MUTED, 12, 190)
@@ -2038,9 +2533,9 @@ cmbGateProfile = QtBind.createCombobox(gui, OFFSCREEN_X, 100, 180, 20)
 lblAfterProfile = QtBind.createLabel(gui, '<font color="%s">After HWT</font>' % COLOR_MUTED, OFFSCREEN_X, 138)
 cmbAfterProfile = QtBind.createCombobox(gui, OFFSCREEN_X, 134, 180, 20)
 cbxApplyAfter = QtBind.createCheckBox(gui, 'schedule_setting_changed', 'Apply after dungeon (future)', OFFSCREEN_X, 166)
-lblInsideScript = QtBind.createLabel(gui, '<font color="%s">Leader HWT</font>' % COLOR_MUTED, OFFSCREEN_X, 170)
+lblInsideScript = QtBind.createLabel(gui, '<font color="%s">Custom HWT route</font>' % COLOR_MUTED, OFFSCREEN_X, 170)
 cmbInsideScript = QtBind.createCombobox(gui, OFFSCREEN_X, 164, 180, 20)
-lblReturnScript = QtBind.createLabel(gui, '<font color="%s">Leader return</font>' % COLOR_MUTED, OFFSCREEN_X, 170)
+lblReturnScript = QtBind.createLabel(gui, '<font color="%s">Custom return route</font>' % COLOR_MUTED, OFFSCREEN_X, 170)
 cmbReturnScript = QtBind.createCombobox(gui, OFFSCREEN_X, 164, 180, 20)
 lblEntryHeader = QtBind.createLabel(gui, '<font color="%s"><b>HWT ENTRY</b></font>' % COLOR_PRIMARY, OFFSCREEN_X, 194)
 lblRuns = QtBind.createLabel(gui, '<font color="%s">Runs</font>' % COLOR_MUTED, OFFSCREEN_X, 198)

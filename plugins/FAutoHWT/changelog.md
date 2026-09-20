@@ -1,5 +1,14 @@
 # FAutoHWT Changelog
 
+## v0.7.6
+
+### Added
+- Added embedded Beginner and cleaned Intermediate leader HWT routes, each ending with the required dungeon-completion callback.
+- Added a built-in phBot pathfinding route to the Kings Valley HWT gate.
+
+### Improved
+- Made the built-in gate, Beginner/Intermediate dungeon, and repeat-run return routes the defaults; custom scripts now act only as optional overrides.
+
 ## v0.7.2
 
 ### Added

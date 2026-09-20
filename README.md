@@ -53,7 +53,7 @@ downloaded version.
 | [FaaUpdater](plugins/FaaUpdater/) | 1.2.0 | Manages installation and updates for FascinaTe phBot plugins from the trusted GitHub catalog. |
 | [FAutoCaptcha](plugins/FAutoCaptcha/) | 1.0.1 | Automatically captures and periodically replays MaxiGuard's server-specific 0xC011 packet. |
 | [FAutoGS](plugins/FAutoGS/) | 1.1.0 | Coordinates guild-storage scripts across party characters. |
-| [FAutoHWT](plugins/FAutoHWT/) | 0.7.2 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
+| [FAutoHWT](plugins/FAutoHWT/) | 0.7.6 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.1 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
 | [FAutoTrade](plugins/FAutoTrade/) | 2.2.0 | Automates town-specific trade NPC click sequences and paired travel scripts. |
 | [FAutoUnique V2](plugins/FAutoUnique/) | 3.2.8 | Hunts unique monsters through prioritized script or learned coordinate routes. |

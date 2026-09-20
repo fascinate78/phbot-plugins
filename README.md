@@ -64,10 +64,7 @@ downloaded version.
 | [FDevilAwakener](plugins/FDevilAwakener/) | 1.1.3 | Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil's Spirit until it reaches the requested enhancement level. |
 | [FEventAutomation](plugins/FEventAutomation/) | 1.0.4 | Automatically exchanges supported event items through Event So-Ok and opens Silkroad Boxes. |
 | [FExchangeManager](plugins/FExchangeManager/) | 1.7.1 | Automatically accepts exchange requests from trusted nearby players or optionally from all nearby guild members. |
-| [FFateManager](plugins/FFateManager/) | 1.0.1 | Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count. |
-| [FFortuneManager](plugins/FFortuneManager/) | 1.2.7 | Automatically rolls eligible equipment until every configured per-stat line target is reached. |
 | [FInventoryManager](plugins/FInventoryManager/) | 3.0.4 | Sorts character inventory and personal storage with configurable category rules. |
-| [FPenManager](plugins/FPenManager/) | 1.0.0 | Automatically applies Feather Pen of Fortune until each queued equipment item reaches its configured total stat values. |
 | [FPvpHelperV2](plugins/FPvpHelperV2/) | 1.2.0 | Switches configured weapons, shields, and skill groups during PvP. |
 | [FScriptHelper](plugins/FScriptHelper/) | 1.2.2 | Records NPC interactions and replays them from phBot scripts. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |

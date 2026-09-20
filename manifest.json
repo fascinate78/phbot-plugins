@@ -221,34 +221,6 @@
                         "sha256":  "cce0764c03771354823e1e72f5e2bdbc2c83cf91b3167938ea129032f130ab9b"
                     },
                     {
-                        "id":  "FFateManager",
-                        "name":  "FFateManager",
-                        "version":  "1.0.1",
-                        "core":  false,
-                        "description":  "Automatically applies Wheel of Fate until each queued equipment item reaches its configured blue-line count.",
-                        "changes":  [
-                                        "Excluded the response\u0027s internal magic-option record from the visible blue-line count."
-                                    ],
-                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFateManager/changelog.md",
-                        "install_path":  "FFateManager.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFateManager/FFateManager.py",
-                        "sha256":  "52e92c6f605bfe9b1c6162b2d812f6ed4004103348096dc1f590ca712ca44e45"
-                    },
-                    {
-                        "id":  "FFortuneManager",
-                        "name":  "FFortuneManager",
-                        "version":  "1.2.7",
-                        "core":  false,
-                        "description":  "Automatically rolls eligible equipment until every configured per-stat line target is reached.",
-                        "changes":  [
-                                        "Added context-aware decoding for the live-verified high-degree weapon code family (`0x69`, `0x6A`, `0x6B`, `0x6C`, `0x6D`, `0x77`) without changing armor/accessory interpretations of overlapping codes."
-                                    ],
-                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/changelog.md",
-                        "install_path":  "FFortuneManager.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FFortuneManager/FFortuneManager.py",
-                        "sha256":  "ce317732f984fd09788e6b5545cb049ec90e59c0c1183599a81a42bde54d29bd"
-                    },
-                    {
                         "id":  "FInventoryManager",
                         "name":  "FInventoryManager",
                         "version":  "3.0.4",
@@ -261,23 +233,6 @@
                         "install_path":  "FInventoryManager.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FInventoryManager/FInventoryManager.py",
                         "sha256":  "997abd3b4bda6e843fb79c9cabe22c5bcffe6977a04f118b544db019c513d2d2"
-                    },
-                    {
-                        "id":  "FPenManager",
-                        "name":  "FPenManager",
-                        "version":  "1.0.0",
-                        "core":  false,
-                        "description":  "Automatically applies Feather Pen of Fortune until each queued equipment item reaches its configured total stat values.",
-                        "changes":  [
-                                        "Added response-driven Feather Pen of Fortune automation with independent minimum total values for each selected stat.",
-                                        "Added summation of repeated stat lines, multi-item queuing, inventory-slot validation, and automatic progression between completed items.",
-                                        "Added verified decoding of the changed stat key, old and new values, and the complete current stat record section from `0xB151` responses.",
-                                        "Added a one-roll test and a two-page GUI with live result and automation status indicators."
-                                    ],
-                        "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FPenManager/changelog.md",
-                        "install_path":  "FPenManager.py",
-                        "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FPenManager/FPenManager.py",
-                        "sha256":  "8cc0472895b20430cbf31d24ec1b66d8f5a84a910027a967b46079e789a40523"
                     },
                     {
                         "id":  "FPvpHelperV2",

@@ -10,7 +10,7 @@ import webbrowser
 
 
 pName = 'FAutoHWT'
-pVersion = '0.7.6'
+pVersion = '0.8.0'
 LEGACY_PLUGIN_NAME = 'FHWTGate'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
@@ -21,7 +21,7 @@ PROTOCOL_VERSION = '6'
 GATE_REGION = 19019
 GATE_SERVERNAME = 'GATE_TOMB_GATE_IN'
 GATE_MODEL = 25593
-GATE_PATH_TARGET = (-11380.0, -3278.0, 562.0)
+GATE_PATH_TARGET = (-11375.0, -3277.0, 570.0)
 DEFAULT_GATE_DISTANCE = 50.0
 PREPARE_RETRY_SECONDS = 4.0
 PREPARE_MAX_ATTEMPTS = 3
@@ -100,6 +100,7 @@ finalize_profile_deadline = 0.0
 finalize_return_started = False
 finalize_town_since = 0.0
 early_finish_reason = ''
+gate_path_retry_at = 0.0
 
 OFFSCREEN_X = 2000
 SCHEDULE_MODES = ('Disabled', 'Daily', 'Selected days', 'One time')
@@ -1030,6 +1031,7 @@ def _send_private(target, command, argument=''):
 
 
 def _run_gate_script():
+    global gate_path_retry_at
     file_name = _selected_script()
     try:
         if file_name:
@@ -1043,12 +1045,24 @@ def _run_gate_script():
                 script = handle.read()
             route_name = file_name
         else:
+            position = get_position() or {}
             commands = generate_script(GATE_REGION, *GATE_PATH_TARGET)
-            if not isinstance(commands, list) or not commands:
-                _fail('phBot could not generate the built-in gate route')
+            if commands is False:
+                gate_path_retry_at = time.time() + 5.2
+                _set_status(STATE_TRAVELING,
+                            'Waiting for phBot pathfinder; retrying shortly',
+                            COLOR_WARNING)
+                _debug('Built-in gate path deferred by phBot pathfinder cooldown')
+                return True
+            if commands is None:
+                _fail('No phBot path to gate from current location: %s' % position)
                 return False
+            if not isinstance(commands, list) or not commands:
+                _fail('Invalid phBot gate path result: %s' % type(commands).__name__)
+                return False
+            gate_path_retry_at = 0.0
             script = '\n'.join(commands)
-            route_name = 'Built-in gate path'
+            route_name = 'Built-in phBot gate path'
         if not script.strip():
             _fail('Gate script is empty')
             return False
@@ -1286,7 +1300,7 @@ def _reset(detail='Ready'):
     global trace_start_at
     global completed_runs, leader_outside_ready, finalize_profile_deadline
     global finalize_return_started, finalize_town_since, active_teleport_language
-    global early_finish_reason
+    global early_finish_reason, gate_path_retry_at
     stop_script()
     active_run_id = ''
     active_leader = ''
@@ -1313,6 +1327,7 @@ def _reset(detail='Ready'):
     finalize_town_since = 0.0
     active_teleport_language = ''
     early_finish_reason = ''
+    gate_path_retry_at = 0.0
     pending_prepare[:] = []
     prepare_acks.clear()
     prepare_attempts.clear()
@@ -1626,7 +1641,7 @@ def _start_run(start_mode):
     global trace_start_at
     global completed_runs, leader_outside_ready, finalize_profile_deadline
     global finalize_return_started, finalize_town_since, active_teleport_language
-    global early_finish_reason
+    global early_finish_reason, gate_path_retry_at
     if not _is_controller_role():
         _set_status(STATE_FAILED, 'Only Party Leader or Solo can start', COLOR_ERROR)
         return
@@ -1684,6 +1699,7 @@ def _start_run(start_mode):
     finalize_town_since = 0.0
     active_teleport_language = ''
     early_finish_reason = ''
+    gate_path_retry_at = 0.0
     expected_members.clear()
     expected_members.update(name.lower() for name in members)
     pending_prepare[:] = list(members)
@@ -1783,7 +1799,7 @@ def handle_chat(t, player, msg):
     global member_entry_command_at, member_entry_command_started
     global active_start_mode
     global completed_runs
-    global early_finish_reason
+    global early_finish_reason, gate_path_retry_at
     if t != CHAT_PRIVATE or not player or not msg or not msg.startswith(PROTOCOL + '|'):
         return False
     parts = msg.split('|', 4)
@@ -2077,7 +2093,7 @@ def event_loop():
     global trace_start_at
     global completed_runs, leader_outside_ready
     global finalize_profile_deadline, finalize_return_started, finalize_town_since
-    global early_finish_reason
+    global early_finish_reason, gate_path_retry_at
     now = time.time()
 
     key = _config_key()
@@ -2113,6 +2129,12 @@ def event_loop():
         elif profile_deadline and now >= profile_deadline:
             profile_deadline = 0.0
             _fail('HWT profile switch timed out: %s' % _gate_profile())
+
+    if (active_run_id and state == STATE_TRAVELING and
+            gate_path_retry_at and now >= gate_path_retry_at):
+        gate_path_retry_at = 0.0
+        _debug('Retrying built-in gate path after phBot pathfinder cooldown')
+        _run_gate_script()
 
     if _is_leader_role() and active_run_id:
         for target in list(pending_prepare):

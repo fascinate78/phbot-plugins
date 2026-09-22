@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.2.8'
+pVersion = '3.2.9'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -54,6 +54,8 @@ UI_TEXT = {
         'ignore_unique': 'Ignore this unique',
         'manual_hunt_list': 'Use manual Auto Hunt list',
         'include_auto_hunt': 'Include in Auto Hunt',
+        'coordinate_scan': 'COORDINATE SCAN', 'wait_at_each_point': 'Wait at each point',
+        'save': 'Save',
         'coordinate_editor': 'COORDINATE EDITOR', 'back': '\u2190 Back',
         'saved_coordinate_route': 'SAVED COORDINATE ROUTE', 'capture_current': 'Capture Current',
         'capture_nearby': 'Capture Nearby', 'manual_coordinate': 'MANUAL COORDINATE', 'add': 'Add',
@@ -114,6 +116,8 @@ UI_TEXT = {
         'ignore_unique': 'Bu unique\'i yok say',
         'manual_hunt_list': 'Manuel Otomatik Av listesini kullan',
         'include_auto_hunt': 'Otomatik Ava dahil et',
+        'coordinate_scan': 'KOORDINAT TARAMASI', 'wait_at_each_point': 'Her noktada bekle',
+        'save': 'Kaydet',
         'coordinate_editor': 'KOORDİNAT EDİTÖRÜ', 'back': '\u2190 Geri',
         'saved_coordinate_route': 'KAYITLI KOORDINAT ROTASI', 'capture_current': 'Mevcut Konum',
         'capture_nearby': 'Yakındaki Unique', 'manual_coordinate': 'MANUEL KOORDİNAT', 'add': 'Ekle',
@@ -275,7 +279,8 @@ learned_unique_ids = set()
 
 # Coordinate hunt settings. generate_script() itself is limited by phBot to one
 # pathfinding request every five seconds.
-COORDINATE_SEARCH_SEC = 2.0
+DEFAULT_COORDINATE_SEARCH_SEC = 2.0
+coordinate_scan_seconds = DEFAULT_COORDINATE_SEARCH_SEC
 COORDINATE_SCAN_INTERVAL_SEC = 0.25
 COORDINATE_ARRIVAL_DISTANCE = 10.0
 COORDINATE_DUPLICATE_DISTANCE = 30.0
@@ -589,6 +594,7 @@ def save_config():
             'auto_learn_coordinates': auto_learn_coordinates,
             'kill_nearby_field_uniques': kill_nearby_field_uniques,
             'manual_auto_hunt_enabled': manual_auto_hunt_enabled,
+            'coordinate_scan_seconds': coordinate_scan_seconds,
             'saved_slot': saved_slot,
         }
         with open(cfg, 'w', encoding='utf-8') as f:
@@ -601,7 +607,7 @@ def load_config():
     global unique_script_map, unique_coordinate_map, unique_route_modes, unique_reverse_settings, discovered_uniques
     global ignored_uniques, auto_hunt_uniques
     global plugin_active, auto_return_enabled, auto_learn_coordinates, kill_nearby_field_uniques
-    global manual_auto_hunt_enabled, saved_slot, UI_LANGUAGE
+    global manual_auto_hunt_enabled, saved_slot, UI_LANGUAGE, coordinate_scan_seconds
     try:
         cfg = getConfig()
         load_reverse_locations()
@@ -612,6 +618,7 @@ def load_config():
         auto_hunt_uniques = set()
         manual_auto_hunt_enabled = False
         kill_nearby_field_uniques = False
+        coordinate_scan_seconds = DEFAULT_COORDINATE_SEARCH_SEC
         if cfg and os.path.exists(cfg):
             with open(cfg, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -648,6 +655,8 @@ def load_config():
             auto_learn_coordinates = data.get('auto_learn_coordinates', False)
             kill_nearby_field_uniques = data.get('kill_nearby_field_uniques', False)
             manual_auto_hunt_enabled = data.get('manual_auto_hunt_enabled', False)
+            coordinate_scan_seconds = _normalise_coordinate_scan_seconds(
+                data.get('coordinate_scan_seconds', DEFAULT_COORDINATE_SEARCH_SEC))
             saved_slot = data.get('saved_slot', None)
             UI_LANGUAGE = data.get('language', 'en')
             if UI_LANGUAGE not in ('en', 'tr'):
@@ -657,6 +666,7 @@ def load_config():
                 QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
                 QtBind.setChecked(gui, chk_kill_nearby, kill_nearby_field_uniques)
                 QtBind.setChecked(gui, chk_manual_hunt_list, manual_auto_hunt_enabled)
+                QtBind.setText(gui, tbx_coordinate_scan, _format_coordinate_scan_seconds())
             except: pass
             was_active = data.get('plugin_active', False)
             if was_active:
@@ -938,6 +948,40 @@ def toggle_manual_hunt_list(checked=None):
     update_queue_label()
     state = 'ON' if manual_auto_hunt_enabled else 'OFF'
     log('[AutoHunt] Manual Auto Hunt list is %s.' % state)
+
+
+def _normalise_coordinate_scan_seconds(value):
+    """Return a safe per-point scan duration in seconds."""
+    try:
+        seconds = float(value)
+        if not math.isfinite(seconds):
+            raise ValueError('non-finite duration')
+        return max(0.0, min(30.0, seconds))
+    except (TypeError, ValueError):
+        return DEFAULT_COORDINATE_SEARCH_SEC
+
+
+def _format_coordinate_scan_seconds():
+    if coordinate_scan_seconds == int(coordinate_scan_seconds):
+        return str(int(coordinate_scan_seconds))
+    return ('%.2f' % coordinate_scan_seconds).rstrip('0').rstrip('.')
+
+
+def save_coordinate_scan_seconds():
+    global coordinate_scan_seconds
+    raw_value = QtBind.text(gui, tbx_coordinate_scan).strip()
+    try:
+        value = float(raw_value)
+        if not math.isfinite(value) or value < 0 or value > 30:
+            raise ValueError('outside supported range')
+    except (TypeError, ValueError):
+        QtBind.setText(gui, tbx_coordinate_scan, _format_coordinate_scan_seconds())
+        log('[Coordinates] Scan wait must be a value from 0 to 30 seconds.')
+        return
+    coordinate_scan_seconds = value
+    QtBind.setText(gui, tbx_coordinate_scan, _format_coordinate_scan_seconds())
+    save_config()
+    log('[Coordinates] Per-point scan wait set to %ss.' % _format_coordinate_scan_seconds())
 
 def use_coordinate_route():
     unique_name = _selected_unique()
@@ -1806,8 +1850,10 @@ def _coordinate_tick(token):
             try: stop_script()
             except: pass
             coordinate_hunt['phase'] = 'scanning'
-            coordinate_hunt['scan_deadline'] = time.time() + COORDINATE_SEARCH_SEC
-            log('[Coordinates] Point %d reached; scanning for 2 seconds' % (coordinate_hunt['index'] + 1))
+            scan_seconds = coordinate_scan_seconds
+            coordinate_hunt['scan_deadline'] = time.time() + scan_seconds
+            log('[Coordinates] Point %d reached; scanning for %ss' % (
+                coordinate_hunt['index'] + 1, _format_coordinate_scan_seconds()))
     elif phase == 'scanning' and time.time() >= coordinate_hunt.get('scan_deadline', 0):
         coordinate_hunt['index'] += 1
         coordinate_hunt['phase'] = 'pathfinding_wait'
@@ -3618,6 +3664,16 @@ btn_get_server_coordinates = _screen_widget(_localized(QtBind.createButton(
     'get_server_coordinates'), settings_position=(355, 65))
 lbl_server_coordinate_status = _screen_widget(QtBind.createLabel(gui, fixed_width_text(
     tr('db_import_ready'), 350), OFFSCREEN_X, 92), settings_position=(355, 92))
+_screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>COORDINATE SCAN</b></font>' % COLOR_PRIMARY,
+                                  OFFSCREEN_X, 119), 'coordinate_scan', 'heading'), settings_position=(355, 119))
+_screen_widget(_localized(QtBind.createLabel(gui, 'Wait at each point', OFFSCREEN_X, 141),
+                          'wait_at_each_point'), settings_position=(355, 141))
+tbx_coordinate_scan = _screen_widget(QtBind.createLineEdit(
+    gui, _format_coordinate_scan_seconds(), OFFSCREEN_X, 136, 55, 22), settings_position=(480, 136))
+_screen_widget(_localized(QtBind.createLabel(gui, 'seconds', OFFSCREEN_X, 141), 'seconds'),
+               settings_position=(540, 141))
+_screen_widget(_localized(QtBind.createButton(gui, 'save_coordinate_scan_seconds', 'Save', OFFSCREEN_X, 135),
+                          'save'), settings_position=(605, 135))
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>LOOT BEHAVIOR</b></font>' % COLOR_PRIMARY,
                                   OFFSCREEN_X, 65), 'loot_behavior', 'heading'), settings_position=(12, 65))
 cbx_loot_wait = _screen_widget(_localized(QtBind.createCheckBox(gui, 'do_nothing', 'Wait after unique death', OFFSCREEN_X, 86),

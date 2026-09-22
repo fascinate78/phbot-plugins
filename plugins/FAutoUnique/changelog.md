@@ -1,5 +1,10 @@
 # FAutoUnique V2 Changelog
 
+## v3.2.9
+
+### Added
+- Added a persistent Hunt Settings control for the time spent scanning each reached coordinate point. It defaults to 2 seconds and accepts values from 0 to 30 seconds.
+
 ## v3.2.8
 
 ### Added

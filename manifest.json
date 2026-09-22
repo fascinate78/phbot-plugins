@@ -46,18 +46,19 @@
                     {
                         "id":  "FAutoHWT",
                         "name":  "FAutoHWT",
-                        "version":  "0.7.6",
+                        "version":  "0.8.0",
                         "core":  false,
                         "description":  "Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting.",
                         "changes":  [
                                         "Added embedded Beginner and cleaned Intermediate leader HWT routes, each ending with the required dungeon-completion callback.",
                                         "Added a built-in phBot pathfinding route to the Kings Valley HWT gate.",
-                                        "Made the built-in gate, Beginner/Intermediate dungeon, and repeat-run return routes the defaults; custom scripts now act only as optional overrides."
+                                        "Made the built-in gate, Beginner/Intermediate dungeon, and repeat-run return routes the defaults; custom scripts now act only as optional overrides.",
+                                        "Fixed the built-in gate route retrying during phBot\u0027s pathfinding cooldown and now distinguish no-path results from invalid pathfinding responses."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoHWT/changelog.md",
                         "install_path":  "FAutoHWT.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoHWT/FAutoHWT.py",
-                        "sha256":  "7bd6f7dc382d718c3acd46822a9666a00cbff353e3c0be384005761c8469b1b9"
+                        "sha256":  "ec5ed6fcff1ed62b8dfd28735059c804758ff326deb58b1ac0fc7241db781292"
                     },
                     {
                         "id":  "FAutoPetClock",
@@ -92,18 +93,16 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.2.8",
+                        "version":  "3.2.9",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Added `Get Coord from Server` in Hunt Settings to import all supported outdoor unique coordinates from the active server\u0027s Media DB3 in one click, without selecting a unique. Points are converted to game coordinates and saved per character, preserving existing points and skipping same-region duplicates within 30 meters.",
-                                        "Added an import summary and per-unique logs showing newly added points and saved totals, including matches with no new points on repeat imports.",
-                                        "Added a destination selector and `Copy Coordinates to Unique` in the Coordinate Editor to copy missing points to another unique while preserving existing points, skipping same-region duplicates within 30 meters, and leaving the source and route preferences unchanged."
+                                        "Added a persistent Hunt Settings control for the time spent scanning each reached coordinate point. It defaults to 2 seconds and accepts values from 0 to 30 seconds."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "5ebd42345070e6a68d1aaaf60c55ace74ab583fc8849fbf8591a314cac3d3696"
+                        "sha256":  "19afcd6c2ac99b4a807fad3802f85fc8e16b9b7f18bd519936f89bf21786e73a"
                     },
                     {
                         "id":  "FCaravanNavigator",

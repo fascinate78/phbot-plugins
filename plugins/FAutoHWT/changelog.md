@@ -1,6 +1,6 @@
 # FAutoHWT Changelog
 
-## v0.7.6
+## v0.8.0
 
 ### Added
 - Added embedded Beginner and cleaned Intermediate leader HWT routes, each ending with the required dungeon-completion callback.
@@ -8,6 +8,9 @@
 
 ### Improved
 - Made the built-in gate, Beginner/Intermediate dungeon, and repeat-run return routes the defaults; custom scripts now act only as optional overrides.
+
+### Fixed
+- Fixed the built-in gate route retrying during phBot's pathfinding cooldown and now distinguish no-path results from invalid pathfinding responses.
 
 ## v0.7.2
 

@@ -2,6 +2,7 @@ from phBot import *
 import QtBind
 import json
 import os
+import sqlite3
 from threading import Timer
 import struct
 import phBotChat
@@ -10,7 +11,7 @@ import time
 import webbrowser
 
 pName = 'FControl'
-pVersion = '1.9.1'
+pVersion = '1.10.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +46,7 @@ GUI_TEXT = {
         'add': 'Add',
         'remove': 'Remove',
         'announce_tps': 'Auto-announce my own TPs',
+        'announce_reverses': 'Announce my reverse',
         'announce_channel': 'Announce Channel:',
         'buttons_title': 'BUTTONS',
         'chat_type': 'Chat Type:',
@@ -100,6 +102,7 @@ GUI_TEXT = {
         'add': 'Ekle',
         'remove': 'Kaldır',
         'announce_tps': 'Kendi ışınlanmalarımı otomatik duyur',
+        'announce_reverses': "Kendi reverse'ümü duyur",
         'announce_channel': 'Duyuru Kanalı:',
         'buttons_title': 'BUTONLAR',
         'chat_type': 'Sohbet Türü:',
@@ -174,6 +177,7 @@ targetZ = 0
 
 # Leader TP announce globals
 announce_own_teleports = False
+announce_own_reverse_zones = False
 ignore_setfcontrolleader = True
 _pending_tp_source = None
 _pending_tp_destination_id = None
@@ -189,6 +193,12 @@ _last_selected_tp_uid = None
 _last_selected_tp_source = None
 _last_selected_tp_at = 0.0
 _queued_tp_announcement = None
+reverse_zone_targets = {}
+_reverse_zone_targets_loaded_for = None
+_pending_reverse_zone_announcement = None
+_suppress_next_reverse_announce_until = 0.0
+
+REVERSE_ANNOUNCE_TIMEOUT = 10.0
 
 # Item Storage (TIS) command state
 tis_active = False
@@ -367,6 +377,174 @@ def getAnnounceConfig():
     if not server or not name:
         return None
     return getPath() + server + "_" + name + ".json"
+
+
+def _phbot_root_candidates():
+    """Return likely phBot roots without assuming the process working directory."""
+    candidates = []
+    raw_paths = [os.getcwd(), os.path.dirname(os.path.abspath(__file__))]
+    for getter in (get_config_dir, get_log_dir):
+        try:
+            folder = getter()
+        except Exception:
+            folder = None
+        if folder:
+            raw_paths.append(os.path.dirname(os.path.normpath(folder)))
+    for path in raw_paths:
+        current = os.path.abspath(path)
+        for unused in range(3):
+            if current not in candidates:
+                candidates.append(current)
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+    return candidates
+
+
+def _normalized_identity(value):
+    return ''.join(character.lower() for character in str(value or '')
+                   if character.isalnum())
+
+
+def _normalized_path(value):
+    return os.path.normcase(os.path.normpath(
+        str(value or '').replace('/', os.sep)))
+
+
+def _server_entry_matches(key, entry, active_server):
+    if not isinstance(entry, dict):
+        return False
+    active = _normalized_identity(active_server)
+    if not active:
+        return False
+    candidates = [key, entry.get('division')]
+    candidates.extend(entry.get('servers', []))
+    for candidate in candidates:
+        value = _normalized_identity(candidate)
+        if value == active:
+            return True
+        if len(value) >= 4 and (value in active or active in value):
+            return True
+    return False
+
+
+def _readonly_database(path):
+    uri = 'file:' + os.path.abspath(path).replace('\\', '/') + '?mode=ro'
+    try:
+        return sqlite3.connect(uri, uri=True)
+    except Exception:
+        connection = sqlite3.connect(path)
+        connection.execute('PRAGMA query_only = ON')
+        return connection
+
+
+def _database_media_path(database_path):
+    connection = None
+    try:
+        connection = _readonly_database(database_path)
+        row = connection.execute(
+            'SELECT v FROM data WHERE k=? LIMIT 1', ('path',)).fetchone()
+        return str(row[0] or '').strip() if row else ''
+    except Exception:
+        return ''
+    finally:
+        if connection:
+            connection.close()
+
+
+def _find_reverse_media_database():
+    """Locate the generated Media DB3 for the active server."""
+    character = get_character_data() or {}
+    server_name = character.get('server', '')
+    client_media_path = ''
+    try:
+        client_path = str((get_client() or {}).get('path', '') or '').strip()
+        if client_path:
+            client_media_path = (client_path if os.path.isdir(client_path)
+                                 else os.path.dirname(client_path))
+    except Exception as error:
+        log('Plugin: Reverse destination client-path lookup failed: %s' % error)
+
+    for root in _phbot_root_candidates():
+        data_dir = os.path.join(root, 'Data')
+        if not os.path.isdir(data_dir):
+            continue
+        expected_paths = []
+        config_file = os.path.join(root, 'vSRO.json')
+        if server_name and os.path.isfile(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8-sig') as stream:
+                    servers = json.load(stream)
+                for key, entry in servers.items() if isinstance(servers, dict) else []:
+                    if _server_entry_matches(key, entry, server_name):
+                        configured_path = str(entry.get('path', '') or '').strip()
+                        if configured_path:
+                            expected_paths.append(_normalized_path(configured_path))
+                        break
+            except Exception as error:
+                log('Plugin: Reverse destination vSRO lookup failed: %s' % error)
+        if client_media_path:
+            expected_paths.append(_normalized_path(client_media_path))
+        expected_paths = list(set(expected_paths))
+        if not expected_paths:
+            continue
+        try:
+            candidates = [name for name in os.listdir(data_dir)
+                          if name.lower().endswith('.db3')]
+        except OSError:
+            continue
+        for filename in candidates:
+            database_path = os.path.join(data_dir, filename)
+            stored_path = _database_media_path(database_path)
+            if stored_path and _normalized_path(stored_path) in expected_paths:
+                return database_path
+    return ''
+
+
+def _reverse_zone_cache_key():
+    character = get_character_data() or {}
+    server = str(character.get('server', '') or '').strip()
+    name = str(character.get('name', '') or '').strip()
+    return '%s_%s' % (server, name) if server and name else None
+
+
+def load_reverse_zone_targets():
+    """Cache active-server reverse destination IDs for packet-time lookups."""
+    global reverse_zone_targets, _reverse_zone_targets_loaded_for
+    cache_key = _reverse_zone_cache_key()
+    if not cache_key:
+        # joined_game() can fire before phBot populates character data. The
+        # event loop will retry once isJoined() confirms it is available.
+        return False
+    reverse_zone_targets = {}
+    _reverse_zone_targets_loaded_for = cache_key
+    database_path = _find_reverse_media_database()
+    if not database_path:
+        log('Plugin: Reverse zone announcement unavailable; active server Media DB3 was not found')
+        return False
+    connection = None
+    try:
+        connection = _readonly_database(database_path)
+        rows = connection.execute(
+            'SELECT id, name FROM reverseteleport WHERE name IS NOT NULL ORDER BY id'
+        ).fetchall()
+        reverse_zone_targets = {
+            int(row[0]): str(row[1]).strip()
+            for row in rows if row[0] is not None and str(row[1] or '').strip()
+        }
+        if not reverse_zone_targets:
+            raise ValueError('reverseteleport table returned no locations')
+        log('Plugin: Loaded %d reverse destinations from Media DB3 [%s]' %
+            (len(reverse_zone_targets), os.path.basename(database_path)))
+        return True
+    except Exception as error:
+        reverse_zone_targets = {}
+        log('Plugin: Reverse destination lookup failed: %s' % error)
+        return False
+    finally:
+        if connection:
+            connection.close()
 
 # Add leader to the list
 def btnAddLeader_clicked():
@@ -661,6 +839,10 @@ lstLeaders = QtBind.createList(gui, _x, _y, 176, 80)
 btnRemLeader = QtBind.createButton(gui, 'btnRemLeader_clicked', _text('remove'), _x + 88 - 32, _y - 1 + 80)
 
 _y += 115  # lstLeaders + btnRemLeader yüksekliği + boşluk (Remove butonunun altında kalmaması için)
+_y -= 2
+cbxAnnounceOwnReverse = QtBind.createCheckBox(
+    gui, 'cbxAnnounceOwnReverse_clicked', _text('announce_reverses'), _x, _y)
+_y += 20
 cbxAnnounceOwnTp = QtBind.createCheckBox(gui, 'cbxAnnounceOwnTp_clicked', _text('announce_tps'), _x, _y)
 _y += 20
 lblAnnounceChannel = QtBind.createLabel(gui, _text('announce_channel'), _x, _y)
@@ -683,9 +865,10 @@ control_widgets = [
     (btnAddLeader, 646, 88),
     (lstLeaders, 544, 110),
     (btnRemLeader, 600, 189),
-    (cbxAnnounceOwnTp, 544, 225),
-    (lblAnnounceChannel, 544, 245),
-    (cbxAnnounceChannel, 544, 261),
+    (cbxAnnounceOwnReverse, 544, 223),
+    (cbxAnnounceOwnTp, 544, 243),
+    (lblAnnounceChannel, 544, 263),
+    (cbxAnnounceChannel, 544, 279),
 ]
 
 
@@ -864,6 +1047,7 @@ def _apply_gui_language():
     QtBind.setText(gui, lblLeaders, '<font color="#3cff7a"><b>%s</b></font>' % _text('leaders'))
     QtBind.setText(gui, btnAddLeader, _text('add'))
     QtBind.setText(gui, btnRemLeader, _text('remove'))
+    QtBind.setText(gui, cbxAnnounceOwnReverse, _text('announce_reverses'))
     QtBind.setText(gui, cbxAnnounceOwnTp, _text('announce_tps'))
     QtBind.setText(gui, lblAnnounceChannel, _text('announce_channel'))
     QtBind.setText(gui, lblButtonsTitle, '<font color="#00d2ff" size="4"><b>%s</b></font>' % _text('buttons_title'))
@@ -1107,6 +1291,12 @@ def cbxAnnounceOwnTp_clicked(checked):
     save_announce_settings()
 
 
+def cbxAnnounceOwnReverse_clicked(checked):
+    global announce_own_reverse_zones
+    announce_own_reverse_zones = bool(checked)
+    save_announce_settings()
+
+
 def cbxIgnoreSetLeader_clicked(checked):
     global ignore_setfcontrolleader
     ignore_setfcontrolleader = bool(checked)
@@ -1137,6 +1327,7 @@ def save_announce_settings():
         except Exception:
             data = {}
     data['AnnounceOwnTeleports'] = announce_own_teleports
+    data['AnnounceOwnReverseZones'] = announce_own_reverse_zones
     data['AnnounceChannel'] = get_announce_channel()
     data['IgnoreSetFControlLeader'] = ignore_setfcontrolleader
     if not os.path.exists(getPath()):
@@ -1152,19 +1343,21 @@ def save_announce_settings():
 
 def load_announce_settings():
     """Load teleport announcement settings for the current character."""
-    global announce_own_teleports, ignore_setfcontrolleader
+    global announce_own_teleports, announce_own_reverse_zones, ignore_setfcontrolleader
     global _last_seen_announce_channel, _announce_settings_loaded_for
     config_file = getAnnounceConfig()
     if not config_file:
         return False
     saved_channel = 'All'
     announce_own_teleports = False
+    announce_own_reverse_zones = False
     ignore_setfcontrolleader = True
     if os.path.exists(config_file):
         try:
             with open(config_file, "r") as f:
                 data = json.load(f)
             announce_own_teleports = bool(data.get("AnnounceOwnTeleports", False))
+            announce_own_reverse_zones = bool(data.get("AnnounceOwnReverseZones", False))
             ignore_setfcontrolleader = bool(data.get("IgnoreSetFControlLeader", True))
             saved_channel = data.get("AnnounceChannel", "All")
             if saved_channel not in ANNOUNCE_CHANNELS:
@@ -1173,6 +1366,7 @@ def load_announce_settings():
             log('Plugin: Error loading announce settings - ' + str(e))
             return False
     QtBind.setChecked(gui, cbxAnnounceOwnTp, announce_own_teleports)
+    QtBind.setChecked(gui, cbxAnnounceOwnReverse, announce_own_reverse_zones)
     QtBind.setChecked(gui, cbxIgnoreSetLeader, ignore_setfcontrolleader)
     QtBind.setText(gui, cbxAnnounceChannel, saved_channel)
     _last_seen_announce_channel = saved_channel
@@ -1678,6 +1872,7 @@ def handle_runtime_tp_command(player, text):
 
 def handle_reverse_command(player, text):
     """Handle reverse return commands for return, death, player, and zone targets."""
+    global _suppress_next_reverse_announce_until
     rest = text[8:].strip()
     if not rest:
         log("Plugin: Invalid REVERSE command format; command skipped.")
@@ -1710,9 +1905,13 @@ def handle_reverse_command(player, text):
             log(f"Plugin: REVERSE zone command requires a zone name (Leader: {player}).")
             return
         zone_name = parts[1].strip()
+        # A received announcement must not be echoed by this character after
+        # phBot sends its local item-use packet.
+        _suppress_next_reverse_announce_until = time.time() + REVERSE_ANNOUNCE_TIMEOUT
         if reverse_return(3, zone_name):
             log(f"Plugin: REVERSE: Using reverse to zone \"{zone_name}\" location (Leader: {player})")
         else:
+            _suppress_next_reverse_announce_until = 0.0
             log(f"Plugin: REVERSE: No reverse scroll available for zone \"{zone_name}\" (Leader: {player})")
     else:
         log(f"Plugin: REVERSE command has an unknown type: '{sub_type}' (expected return/death/player/zone) (Leader: {player}).")
@@ -2701,6 +2900,12 @@ def handle_silkroad(opcode, data):
         except Exception as e:
             log(f"Plugin: TP announcement capture error: {e}")
 
+    if opcode == 0x704C and announce_own_reverse_zones:
+        try:
+            _capture_own_reverse_zone_request(data)
+        except Exception as e:
+            log(f"Plugin: Reverse zone announcement capture error: {e}")
+
     return True
 
 
@@ -2784,12 +2989,72 @@ def _capture_own_teleport_request(data):
             f"The announcement will be sent via {get_announce_channel()} after teleportation is confirmed.")
 
 
+def _is_reverse_return_scroll(item):
+    if not item:
+        return False
+    servername = str(item.get('servername', '') or '').upper()
+    return 'REVERSE_RETURN_SCROLL' in servername
+
+
+def _capture_own_reverse_zone_request(data):
+    """Arm a zone announcement for a verified local Reverse Return Scroll use."""
+    global _pending_reverse_zone_announcement
+    global _suppress_next_reverse_announce_until
+
+    # Captured vSRO zone reverses use slot + three item-type bytes + uint32 ID.
+    if len(data) != 8 or not reverse_zone_targets:
+        return
+    slot = data[0]
+    inventory = get_inventory() or {}
+    items = inventory.get('items') or []
+    if slot >= len(items) or not _is_reverse_return_scroll(items[slot]):
+        return
+    zone_id = struct.unpack_from('<I', data, 4)[0]
+    zone_name = reverse_zone_targets.get(zone_id)
+    if not zone_name:
+        log('Plugin: Reverse zone announcement skipped; destination ID %d is not in the Media DB3 cache' % zone_id)
+        return
+    if time.time() <= _suppress_next_reverse_announce_until:
+        _suppress_next_reverse_announce_until = 0.0
+        log('Plugin: Reverse zone announcement suppressed for received FControl command')
+        return
+    _pending_reverse_zone_announcement = {
+        'slot': slot,
+        'zone_id': zone_id,
+        'zone_name': zone_name,
+        'armed_at': time.time(),
+    }
+    log('Plugin: Reverse zone captured -> ID: %d | Destination: %s. Waiting for server confirmation.' %
+        (zone_id, zone_name))
+
+
+def _process_reverse_zone_response(data):
+    global _pending_reverse_zone_announcement
+    pending = _pending_reverse_zone_announcement
+    if not pending or len(data) < 2 or data[1] != pending['slot']:
+        return
+    _pending_reverse_zone_announcement = None
+    if data[0] != 1:
+        log('Plugin: Reverse zone announcement canceled; server rejected the Reverse Return Scroll request')
+        return
+    channel = get_announce_channel()
+    message = 'REVERSE zone %s' % pending['zone_name']
+    sent = ANNOUNCE_CHANNELS.get(channel, phBotChat.All)(message)
+    if sent:
+        log('Plugin: Reverse zone announcement sent (%s): %s' % (channel, message))
+        save_announce_settings()
+    else:
+        log('Plugin: Reverse zone announcement failed; phBotChat reported a send failure')
+
+
 def handle_joymax(opcode, data):
     global clock_pending, clock_pending_slot, clock_pending_pet_slot
     global clock_previous_remaining, clock_deadline
     global devilext_state, devilext_devil_slot, devilext_deadline
 
     handle_item_storage_packet(opcode, data)
+    if opcode == 0xB04C:
+        _process_reverse_zone_response(data)
     if opcode == 0xB04C and clock_pending and data:
         if len(data) >= 2 and data[1] == clock_pending_slot:
             if data[0] == 1:
@@ -2944,9 +3209,20 @@ def event_loop():
     global devilext_state, devilext_deadline
     global _runtime_tp_command_until, _suppress_runtime_announce_until
     global _announce_settings_loaded_for
-    global _leaders_loaded_for, _queued_tp_announcement
+    global _leaders_loaded_for, _queued_tp_announcement, _reverse_zone_targets_loaded_for
+    global _pending_reverse_zone_announcement, _suppress_next_reverse_announce_until
 
     _process_queued_tp_announcement()
+
+    now = time.time()
+    if (_pending_reverse_zone_announcement and
+            now - _pending_reverse_zone_announcement['armed_at'] > REVERSE_ANNOUNCE_TIMEOUT):
+        log('Plugin: Reverse zone announcement canceled; server confirmation timed out')
+        _pending_reverse_zone_announcement = None
+    if (not _pending_reverse_zone_announcement and
+            _suppress_next_reverse_announce_until and
+            now > _suppress_next_reverse_announce_until):
+        _suppress_next_reverse_announce_until = 0.0
 
     process_pick_all()
 
@@ -2984,6 +3260,9 @@ def event_loop():
     # isJoined() kontrolü, karaktere özel config dosyası (getConfig()) henüz belli değilken
     # yanlışlıkla "default_leaders.json"a yazmayı önlüyor.
     if isJoined():
+        reverse_cache_key = _reverse_zone_cache_key()
+        if reverse_cache_key and reverse_cache_key != _reverse_zone_targets_loaded_for:
+            load_reverse_zone_targets()
         leader_config = getConfig()
         if leader_config and leader_config != _leaders_loaded_for:
             loadLeadersConfigs()
@@ -3035,11 +3314,17 @@ def event_loop():
 # Called when the bot successfully connects to the game server
 def connected():
     global inGame, _announce_settings_loaded_for, _leaders_loaded_for
-    global _queued_tp_announcement
+    global _queued_tp_announcement, reverse_zone_targets
+    global _reverse_zone_targets_loaded_for, _pending_reverse_zone_announcement
+    global _suppress_next_reverse_announce_until
     inGame = None
     _announce_settings_loaded_for = None
     _leaders_loaded_for = None
     _queued_tp_announcement = None
+    reverse_zone_targets = {}
+    _reverse_zone_targets_loaded_for = None
+    _pending_reverse_zone_announcement = None
+    _suppress_next_reverse_announce_until = 0.0
     stop_pick_all(reason="connection changed")
 
 # Called when the character enters the game world
@@ -3052,6 +3337,7 @@ def joined_game():
     loadLeadersConfigs()
     load_announce_settings()
     loadOpcodeConfigs()
+    load_reverse_zone_targets()
 
 
 def teleported():

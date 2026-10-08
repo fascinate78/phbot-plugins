@@ -6,10 +6,12 @@ import json
 import os
 import struct
 import time
+import webbrowser
 
 
 pName = 'FChamberViciousShadows'
-pVersion = '1.6.1'
+pVersion = '1.8.1'
+DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#6C5CE7'
 COLOR_INFO = '#3498DB'
@@ -47,6 +49,8 @@ UNIQUE_NAMES = (
     'shadow uruchi',
     'shadow isyutaru'
 )
+SOLO_UNIQUE_NAME = 'shadow isyutaru'
+SOLO_UNIQUE_TARGET = 5
 DIRECT_TELEPORT_SCRIPT = 'teleport,Mysterious Priest,Sealed Dungeon of Vicious Shadows'
 
 language = 'en'
@@ -64,6 +68,7 @@ TEXT = {
         'refresh': '↻ Refresh',
         'select_script': '-- Select script --',
         'loop_enable': '🔁 Enable loop',
+        'skip_party_wait': '⚔ Skip party wait (solo inside)',
         'total_loops': 'Total loops',
         'minimum_characters': 'Minimum total characters',
         'stable_party': '30 sec stable party',
@@ -90,8 +95,10 @@ TEXT = {
         'entry_script_mode': 'entry script',
         'direct_mode': 'direct teleport',
         'leader_inside': 'Leader is inside; waiting for members',
+        'leader_inside_solo': 'Leader is inside; starting seals without party',
         'activating': 'Members are tracing; leader is activating the seals',
         'combat': 'Seals activated; tracking 5 uniques',
+        'solo_combat': 'Solo seals activated; tracking 5 Shadow Isyutaru',
         'unique_dead': 'Unique defeated: %d/5',
         'looting': '5/5 uniques defeated; waiting 30 sec for loot',
         'exit_prep': 'Moving to the exit stone',
@@ -133,6 +140,7 @@ TEXT = {
         'seconds': 'saniye', 'save': '💾 Kaydet',
         'entry_script': '📜 Giriş scripti', 'refresh': '↻ Yenile',
         'select_script': '-- Script seç --', 'loop_enable': '🔁 Loop etkinleştir',
+        'skip_party_wait': '⚔ Parti bekleme (içeride tek başına)',
         'total_loops': 'Toplam loop', 'minimum_characters': 'Minimum toplam karakter',
         'stable_party': '30 sn kararlı parti', 'controls': '🎮 ÇALIŞMA KONTROLLERİ',
         'start_script': '▶ Script ile Başlat', 'ticket_ready': '⚡ Ticket Hazır',
@@ -149,8 +157,10 @@ TEXT = {
         'manual_stop': 'Manuel durduruldu', 'leader_entering': 'Lider %s ile giriyor',
         'entry_script_mode': 'giriş scripti', 'direct_mode': 'direkt teleport',
         'leader_inside': 'Lider içeride; üyeler bekleniyor',
+        'leader_inside_solo': 'Lider içeride; parti beklemeden mühürler başlıyor',
         'activating': 'Üyeler takipte; lider mühürleri etkinleştiriyor',
         'combat': 'Mühürler açıldı; 5 unique izleniyor',
+        'solo_combat': 'Solo mühürler açıldı; 5 Shadow Isyutaru izleniyor',
         'unique_dead': 'Unique öldü: %d/5', 'looting': '5/5 unique öldü; 30 sn loot bekleniyor',
         'exit_prep': 'Çıkış taşına yaklaşılıyor', 'exit_wait_leader': 'Çıkış konumunda; lider bekleniyor',
         'exit_selected': 'Teleport Stone seçildi; onay bekleniyor',
@@ -191,6 +201,20 @@ npc,Sealing Stone of Uruchi
 FCVS_DELAY
 npc,Sealing Stone of Isyutaru
 FCVS_FINISHED'''
+SOLO_ACTIVATION_SCRIPT = '''FCVS_DELAY
+walk,-32742,-19486,98,-134
+npc,Sacrificed Slave
+FCVS_DELAY
+npc,Sealing Stone of Isyutaru
+FCVS_DELAY
+npc,Sealing Stone of Isyutaru
+FCVS_DELAY
+npc,Sealing Stone of Isyutaru
+FCVS_DELAY
+npc,Sealing Stone of Isyutaru
+FCVS_DELAY
+npc,Sealing Stone of Isyutaru
+FCVS_FINISHED'''
 EXIT_WALK_SCRIPT = '''walk,-32742,-19488,113,-134
 FCVS_EXIT_READY'''
 
@@ -222,6 +246,9 @@ exit_verified_loop = 0
 loop_ready_members = set()
 party_stable_since = 0.0
 loop_sync_at = 0.0
+skip_party_wait = False
+solo_unique_uids = set()
+solo_unique_kills = 0
 
 STATE_COLORS = {
     STATE_IDLE: COLOR_INFO,
@@ -327,15 +354,19 @@ def _update_counts():
     complete = bool(expected_members) and expected_members.issubset(inside_members)
     color = COLOR_SUCCESS if complete else COLOR_INFO
     QtBind.setText(gui, lblCounts,
-        '<font color="%s"><b>%s</b></font>' %
+        '<table width="198" cellspacing="0" cellpadding="0"><tr><td>'
+        '<font color="%s"><b>%s</b></font></td></tr></table>' %
         (color, tr('inside', len(inside_members), len(expected_members))))
     if loop_active:
         QtBind.setText(gui, lblLoop,
-            '<font color="%s"><b>%s</b></font>' %
+            '<table width="198" cellspacing="0" cellpadding="0"><tr><td>'
+            '<font color="%s"><b>%s</b></font></td></tr></table>' %
             (COLOR_PRIMARY, tr('loop', completed_loops, loop_target)))
     else:
         QtBind.setText(gui, lblLoop,
-            '<font color="%s">%s</font>' % (COLOR_MUTED, tr('loop_off')))
+            '<table width="198" cellspacing="0" cellpadding="0"><tr><td>'
+            '<font color="%s">%s</font></td></tr></table>' %
+            (COLOR_MUTED, tr('loop_off')))
 
 
 def _send(command, argument=''):
@@ -371,6 +402,8 @@ def _reset(detail=None):
     global ready_retry_at, ready_retry_count, inside_retry_at, inside_retry_count
     global loop_active, loop_session_id, current_loop, completed_loops
     global loop_target, exit_verified_loop, party_stable_since, loop_sync_at
+    global skip_party_wait
+    global solo_unique_kills
     stop_script()
     stop_trace()
     run_id = ''
@@ -394,10 +427,13 @@ def _reset(detail=None):
     exit_verified_loop = 0
     party_stable_since = 0.0
     loop_sync_at = 0.0
+    skip_party_wait = False
+    solo_unique_kills = 0
     expected_members.clear()
     inside_members.clear()
     unique_uids.clear()
     dead_uniques.clear()
+    solo_unique_uids.clear()
     exit_ready_members.clear()
     loop_ready_members.clear()
     _set_status(STATE_IDLE, detail or tr('ready'))
@@ -414,6 +450,7 @@ def save_config():
                        'timeout': _timeout_seconds(),
                        'entry_script': _entry_script_name(),
                        'loop_enabled': QtBind.isChecked(gui, cbxLoopEnabled),
+                       'skip_party_wait': QtBind.isChecked(gui, cbxSkipPartyWait),
                        'loop_count': _loop_count_setting(),
                        'min_total': _min_total_setting(),
                        'language': language}, handle, indent=4)
@@ -436,6 +473,8 @@ def load_config():
         QtBind.setText(gui, tbxLeader, str(data.get('leader') or ''))
         QtBind.setText(gui, tbxTimeout, str(data.get('timeout') or 120))
         QtBind.setChecked(gui, cbxLoopEnabled, bool(data.get('loop_enabled', False)))
+        QtBind.setChecked(gui, cbxSkipPartyWait,
+                          bool(data.get('skip_party_wait', False)))
         QtBind.setText(gui, tbxLoopCount, str(data.get('loop_count') or 5))
         QtBind.setText(gui, tbxMinTotal, str(data.get('min_total') or 4))
         selected_script = str(data.get('entry_script') or '')
@@ -545,6 +584,7 @@ def _start_run(use_direct_entry):
     global run_id, active_leader, entry_region, deadline, direct_entry_mode
     global loop_active, loop_session_id, current_loop, completed_loops
     global loop_target, exit_verified_loop, party_stable_since, loop_sync_at
+    global skip_party_wait
     own = _own_name()
     leader = _leader_name()
     if not own:
@@ -568,7 +608,9 @@ def _start_run(use_direct_entry):
     stop_bot()
     stop_script()
     expected_members.clear()
-    expected_members.update(_party_member_names())
+    skip_party_wait = QtBind.isChecked(gui, cbxSkipPartyWait)
+    if not skip_party_wait:
+        expected_members.update(_party_member_names())
     inside_members.clear()
     run_id = '%s-%d' % (own.lower(), int(time.time()))
     active_leader = own
@@ -586,10 +628,11 @@ def _start_run(use_direct_entry):
     deadline = time.time() + _timeout_seconds()
     mode_text = tr('direct_mode') if direct_entry_mode else tr('entry_script_mode')
     _set_status(STATE_LEADER_ENTERING, tr('leader_entering', mode_text))
-    _send('START_DIRECT' if direct_entry_mode else 'START', _loop_metadata())
+    if not skip_party_wait:
+        _send('START_DIRECT' if direct_entry_mode else 'START', _loop_metadata())
     started = (_start_direct_entry(tr('role_leader')) if direct_entry_mode
                else _start_entry_script(tr('role_leader')))
-    if not started:
+    if not started and not skip_party_wait:
         _send('ABORT')
 
 
@@ -602,13 +645,17 @@ def btnDirectStart_clicked():
 
 
 def btnStop_clicked():
-    if run_id and _own_name().lower() == active_leader.lower():
+    if (run_id and not skip_party_wait and
+            _own_name().lower() == active_leader.lower()):
         _send('ABORT')
     _reset(tr('manual_stop'))
 
 
 def _begin_waiting_party():
     global deadline, party_stable_since, loop_sync_at
+    if skip_party_wait:
+        _start_next_loop()
+        return
     deadline = 0.0
     party_stable_since = 0.0
     loop_sync_at = time.time() + 1.0
@@ -624,7 +671,8 @@ def _start_next_loop():
     run_id = '%s-%d-%d' % (own.lower(), int(time.time()), current_loop)
     direct_entry_mode = True
     expected_members.clear()
-    expected_members.update(_party_member_names())
+    if not skip_party_wait:
+        expected_members.update(_party_member_names())
     inside_members.clear()
     unique_uids.clear()
     dead_uniques.clear()
@@ -635,9 +683,11 @@ def _start_next_loop():
     entry_region = _position_region()
     deadline = time.time() + _timeout_seconds()
     _set_status(STATE_LEADER_ENTERING, tr('loop_direct', current_loop, loop_target))
-    _send('START_DIRECT', _loop_metadata())
+    if not skip_party_wait:
+        _send('START_DIRECT', _loop_metadata())
     if not _start_direct_entry(tr('role_leader')):
-        _send('ABORT')
+        if not skip_party_wait:
+            _send('ABORT')
 
 
 def _apply_loop_metadata(argument):
@@ -668,21 +718,27 @@ def _leader_inside():
     deadline = time.time() + _timeout_seconds()
     ready_retry_at = time.time() + 1.5
     ready_retry_count = 0
-    _set_status(STATE_WAITING_MEMBERS, tr('leader_inside'))
-    if not expected_members:
+    _set_status(STATE_WAITING_MEMBERS,
+                tr('leader_inside_solo') if skip_party_wait else tr('leader_inside'))
+    if skip_party_wait or not expected_members:
         ready_retry_at = 0.0
         _start_activation()
 
 
 def _start_activation():
-    global deadline
+    global deadline, solo_unique_kills
     stop_script()
     deadline = 0.0
     unique_uids.clear()
     dead_uniques.clear()
+    solo_unique_uids.clear()
+    solo_unique_kills = 0
     _set_status(STATE_ACTIVATING, tr('activating'))
-    _send('TRACE')
-    if start_script(ACTIVATION_SCRIPT) is False:
+    if not skip_party_wait:
+        _send('TRACE')
+    activation_script = (SOLO_ACTIVATION_SCRIPT if skip_party_wait
+                         else ACTIVATION_SCRIPT)
+    if start_script(activation_script) is False:
         _set_status(STATE_FAILED, tr('npc_script_failed'))
 
 
@@ -691,10 +747,34 @@ def FCVS_DELAY(args):
     return 2000
 
 
+def _set_solo_training_position():
+    position = get_position() or {}
+    try:
+        region = int(position['region'])
+        x = float(position['x'])
+        y = float(position['y'])
+        z = float(position['z'])
+    except (KeyError, TypeError, ValueError):
+        log('[%s] Solo training position could not be read.' % pName)
+        return False
+    try:
+        if set_training_position(region, x, y, z):
+            log('[%s] Solo training position set to Chamber coordinates.' % pName)
+            return True
+        log('[%s] Solo training position was not updated; configure an active training area first.' % pName)
+    except Exception as ex:
+        log('[%s] Solo training position error: %s' % (pName, ex))
+    return False
+
+
 def FCVS_FINISHED(args):
     global deadline
     deadline = 0.0
-    _set_status(STATE_COMBAT, tr('combat'))
+    _set_status(STATE_COMBAT, tr('solo_combat') if skip_party_wait else tr('combat'))
+    if skip_party_wait:
+        _set_solo_training_position()
+        start_bot()
+        log('[%s] Solo-inside mode: bot started after seal activation.' % pName)
     return 0
 
 
@@ -722,7 +802,8 @@ def _begin_exit_prep():
     exit_ready_members.clear()
     deadline = time.time() + _timeout_seconds()
     _set_status(STATE_EXIT_PREP, tr('exit_prep'))
-    _send('EXIT_PREP')
+    if not skip_party_wait:
+        _send('EXIT_PREP')
     _run_exit_walk()
 
 
@@ -742,7 +823,8 @@ def _leader_check_exit_ready():
     if (_own_name().lower() == active_leader.lower() and
             '__leader__' in exit_ready_members and
             expected_members.issubset(exit_ready_members)):
-        _send('EXIT_NOW')
+        if not skip_party_wait:
+            _send('EXIT_NOW')
         _select_exit_stone()
 
 
@@ -880,20 +962,28 @@ def handle_event(t, data):
 
 
 def handle_joymax(opcode, data):
-    global exit_select_pending, exit_confirm_at
+    global exit_select_pending, exit_confirm_at, solo_unique_kills
     if (opcode == 0x30BF and len(data) >= 6 and
             state in (STATE_ACTIVATING, STATE_COMBAT) and
             _own_name().lower() == active_leader.lower() and
             data[4] == 0 and data[5] == 2):
         try:
             uid = struct.unpack_from('<I', data, 0)[0]
-            for name, tracked_uid in list(unique_uids.items()):
-                if tracked_uid == uid and name not in dead_uniques:
-                    dead_uniques.add(name)
-                    _set_status(state, tr('unique_dead', len(dead_uniques)))
-                    if len(dead_uniques) == len(UNIQUE_NAMES):
+            if skip_party_wait:
+                if uid in solo_unique_uids:
+                    solo_unique_uids.discard(uid)
+                    solo_unique_kills += 1
+                    _set_status(state, tr('unique_dead', solo_unique_kills))
+                    if solo_unique_kills >= SOLO_UNIQUE_TARGET:
                         _start_loot_wait()
-                    break
+            else:
+                for name, tracked_uid in list(unique_uids.items()):
+                    if tracked_uid == uid and name not in dead_uniques:
+                        dead_uniques.add(name)
+                        _set_status(state, tr('unique_dead', len(dead_uniques)))
+                        if len(dead_uniques) == len(UNIQUE_NAMES):
+                            _start_loot_wait()
+                        break
         except Exception as ex:
             log('[%s] Unique olum paketi okunamadi: %s' % (pName, ex))
 
@@ -996,7 +1086,9 @@ def event_loop():
             _own_name().lower() == active_leader.lower()):
         for uid, monster in (get_monsters() or {}).items():
             name = str(monster.get('name') or '').strip().lower()
-            if name in UNIQUE_NAMES and name not in unique_uids:
+            if skip_party_wait and name == SOLO_UNIQUE_NAME:
+                solo_unique_uids.add(int(uid))
+            elif not skip_party_wait and name in UNIQUE_NAMES and name not in unique_uids:
                 unique_uids[name] = int(uid)
                 log('[%s] Unique UID kaydedildi: %s=%s' % (pName, name, uid))
 
@@ -1011,7 +1103,8 @@ def event_loop():
 
     if deadline and now >= deadline:
         deadline = 0.0
-        if run_id and _own_name().lower() == active_leader.lower():
+        if (run_id and not skip_party_wait and
+                _own_name().lower() == active_leader.lower()):
             _send('ABORT')
         stop_script()
         _set_status(STATE_FAILED, tr('timeout_failed'))
@@ -1030,6 +1123,15 @@ def finished():
     stop_script()
 
 
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        _set_status(state, 'Opening Discord invite...')
+    except Exception as ex:
+        log('[%s] Discord link error: %s' % (pName, ex))
+        _set_status(state, 'Could not open Discord invite')
+
+
 gui = QtBind.init(__name__, pName)
 QtBind.createLabel(gui,
     '<font color="%s" size="4"><b>🏰 CHAMBER OF VICIOUS SHADOWS</b></font>' %
@@ -1037,10 +1139,11 @@ QtBind.createLabel(gui,
 lblSubtitle = QtBind.createLabel(gui,
     '<font color="%s">v%s · Party dungeon coordinator</font>' %
     (COLOR_MUTED, pVersion), 325, 14)
+btnDiscord = QtBind.createButton(gui, 'discord_clicked', u'\U0001f4ac Discord', 420, 6)
 QtBind.createLabel(gui, u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' %
-                   COLOR_PRIMARY, 510, 13)
-btnLanguage = QtBind.createButton(gui, 'btnLanguage_clicked', '', 650, 8)
-QtBind.createLineEdit(gui, '', 12, 34, 716, 1)
+                   COLOR_PRIMARY, 535, 13)
+btnLanguage = QtBind.createButton(gui, 'btnLanguage_clicked', '', 640, 39)
+QtBind.createLineEdit(gui, '', 12, 34, 696, 1)
 
 lblPartySettings = QtBind.createLabel(gui,
     '<font color="%s"><b>⚙ PARTİ AYARLARI</b></font>' % COLOR_PRIMARY, 12, 45)
@@ -1064,37 +1167,36 @@ lblMinTotal = QtBind.createLabel(gui, '<font color="%s">Minimum toplam karakter<
 tbxMinTotal = QtBind.createLineEdit(gui, '4', 465, 131, 35, 22)
 lblStableParty = QtBind.createLabel(gui, '<font color="%s">30 sn kararlı parti</font>' %
                    COLOR_MUTED, 525, 136)
-QtBind.createLineEdit(gui, '', 12, 161, 716, 1)
+cbxSkipPartyWait = QtBind.createCheckBox(gui, 'noop_checked',
+                                          '⚔ Parti bekleme (içeride tek başına)', 12, 156)
+QtBind.createLineEdit(gui, '', 12, 179, 696, 1)
 
 lblControls = QtBind.createLabel(gui,
     '<font color="%s"><b>🎮 ÇALIŞMA KONTROLLERİ</b></font>' % COLOR_PRIMARY,
-    12, 173)
-btnStart = QtBind.createButton(gui, 'btnStart_clicked', '▶ Script ile Başlat', 12, 198)
-btnDirectStart = QtBind.createButton(gui, 'btnDirectStart_clicked', '⚡ Ticket Hazır', 155, 198)
-btnStop = QtBind.createButton(gui, 'btnStop_clicked', '⏹ Durdur', 280, 198)
+    12, 188)
+btnStart = QtBind.createButton(gui, 'btnStart_clicked', '▶ Script ile Başlat', 12, 212)
+btnDirectStart = QtBind.createButton(gui, 'btnDirectStart_clicked', '⚡ Ticket Hazır', 155, 212)
+btnStop = QtBind.createButton(gui, 'btnStop_clicked', '⏹ Durdur', 280, 212)
 lblFlow = QtBind.createLabel(gui,
     '<font color="%s">Lider girer → üyeler girer → Trace → orta nokta → 6 mühür</font>' %
-    COLOR_MUTED, 380, 204)
-QtBind.createLineEdit(gui, '', 12, 234, 716, 1)
+    COLOR_MUTED, 380, 218)
+QtBind.createLineEdit(gui, '', 12, 241, 696, 1)
 
 lblLiveStatus = QtBind.createLabel(gui,
-    '<font color="%s"><b>📡 CANLI DURUM</b></font>' % COLOR_PRIMARY, 12, 247)
+    '<font color="%s"><b>📡 CANLI DURUM</b></font>' % COLOR_PRIMARY, 12, 248)
 lblStatus = QtBind.createLabel(gui,
     '<table width="440" cellspacing="0" cellpadding="0"><tr><td>'
     '<font color="%s"><b>● IDLE</b></font>'
     '<font color="%s"> · Hazır</font></td></tr></table>' %
-    (COLOR_INFO, COLOR_TEXT), 12, 275)
+    (COLOR_INFO, COLOR_TEXT), 12, 267)
 lblCounts = QtBind.createLabel(gui,
-    '<font color="%s"><b>👥 İçeride: 0 / 0</b></font>' % COLOR_INFO, 510, 275)
+    '<table width="198" cellspacing="0" cellpadding="0"><tr><td>'
+    '<font color="%s"><b>👥 İçeride: 0 / 0</b></font></td></tr></table>' % COLOR_INFO,
+    510, 267)
 lblLoop = QtBind.createLabel(gui,
-    '<font color="%s">🔁 Loop kapalı</font>' % COLOR_MUTED, 510, 298)
-
-lblSetupNote = QtBind.createLabel(gui,
-    '<table width="700" cellspacing="0" cellpadding="4"><tr><td>'
-    '<font color="%s"><b>ℹ Kurulum notu:</b></font> '
-    '<font color="%s">Plugin tüm parti karakterlerinde yüklü olmalı ve '
-    'her karakterde aynı lider adı kaydedilmelidir.</font>'
-    '</td></tr></table>' % (COLOR_INFO, COLOR_TEXT), 12, 315)
+    '<table width="198" cellspacing="0" cellpadding="0"><tr><td>'
+    '<font color="%s">🔁 Loop kapalı</font></td></tr></table>' % COLOR_MUTED,
+    510, 285)
 
 
 def apply_gui_language():
@@ -1111,6 +1213,7 @@ def apply_gui_language():
     QtBind.setText(gui, lblEntryScript, '<font color="%s"><b>%s</b></font>' % (COLOR_MUTED, tr('entry_script')))
     QtBind.setText(gui, btnRefresh, tr('refresh'))
     QtBind.setText(gui, cbxLoopEnabled, tr('loop_enable'))
+    QtBind.setText(gui, cbxSkipPartyWait, tr('skip_party_wait'))
     QtBind.setText(gui, lblTotalLoops, '<font color="%s">%s</font>' % (COLOR_MUTED, tr('total_loops')))
     QtBind.setText(gui, lblMinTotal, '<font color="%s">%s</font>' % (COLOR_MUTED, tr('minimum_characters')))
     QtBind.setText(gui, lblStableParty, '<font color="%s">%s</font>' % (COLOR_MUTED, tr('stable_party')))
@@ -1120,10 +1223,6 @@ def apply_gui_language():
     QtBind.setText(gui, btnStop, tr('stop'))
     QtBind.setText(gui, lblFlow, '<font color="%s">%s</font>' % (COLOR_MUTED, tr('flow')))
     QtBind.setText(gui, lblLiveStatus, '<font color="%s"><b>%s</b></font>' % (COLOR_PRIMARY, tr('live_status')))
-    QtBind.setText(gui, lblSetupNote,
-        '<table width="700" cellspacing="0" cellpadding="4"><tr><td>'
-        '<font color="%s"><b>%s</b></font> <font color="%s">%s</font>'
-        '</td></tr></table>' % (COLOR_INFO, tr('setup_note_title'), COLOR_TEXT, tr('setup_note')))
     selected = _entry_script_name()
     if selected in (TEXT['en']['select_script'], TEXT['tr']['select_script']):
         refresh_scripts()

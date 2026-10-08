@@ -1,5 +1,16 @@
 # FControl Changelog
 
+## v1.10.0
+
+### Added
+- Added an optional character-specific announcement for local zone reverse uses that sends authorized followers a `REVERSE zone <name>` command through the selected announce channel.
+
+### Improved
+- Loaded reverse destination IDs and names once from the active server's Media DB3 at login, avoiding packet-time database reads.
+
+### Fixed
+- Retried the one-time reverse destination cache load after character data becomes available, so early `joined_game()` timing cannot disable reverse announcements.
+
 ## v1.9.1
 
 ### Fixed

@@ -1,5 +1,10 @@
 # FAutoUnique V2 Changelog
 
+## v3.3.0
+
+### Added
+- Added a persistent Hunt Settings option, enabled by default, that dismounts a ridden horse before unique combat and waits briefly for confirmation before starting the bot.
+
 ## v3.2.9
 
 ### Added

@@ -13,7 +13,7 @@ import sqlite3
 
 # ================= INFO =================
 pName = 'FAutoUnique V2'
-pVersion = '3.2.9'
+pVersion = '3.3.0'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -64,6 +64,7 @@ UI_TEXT = {
         'automation': 'AUTOMATION', 'auto_return': 'Return to town for an unconfigured unique',
         'auto_learn': 'Automatically learn unique coordinates',
         'kill_nearby': 'Kill nearby field uniques after target',
+        'dismount_before_attack': 'Dismount mounted horse before unique attack',
         'duplicate_help': 'Points within 30m of a saved point are ignored.',
         'diagnostics': 'DIAGNOSTICS', 'debug_logging': 'Detailed debug logging',
         'refresh_alive': 'Refresh Nearby Alive Status', 'log_tracked': 'Log Tracked Uniques',
@@ -126,6 +127,7 @@ UI_TEXT = {
         'automation': 'OTOMASYON', 'auto_return': 'Ayarsız unique için şehre dön',
         'auto_learn': 'Unique koordinatlarını otomatik öğren',
         'kill_nearby': 'Hedeften sonra yakındaki alan uniquelerini öldür',
+        'dismount_before_attack': 'Unique saldırısından önce binek atından in',
         'duplicate_help': 'Kayıtlı noktaya 30m içindeki noktalar yok sayılır.',
         'diagnostics': 'TANILAMA', 'debug_logging': 'Ayrıntılı teknik kayıt',
         'refresh_alive': 'Yakındaki Durumu Yenile', 'log_tracked': 'İzlenenleri Logla',
@@ -275,6 +277,7 @@ saved_slot = None
 auto_learn_coordinates = False
 kill_nearby_field_uniques = False
 manual_auto_hunt_enabled = False
+dismount_before_attack = True
 learned_unique_ids = set()
 
 # Coordinate hunt settings. generate_script() itself is limited by phBot to one
@@ -306,6 +309,13 @@ REVERSE_TIMEOUT_SEC = 30.0
 reverse_hunt_pending = None
 reverse_timeout_timer = None
 reverse_run_token = 0
+
+# Mounted-horse dismount state. The protocol action is confirmed through
+# get_pets() before starting combat, rather than relying on a fixed delay.
+DISMOUNT_WAIT_TIMEOUT_SEC = 3.0
+DISMOUNT_POLL_INTERVAL_SEC = 0.2
+dismount_timer = None
+dismount_run_token = 0
 
 # Protect unique_queue / alive_uniques / pending_uniques from race conditions
 # between the network event thread and threading.Timer callbacks.
@@ -594,6 +604,7 @@ def save_config():
             'auto_learn_coordinates': auto_learn_coordinates,
             'kill_nearby_field_uniques': kill_nearby_field_uniques,
             'manual_auto_hunt_enabled': manual_auto_hunt_enabled,
+            'dismount_before_attack': dismount_before_attack,
             'coordinate_scan_seconds': coordinate_scan_seconds,
             'saved_slot': saved_slot,
         }
@@ -607,7 +618,7 @@ def load_config():
     global unique_script_map, unique_coordinate_map, unique_route_modes, unique_reverse_settings, discovered_uniques
     global ignored_uniques, auto_hunt_uniques
     global plugin_active, auto_return_enabled, auto_learn_coordinates, kill_nearby_field_uniques
-    global manual_auto_hunt_enabled, saved_slot, UI_LANGUAGE, coordinate_scan_seconds
+    global manual_auto_hunt_enabled, dismount_before_attack, saved_slot, UI_LANGUAGE, coordinate_scan_seconds
     try:
         cfg = getConfig()
         load_reverse_locations()
@@ -617,6 +628,7 @@ def load_config():
         ignored_uniques = set()
         auto_hunt_uniques = set()
         manual_auto_hunt_enabled = False
+        dismount_before_attack = True
         kill_nearby_field_uniques = False
         coordinate_scan_seconds = DEFAULT_COORDINATE_SEARCH_SEC
         if cfg and os.path.exists(cfg):
@@ -655,6 +667,7 @@ def load_config():
             auto_learn_coordinates = data.get('auto_learn_coordinates', False)
             kill_nearby_field_uniques = data.get('kill_nearby_field_uniques', False)
             manual_auto_hunt_enabled = data.get('manual_auto_hunt_enabled', False)
+            dismount_before_attack = data.get('dismount_before_attack', True)
             coordinate_scan_seconds = _normalise_coordinate_scan_seconds(
                 data.get('coordinate_scan_seconds', DEFAULT_COORDINATE_SEARCH_SEC))
             saved_slot = data.get('saved_slot', None)
@@ -666,6 +679,7 @@ def load_config():
                 QtBind.setChecked(gui, chk_auto_learn, auto_learn_coordinates)
                 QtBind.setChecked(gui, chk_kill_nearby, kill_nearby_field_uniques)
                 QtBind.setChecked(gui, chk_manual_hunt_list, manual_auto_hunt_enabled)
+                QtBind.setChecked(gui, chk_dismount_before_attack, dismount_before_attack)
                 QtBind.setText(gui, tbx_coordinate_scan, _format_coordinate_scan_seconds())
             except: pass
             was_active = data.get('plugin_active', False)
@@ -948,6 +962,15 @@ def toggle_manual_hunt_list(checked=None):
     update_queue_label()
     state = 'ON' if manual_auto_hunt_enabled else 'OFF'
     log('[AutoHunt] Manual Auto Hunt list is %s.' % state)
+
+
+def toggle_dismount_before_attack(checked=None):
+    """Persist whether mounted horses are dismounted before unique combat."""
+    global dismount_before_attack
+    dismount_before_attack = bool(checked)
+    save_config()
+    log('[Dismount] Mounted-horse dismount before unique combat is %s.' %
+        ('ON' if dismount_before_attack else 'OFF'))
 
 
 def _normalise_coordinate_scan_seconds(value):
@@ -1732,7 +1755,7 @@ def _coordinate_tick_guarded(token):
         _schedule_coordinate_tick(token, 0.5)
 
 def _engage_coordinate_target(unique_name, monster_id, monster):
-    """Stop navigation and immediately start botting at the visible unique."""
+    """Stop navigation and start combat after an optional mounted-horse dismount."""
     global coordinate_hunt, bot_state
     try: stop_script()
     except: pass
@@ -1748,15 +1771,20 @@ def _engage_coordinate_target(unique_name, monster_id, monster):
         log('[Coordinates] Visible unique position is invalid')
         handle_unique_timeout()
         return
-    position_set = set_training_position(region, x, y, 0.0)
-    set_training_radius(UNIQUE_TRAINING_RADIUS)
-    if position_set is False:
-        log('[Coordinates] Training position could not be set; select an active Training Area')
-    phBot.start_bot()
-    stop_coordinate_hunt()
-    start_attack_loop()
     bot_state = 'HUNTING'
-    log('[Coordinates] Found %s at (%.0f, %.0f); training area set and bot started' % (unique_name, x, y))
+
+    def _start_combat():
+        position_set = set_training_position(region, x, y, 0.0)
+        set_training_radius(UNIQUE_TRAINING_RADIUS)
+        if position_set is False:
+            log('[Coordinates] Training position could not be set; select an active Training Area')
+        phBot.start_bot()
+        stop_coordinate_hunt()
+        start_attack_loop()
+        log('[Coordinates] Found %s at (%.0f, %.0f); training area set and bot started' %
+            (unique_name, x, y))
+
+    _run_after_optional_dismount(unique_name, _start_combat)
 
 def _coordinate_hunt_exhausted(unique_name):
     global current_active_unique, bot_state, unique_not_found_count
@@ -2597,6 +2625,89 @@ def get_timeout_seconds():
         return 1200
     except: return 1200
 
+
+def _mounted_horse_id():
+    """Return the UID of the currently ridden horse, if one is present."""
+    try:
+        for pet_id, pet in (get_pets() or {}).items():
+            if (isinstance(pet, dict) and pet.get('type') == 'horse' and
+                    bool(pet.get('mounted', False))):
+                return int(pet_id)
+    except Exception as error:
+        log('[Dismount] Could not inspect summoned pets: %s' % error)
+    return None
+
+
+def _cancel_pending_dismount():
+    """Invalidate a delayed combat start waiting for a horse dismount."""
+    global dismount_timer, dismount_run_token
+    dismount_run_token += 1
+    if dismount_timer:
+        dismount_timer.cancel()
+        dismount_timer = None
+
+
+def _run_after_optional_dismount(unique_name, on_ready):
+    """Dismount a ridden horse and wait for confirmation before combat starts."""
+    global dismount_timer, dismount_run_token
+
+    def _start_combat():
+        try:
+            on_ready()
+        except Exception as error:
+            log('[Dismount] Could not continue combat for %s: %s' %
+                (unique_name, error))
+            handle_unique_timeout()
+
+    if not dismount_before_attack:
+        _start_combat()
+        return
+
+    horse_id = _mounted_horse_id()
+    if horse_id is None:
+        _start_combat()
+        return
+
+    _cancel_pending_dismount()
+    dismount_run_token += 1
+    token = dismount_run_token
+    target_key = str(unique_name or '').strip().lower()
+    started = time.time()
+    try:
+        # CLIENT_COS_UPDATE_RIDESTATE: uint8 dismount state + uint32 pet UID.
+        inject_joymax(0x70CB, b'\x00' + struct.pack('<I', horse_id), False)
+        log('[Dismount] Requested dismount from horse UID=%d before attacking %s.' %
+            (horse_id, unique_name))
+    except Exception as error:
+        log('[Dismount] Request failed for %s: %s; continuing combat.' %
+            (unique_name, error))
+        _start_combat()
+        return
+
+    def _wait_for_dismount():
+        global dismount_timer
+        if token != dismount_run_token:
+            return
+        if (not plugin_active or not current_active_unique or
+                current_active_unique.strip().lower() != target_key):
+            return
+        if _mounted_horse_id() is None:
+            dismount_timer = None
+            log('[Dismount] Horse dismounted; starting combat for %s.' % unique_name)
+            _start_combat()
+            return
+        if time.time() - started >= DISMOUNT_WAIT_TIMEOUT_SEC:
+            dismount_timer = None
+            log('[Dismount] Confirmation timed out for %s; continuing combat.' % unique_name)
+            _start_combat()
+            return
+        dismount_timer = threading.Timer(DISMOUNT_POLL_INTERVAL_SEC, _wait_for_dismount)
+        dismount_timer.start()
+
+    dismount_timer = threading.Timer(DISMOUNT_POLL_INTERVAL_SEC, _wait_for_dismount)
+    dismount_timer.start()
+
+
 def _engage_visible_script_target(unique_name, monster_id, monster, source='Attack Monitor'):
     """Engage an active script target once, regardless of which monitor found it."""
     global attack_engaged_target, script_finished
@@ -2632,13 +2743,16 @@ def _engage_visible_script_target(unique_name, monster_id, monster, source='Atta
             region = int(position.get('region', 0) or 0)
         if region == 0:
             raise ValueError('monster and character region are unavailable')
-        position_set = set_training_position(region, mx, my, 0.0)
-        set_training_radius(UNIQUE_TRAINING_RADIUS)
-        if position_set is False:
-            log('[Engage] Training position could not be set; select an active Training Area')
-        phBot.start_bot()
-        log('[Engage] Training area set to (%.0f,%.0f) region=%d UID=%s' %
-            (mx, my, region, monster_id))
+        def _start_combat():
+            position_set = set_training_position(region, mx, my, 0.0)
+            set_training_radius(UNIQUE_TRAINING_RADIUS)
+            if position_set is False:
+                log('[Engage] Training position could not be set; select an active Training Area')
+            phBot.start_bot()
+            log('[Engage] Training area set to (%.0f,%.0f) region=%d UID=%s' %
+                (mx, my, region, monster_id))
+
+        _run_after_optional_dismount(unique_name, _start_combat)
         return True
     except Exception as error:
         log('[Engage] Could not start combat for %s: %s' % (monster_name, error))
@@ -2774,6 +2888,7 @@ def handle_presumed_death():
 
 def stop_attack_loop():
     global attack_timer, attack_run_token, attack_engaged_target
+    _cancel_pending_dismount()
     attack_run_token += 1
     attack_engaged_target = None
     if attack_timer:
@@ -3704,9 +3819,13 @@ QtBind.setChecked(gui, chk_auto_learn, False)
 chk_kill_nearby = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_kill_nearby',
     'Kill nearby field uniques after target', OFFSCREEN_X, 218), 'kill_nearby'), settings_position=(355, 218))
 QtBind.setChecked(gui, chk_kill_nearby, False)
+chk_dismount_before_attack = _screen_widget(_localized(QtBind.createCheckBox(
+    gui, 'toggle_dismount_before_attack', 'Dismount mounted horse before unique attack', OFFSCREEN_X, 240),
+    'dismount_before_attack'), settings_position=(355, 240))
+QtBind.setChecked(gui, chk_dismount_before_attack, True)
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s">Points within 30m of a saved point are ignored.</font>' % COLOR_MUTED,
                                   OFFSCREEN_X, 240), 'duplicate_help', 'muted'), settings_position=(32, 240))
-_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 696, 1), settings_position=(12, 258))
+_screen_widget(QtBind.createLineEdit(gui, '', OFFSCREEN_X, 258, 320, 1), settings_position=(12, 258))
 _screen_widget(_localized(QtBind.createLabel(gui, '<font color="%s"><b>DIAGNOSTICS</b></font>' % COLOR_PRIMARY,
                                   OFFSCREEN_X, 267), 'diagnostics', 'heading'), settings_position=(12, 267))
 chk_debug = _screen_widget(_localized(QtBind.createCheckBox(gui, 'toggle_debug', 'Detailed debug logging', OFFSCREEN_X, 290),

@@ -93,16 +93,16 @@
                     {
                         "id":  "FAutoUnique",
                         "name":  "FAutoUnique V2",
-                        "version":  "3.2.9",
+                        "version":  "3.3.0",
                         "core":  false,
                         "description":  "Hunts unique monsters through prioritized script or learned coordinate routes.",
                         "changes":  [
-                                        "Added a persistent Hunt Settings control for the time spent scanning each reached coordinate point. It defaults to 2 seconds and accepts values from 0 to 30 seconds."
+                                        "Added a persistent Hunt Settings option, enabled by default, that dismounts a ridden horse before unique combat and waits briefly for confirmation before starting the bot."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/changelog.md",
                         "install_path":  "FAutoUniqueV2.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FAutoUnique/FAutoUniqueV2.py",
-                        "sha256":  "19afcd6c2ac99b4a807fad3802f85fc8e16b9b7f18bd519936f89bf21786e73a"
+                        "sha256":  "8f15ae8a26394129f18e01a754083061e6f5d641eae490995fa9692f637bda0f"
                     },
                     {
                         "id":  "FCaravanNavigator",
@@ -124,16 +124,16 @@
                     {
                         "id":  "FChamberViciousShadows",
                         "name":  "FChamberViciousShadows",
-                        "version":  "1.6.1",
+                        "version":  "1.8.1",
                         "core":  false,
-                        "description":  "Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon.",
+                        "description":  "Coordinates Chamber of Vicious Shadows runs, with an optional solo-inside mode that skips party synchronization.",
                         "changes":  [
-                                        "Changelog tracking started for the current version."
+                                        "Fixed solo-inside combat attempting to return to an old training-area center by updating the active training position to the Chamber location before starting phBot."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/changelog.md",
                         "install_path":  "FChamberViciousShadows.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FChamberViciousShadows/FChamberViciousShadows.py",
-                        "sha256":  "f52fe8995228d7ea0d36c3d6a2c96c3b24f251255d56b9a14e441c2101fc0fca"
+                        "sha256":  "9dfff23e28912728d1444d083e44ac9d418699d39bdf6ea05871c1cf0cc8eaca"
                     },
                     {
                         "id":  "FCharacterPluginManager",
@@ -155,16 +155,18 @@
                     {
                         "id":  "FControl",
                         "name":  "FControl",
-                        "version":  "1.9.1",
+                        "version":  "1.10.0",
                         "core":  true,
                         "description":  "Remotely controls phBot characters through authorized in-game chat commands and synchronized actions.",
                         "changes":  [
-                                        "Fixed generic `USE` commands on locale 65 servers by sending the manually verified expanded four-byte item type."
+                                        "Added an optional character-specific announcement for local zone reverse uses that sends authorized followers a `REVERSE zone \u003cname\u003e` command through the selected announce channel.",
+                                        "Loaded reverse destination IDs and names once from the active server\u0027s Media DB3 at login, avoiding packet-time database reads.",
+                                        "Retried the one-time reverse destination cache load after character data becomes available, so early `joined_game()` timing cannot disable reverse announcements."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/changelog.md",
                         "install_path":  "FControl.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FControl/FControl.py",
-                        "sha256":  "008f4050c415018419e5426e815528690f24b0dff08dc08ffbcfdbdadb08cf5f"
+                        "sha256":  "95a6c27c9c642088b2dbb111f0f0339e8aad6f8c882775fc711b8b555288fbbd"
                     },
                     {
                         "id":  "FDevilAwakener",
@@ -283,20 +285,17 @@
                     {
                         "id":  "FSilkroadBox",
                         "name":  "FSilkroadBox",
-                        "version":  "1.0.0",
+                        "version":  "1.1.2",
                         "core":  false,
-                        "description":  "Opens Silkroad Boxes automatically from selected inventory pages in sequential or random order.",
+                        "description":  "Opens inventory Silkroad Boxes and runs an iSRO-only F10 purchase-and-open loop.",
                         "changes":  [
-                                        "Added automatic discovery and opening of `ITEM_PRE_MALL_SILKROAD_BOX` items.",
-                                        "Added inventory page selection for all available pages or one specific page.",
-                                        "Added sequential and random opening modes.",
-                                        "Added a configurable opening delay with a default of 250 ms.",
-                                        "Added live progress, activity logging, manual stop, and disconnect-safe cancellation."
+                                        "Added a `Buy Only` action that purchases exactly the configured quantity of iSRO Silkroad Boxes, then stops without opening them.",
+                                        "Removed the checkbox-controlled purchase-only setting in favor of the dedicated `Buy Only` action."
                                     ],
                         "changelog_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSilkroadBox/changelog.md",
                         "install_path":  "FSilkroadBox.py",
                         "download_url":  "https://raw.githubusercontent.com/fascinate78/phbot-plugins/main/plugins/FSilkroadBox/FSilkroadBox.py",
-                        "sha256":  "080aa71e9bd16b259eb87e4baf7e71f87147704b30aa0829d710788d09faac3c"
+                        "sha256":  "54801689c228c50f869bd2a4e3ea09eadbf5385d13f627ae50f5bfdbd32b577f"
                     },
                     {
                         "id":  "FSroRAutoTrade",

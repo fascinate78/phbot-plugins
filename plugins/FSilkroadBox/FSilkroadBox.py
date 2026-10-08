@@ -1,15 +1,13 @@
 from phBot import *
 import QtBind
-
 import random
 import struct
 import threading
 import time
 import webbrowser
 
-
 pName = 'FSilkroadBox'
-pVersion = '1.0.0'
+pVersion = '1.1.2'
 DISCORD_URL = 'https://discord.gg/eB9sGSMYBg'
 
 COLOR_PRIMARY = '#5b57e0'
@@ -26,35 +24,35 @@ DEFAULT_DELAY_MS = 250
 MIN_DELAY_MS = 50
 MAX_DELAY_MS = 60000
 
+# Captured from the iSRO F10 flow supplied with this feature request.
+ISRO_LOCALE = 18
+ISRO_PURCHASE_REQUEST = 0x755D
+ISRO_PURCHASE_RESPONSE = 0xB55D
+RESPONSE_TIMEOUT_MS = 10000
+INVENTORY_SETTLE_MS = 1000
+NEXT_PURCHASE_MS = 700
 PAGE_ALL = 'Open all pages'
 ORDER_SEQUENTIAL = 'Sequential'
 ORDER_RANDOM = 'Random'
 
 
 def fixed_width_text(content, width):
-    return (
-        '<table width="{0}" cellspacing="0" cellpadding="0">'
-        '<tr><td>{1}</td></tr></table>'
-    ).format(width, content)
+    return ('<table width="{0}" cellspacing="0" cellpadding="0">'
+            '<tr><td>{1}</td></tr></table>').format(width, content)
 
 
 gui = QtBind.init(__name__, pName)
-
-QtBind.createLabel(
-    gui, u'<font color="%s" size="4"><b>\U0001f4e6 %s</b></font>' %
-    (COLOR_PRIMARY, pName), 12, 6)
-QtBind.createLabel(
-    gui, '<font color="%s">v%s</font>' % (COLOR_MUTED, pVersion), 190, 12)
-btn_discord = QtBind.createButton(
-    gui, 'discord_clicked', u'\U0001f4ac Discord', 462, 6)
-QtBind.createLabel(
-    gui, u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' %
-    COLOR_PRIMARY, 565, 11)
+QtBind.createLabel(gui, u'<font color="%s" size="4"><b>\U0001f4e6 %s</b></font>' %
+                   (COLOR_PRIMARY, pName), 12, 6)
+QtBind.createLabel(gui, '<font color="%s">v%s</font>' %
+                   (COLOR_MUTED, pVersion), 190, 12)
+QtBind.createButton(gui, 'discord_clicked', u'\U0001f4ac Discord', 462, 6)
+QtBind.createLabel(gui, u'<font color="%s"><b>⚜ Made By FascinaTe</b></font>' %
+                   COLOR_PRIMARY, 565, 11)
 QtBind.createLineEdit(gui, '', 12, 32, 696, 1)
 
-QtBind.createLabel(
-    gui, '<font color="%s"><b>BOX OPENING</b></font>' % COLOR_PRIMARY,
-    12, 52)
+QtBind.createLabel(gui, '<font color="%s"><b>BOX OPENING</b></font>' %
+                   COLOR_PRIMARY, 12, 52)
 QtBind.createLabel(gui, 'Inventory page:', 12, 79)
 cmb_page = QtBind.createCombobox(gui, 125, 75, 205, 22)
 QtBind.createLabel(gui, 'Opening order:', 12, 109)
@@ -64,83 +62,73 @@ QtBind.append(gui, cmb_order, ORDER_RANDOM)
 QtBind.createLabel(gui, 'Opening delay:', 12, 139)
 txt_delay = QtBind.createLineEdit(gui, str(DEFAULT_DELAY_MS), 125, 135, 75, 22)
 QtBind.createLabel(gui, '<font color="%s">ms</font>' % COLOR_MUTED, 205, 139)
-
-btn_refresh = QtBind.createButton(
-    gui, 'refresh_clicked', 'Refresh Pages', 12, 170)
-btn_start = QtBind.createButton(gui, 'start_clicked', 'Start', 125, 170)
-btn_stop = QtBind.createButton(gui, 'stop_clicked', 'Stop', 205, 170)
+QtBind.createButton(gui, 'refresh_clicked', 'Refresh Pages', 12, 170)
+QtBind.createButton(gui, 'start_clicked', 'Start Opening', 125, 170)
+QtBind.createButton(gui, 'stop_clicked', 'Stop', 245, 170)
 
 QtBind.createLineEdit(gui, '', 355, 52, 1, 153)
-QtBind.createLabel(
-    gui, '<font color="%s"><b>LIVE STATUS</b></font>' % COLOR_PRIMARY,
-    375, 52)
-lbl_status = QtBind.createLabel(
-    gui,
-    fixed_width_text('<font color="%s">Ready</font>' % COLOR_MUTED, 320),
-    375, 79)
-lbl_progress = QtBind.createLabel(
-    gui, fixed_width_text('Progress: 0 / 0', 320), 375, 106)
-lbl_scope = QtBind.createLabel(
-    gui, fixed_width_text('Pages: Not scanned', 320), 375, 133)
-lbl_boxes = QtBind.createLabel(
-    gui, fixed_width_text('Silkroad Boxes: Unknown', 320), 375, 160)
-QtBind.createLabel(
-    gui,
-    fixed_width_text(
-        '<font color="%s">Only boxes present when Start is pressed are queued.</font>' %
-        COLOR_MUTED, 320),
-    375, 187)
+QtBind.createLabel(gui, '<font color="%s"><b>iSRO PURCHASE & OPEN</b></font>' %
+                   COLOR_PRIMARY, 375, 52)
+QtBind.createLabel(gui, 'Quantity / cycle:', 375, 79)
+txt_purchase_count = QtBind.createLineEdit(gui, '1', 505, 75, 70, 22)
+QtBind.createLabel(gui, 'Cycle limit:', 375, 109)
+txt_cycle_limit = QtBind.createLineEdit(gui, '0', 505, 105, 70, 22)
+QtBind.createLabel(gui, '<font color="%s">0 = infinite</font>' % COLOR_MUTED,
+                   580, 109)
+QtBind.createLabel(gui, 'Opening delay:', 375, 139)
+txt_purchase_delay = QtBind.createLineEdit(gui, str(DEFAULT_DELAY_MS), 505, 135, 70, 22)
+QtBind.createLabel(gui, '<font color="%s">ms</font>' % COLOR_MUTED, 580, 139)
+QtBind.createButton(gui, 'purchase_start_clicked', 'Start Loop', 375, 170)
+QtBind.createButton(gui, 'purchase_stop_clicked', 'Stop Loop', 485, 170)
+QtBind.createButton(gui, 'purchase_only_clicked', 'Buy Only', 585, 170)
 
 QtBind.createLineEdit(gui, '', 12, 215, 696, 1)
-QtBind.createLabel(
-    gui, '<font color="%s"><b>ACTIVITY</b></font>' % COLOR_PRIMARY,
-    12, 228)
-lst_activity = QtBind.createList(gui, 12, 249, 696, 50)
-
+lbl_status = QtBind.createLabel(gui, fixed_width_text(
+    '<font color="%s">Ready</font>' % COLOR_MUTED, 696), 12, 226)
+lbl_progress = QtBind.createLabel(gui, fixed_width_text(
+    'Manual: 0 / 0 | iSRO cycles: 0 | purchases: 0', 696), 12, 248)
+lst_activity = QtBind.createList(gui, 12, 270, 696, 29)
 
 state_lock = threading.RLock()
-run_timer = None
-run_generation = 0
+timer = None
+generation = 0
 running = False
-slot_queue = []
-queue_index = 0
-opened_count = 0
-selected_page = None
-selected_order = ORDER_SEQUENTIAL
+mode = None
+slots = []
+slot_index = 0
 selected_delay_ms = DEFAULT_DELAY_MS
 pending_ui = []
 
+purchase_boxes = 0
+purchase_limit = 0
+purchase_cycle = 0
+purchase_in_cycle = 0
+purchase_total = 0
+purchase_waiting = False
+purchase_baseline = {}
 
-def _plain(value):
-    return str(value or '').strip().lower()
 
-
-def _now_text():
-    return time.strftime('%H:%M:%S')
-
-
-def _queue_ui(kind, value):
+def _queue(kind, value):
     with state_lock:
         pending_ui.append((kind, value))
 
 
 def _set_status(text, color=COLOR_MUTED):
-    QtBind.setText(
-        gui, lbl_status,
-        fixed_width_text('<font color="%s"><b>%s</b></font>' %
-                         (color, str(text)), 320))
+    QtBind.setText(gui, lbl_status, fixed_width_text(
+        '<font color="%s"><b>%s</b></font>' % (color, str(text)), 696))
 
 
-def _set_progress(current, total):
-    QtBind.setText(
-        gui, lbl_progress,
-        fixed_width_text('Progress: %s / %s' % (current, total), 320))
+def _set_progress():
+    limit = 'infinite' if purchase_limit == 0 else str(purchase_limit)
+    QtBind.setText(gui, lbl_progress, fixed_width_text(
+        'Manual: %s / %s | iSRO cycles: %s / %s | purchases: %s' %
+        (slot_index, len(slots), purchase_cycle, limit, purchase_total), 696))
 
 
-def _log_activity(text):
-    message = str(text)
-    log('[%s] %s' % (pName, message))
-    QtBind.append(gui, lst_activity, '%s  %s' % (_now_text(), message))
+def _activity(text):
+    text = str(text)
+    log('[%s] %s' % (pName, text))
+    QtBind.append(gui, lst_activity, '%s  %s' % (time.strftime('%H:%M:%S'), text))
     items = QtBind.getItems(gui, lst_activity)
     if items and len(items) > 80:
         QtBind.removeAt(gui, lst_activity, 0)
@@ -148,35 +136,15 @@ def _log_activity(text):
 
 def _inventory():
     try:
-        inventory = get_inventory()
+        data = get_inventory()
     except Exception as error:
         _set_status('Inventory could not be read', COLOR_ERROR)
-        _log_activity('Inventory read error: %s' % error)
+        _activity('Inventory read error: %s' % error)
         return None
-    if not inventory or not isinstance(inventory.get('items'), list):
+    if not data or not isinstance(data.get('items'), list):
         _set_status('Join the game before scanning', COLOR_WARNING)
         return None
-    return inventory
-
-
-def _page_count(inventory):
-    size = int(inventory.get('size', 0) or 0)
-    usable_slots = max(0, size - INVENTORY_FIRST_SLOT)
-    if usable_slots <= 0:
-        return 0
-    return (usable_slots + INVENTORY_PAGE_SIZE - 1) // INVENTORY_PAGE_SIZE
-
-
-def _page_for_slot(slot):
-    if slot < INVENTORY_FIRST_SLOT:
-        return 0
-    return ((slot - INVENTORY_FIRST_SLOT) // INVENTORY_PAGE_SIZE) + 1
-
-
-def _is_silkroad_box(item):
-    return (isinstance(item, dict) and
-            _plain(item.get('servername')) ==
-            _plain(SILKROAD_BOX_SERVERNAME))
+    return data
 
 
 def _quantity(item):
@@ -186,213 +154,342 @@ def _quantity(item):
         return 1
 
 
-def _box_slots(inventory, page=None):
-    slots = []
+def _is_box(item):
+    return isinstance(item, dict) and str(item.get('servername') or '').lower() == \
+        SILKROAD_BOX_SERVERNAME.lower()
+
+
+def _page_for_slot(slot):
+    if slot < INVENTORY_FIRST_SLOT:
+        return 0
+    return ((slot - INVENTORY_FIRST_SLOT) // INVENTORY_PAGE_SIZE) + 1
+
+
+def _box_quantities(inventory, page=None):
+    result = {}
     for slot, item in enumerate(inventory.get('items', [])):
-        if not _is_silkroad_box(item):
-            continue
-        if page is not None and _page_for_slot(slot) != page:
-            continue
-        slots.extend([slot] * _quantity(item))
-    return slots
+        if _is_box(item) and (page is None or _page_for_slot(slot) == page):
+            result[slot] = _quantity(item)
+    return result
 
 
-def _selected_page_number():
-    text = str(QtBind.text(gui, cmb_page) or PAGE_ALL)
-    if text == PAGE_ALL:
-        return None
+def _slots_from_quantities(quantities):
+    result = []
+    for slot, quantity in quantities.items():
+        result.extend([slot] * quantity)
+    return result
+
+
+def _new_box_slots(inventory, baseline):
+    result = []
+    for slot, quantity in _box_quantities(inventory).items():
+        result.extend([slot] * max(0, quantity - baseline.get(slot, 0)))
+    return result
+
+
+def _read_positive(widget, allow_zero=False):
     try:
-        return int(text.split()[-1])
+        value = int(str(QtBind.text(gui, widget) or '').strip())
     except Exception:
         return None
+    if value < 0 or (not allow_zero and value == 0):
+        return None
+    return value
 
 
-def _read_delay():
-    value = str(QtBind.text(gui, txt_delay) or '').strip()
+def _read_delay(widget):
+    value = _read_positive(widget)
+    if value is None or value < MIN_DELAY_MS or value > MAX_DELAY_MS:
+        return None
+    return value
+
+
+def _selected_page():
+    value = str(QtBind.text(gui, cmb_page) or PAGE_ALL)
+    if value == PAGE_ALL:
+        return None
     try:
-        delay = int(value)
+        return int(value.split()[-1])
     except Exception:
         return None
-    if delay < MIN_DELAY_MS or delay > MAX_DELAY_MS:
-        return None
-    return delay
 
 
 def _refresh_pages(log_result=False):
     inventory = _inventory()
     if inventory is None:
         return False
-    pages = _page_count(inventory)
+    usable = max(0, int(inventory.get('size', 0) or 0) - INVENTORY_FIRST_SLOT)
+    pages = (usable + INVENTORY_PAGE_SIZE - 1) // INVENTORY_PAGE_SIZE if usable else 0
     QtBind.clear(gui, cmb_page)
     QtBind.append(gui, cmb_page, PAGE_ALL)
     for page in range(1, pages + 1):
-        QtBind.append(gui, cmb_page, 'Open page %d' % page)
-    count = len(_box_slots(inventory))
-    QtBind.setText(
-        gui, lbl_scope,
-        fixed_width_text('Pages: %s available' % pages, 320))
-    QtBind.setText(
-        gui, lbl_boxes,
-        fixed_width_text('Silkroad Boxes: %s' % count, 320))
+        QtBind.append(gui, cmb_page, 'Open page %s' % page)
     if log_result:
-        _log_activity('Inventory scanned: %s page(s), %s box(es).' %
-                      (pages, count))
+        _activity('Inventory scanned: %s page(s), %s box(es).' %
+                  (pages, len(_slots_from_quantities(_box_quantities(inventory)))))
     return True
 
 
-def discord_clicked():
-    try:
-        webbrowser.open(DISCORD_URL)
-        _set_status('Opening Discord invite...', COLOR_SUCCESS)
-    except Exception as error:
-        _set_status('Could not open Discord invite', COLOR_ERROR)
-        log('[%s] Discord link error: %s' % (pName, error))
-
-
-def refresh_clicked():
-    if running:
-        _set_status('Stop opening before refreshing', COLOR_WARNING)
-        return
-    _refresh_pages(True)
-
-
 def _cancel_timer():
-    global run_timer
-    timer = run_timer
-    run_timer = None
-    if timer is not None:
+    global timer
+    if timer:
         try:
             timer.cancel()
         except Exception:
             pass
+    timer = None
 
 
-def _schedule_next(generation, delay_ms):
-    global run_timer
-    timer = threading.Timer(delay_ms / 1000.0, _timer_step, (generation,))
+def _schedule(delay_ms, callback, current_generation):
+    global timer
+    timer = threading.Timer(delay_ms / 1000.0, callback, (current_generation,))
     timer.daemon = True
-    run_timer = timer
     timer.start()
 
 
-def _finish_from_timer(message, color):
-    global running, run_timer
+def _finish(message, color):
+    global running, mode, timer, purchase_waiting
     running = False
-    run_timer = None
-    _queue_ui('status', (message, color))
-    _queue_ui('log', message)
+    mode = None
+    timer = None
+    purchase_waiting = False
+    _queue('status', (message, color))
+    _queue('progress', None)
+    _queue('activity', message)
 
 
-def _timer_step(generation):
-    global queue_index, opened_count, run_timer
+def _open_step(current_generation):
+    global slot_index
     with state_lock:
-        if not running or generation != run_generation:
+        if not running or current_generation != generation:
             return
-        if queue_index >= len(slot_queue):
-            _finish_from_timer(
-                'Completed: %s box(es) opened' % opened_count,
-                COLOR_SUCCESS)
+        if slot_index >= len(slots):
+            if mode == 'purchase':
+                _purchase_boxes_opened(current_generation)
+            else:
+                _finish('Completed: %s box(es) opened' % len(slots), COLOR_SUCCESS)
             return
-        slot = slot_queue[queue_index]
-        packet = struct.pack('<B', slot) + SILKROAD_BOX_USE_TAIL
+        slot = slots[slot_index]
         try:
-            inject_joymax(0x704C, packet, True)
+            inject_joymax(0x704C, struct.pack('<B', slot) + SILKROAD_BOX_USE_TAIL, True)
         except Exception as error:
-            _finish_from_timer('Packet error - opening stopped', COLOR_ERROR)
-            _queue_ui('log', 'Packet error at slot %s: %s' % (slot, error))
+            _finish('Opening packet error - task stopped', COLOR_ERROR)
+            _queue('activity', 'Opening packet error at slot %s: %s' % (slot, error))
             return
-
-        if not running or generation != run_generation:
-            return
-        queue_index += 1
-        opened_count += 1
-        current = opened_count
-        total = len(slot_queue)
-        _queue_ui('progress', (current, total))
-        _queue_ui('status',
-                  ('Opening box %s of %s (slot %s)' %
-                   (current, total, slot), COLOR_WARNING))
-        if queue_index >= total:
-            _finish_from_timer(
-                'Completed: %s box(es) opened' % opened_count,
-                COLOR_SUCCESS)
-        else:
-            _schedule_next(generation, selected_delay_ms)
+        slot_index += 1
+        _queue('status', ('Opening box %s of %s' % (slot_index, len(slots)), COLOR_WARNING))
+        _queue('progress', None)
+        _schedule(selected_delay_ms, _open_step, current_generation)
 
 
 def start_clicked():
-    global running, slot_queue, queue_index, opened_count
-    global selected_page, selected_order, selected_delay_ms
-    global run_generation
-
-    with state_lock:
-        if running:
-            _set_status('Box opening is already running', COLOR_WARNING)
-            return
-
-    delay = _read_delay()
+    global running, mode, generation, slots, slot_index, selected_delay_ms
+    if running:
+        _set_status('Another task is already running', COLOR_WARNING)
+        return
+    delay = _read_delay(txt_delay)
     if delay is None:
         _set_status('Delay must be between 50 and 60000 ms', COLOR_ERROR)
         return
     inventory = _inventory()
     if inventory is None:
         return
-
-    selected_page = _selected_page_number()
-    pages = _page_count(inventory)
-    if selected_page is not None and selected_page > pages:
-        _set_status('Selected inventory page is not available', COLOR_ERROR)
-        _refresh_pages(False)
+    selected = _selected_page()
+    opening_slots = _slots_from_quantities(_box_quantities(inventory, selected))
+    if not opening_slots:
+        _set_status('No Silkroad Boxes found in selected scope', COLOR_WARNING)
         return
-
-    selected_order = str(QtBind.text(gui, cmb_order) or ORDER_SEQUENTIAL)
-    selected_delay_ms = delay
-    slots = _box_slots(inventory, selected_page)
-    if not slots:
-        scope = 'all pages' if selected_page is None else 'page %s' % selected_page
-        _set_status('No Silkroad Boxes found in %s' % scope, COLOR_WARNING)
-        _log_activity('No %s found in %s.' %
-                      (SILKROAD_BOX_SERVERNAME, scope))
-        return
-    if selected_order == ORDER_RANDOM:
-        random.shuffle(slots)
-
+    if str(QtBind.text(gui, cmb_order) or ORDER_SEQUENTIAL) == ORDER_RANDOM:
+        random.shuffle(opening_slots)
     with state_lock:
-        _cancel_timer()
-        slot_queue = slots
-        queue_index = 0
-        opened_count = 0
-        running = True
-        run_generation += 1
-        generation = run_generation
-
-    scope = 'all pages' if selected_page is None else 'page %s' % selected_page
-    _set_progress(0, len(slots))
+        slots, slot_index, selected_delay_ms = opening_slots, 0, delay
+        running, mode = True, 'manual'
+        generation += 1
+        current_generation = generation
+    _set_progress()
     _set_status('Starting box opening...', COLOR_WARNING)
-    _log_activity(
-        'Started: %s box(es), %s, %s order, %s ms delay.' %
-        (len(slots), scope, selected_order.lower(), selected_delay_ms))
-    _schedule_next(generation, 0)
+    _activity('Started manual opening of %s box(es).' % len(slots))
+    _schedule(0, _open_step, current_generation)
 
 
-def _stop(reason, color=COLOR_WARNING):
-    global running, run_generation
+def _purchase_request(current_generation):
+    global purchase_waiting, purchase_baseline
+    with state_lock:
+        if (not running or mode not in ('purchase', 'purchase_only') or
+                current_generation != generation):
+            return
+        inventory = _inventory()
+        if inventory is None:
+            _finish('Inventory unavailable - purchase loop stopped', COLOR_ERROR)
+            return
+        purchase_baseline = _box_quantities(inventory)
+        purchase_waiting = True
+        try:
+            inject_joymax(ISRO_PURCHASE_REQUEST, b'', True)
+        except Exception as error:
+            _finish('Purchase packet error - loop stopped', COLOR_ERROR)
+            _queue('activity', 'Purchase packet error: %s' % error)
+            return
+        _queue('status', ('iSRO F10 request %s/%s sent; waiting for response' %
+                          (purchase_in_cycle + 1, purchase_boxes), COLOR_WARNING))
+        _queue('activity', 'iSRO F10 purchase request sent.')
+        _schedule(RESPONSE_TIMEOUT_MS, _purchase_timeout, current_generation)
+
+
+def _purchase_timeout(current_generation):
+    with state_lock:
+        if (running and mode in ('purchase', 'purchase_only') and
+                current_generation == generation and purchase_waiting):
+            _finish('F10 response timed out - loop stopped', COLOR_ERROR)
+
+
+def _check_purchased_box(current_generation):
+    global purchase_waiting, slots, slot_index
+    with state_lock:
+        if not running or mode != 'purchase' or current_generation != generation:
+            return
+        purchase_waiting = False
+        inventory = _inventory()
+        if inventory is None:
+            _finish('Inventory unavailable - purchase loop stopped', COLOR_ERROR)
+            return
+        new_slots = _new_box_slots(inventory, purchase_baseline)
+        if not new_slots:
+            _finish('No new Silkroad Box found - loop stopped', COLOR_ERROR)
+            return
+        slots, slot_index = new_slots, 0
+        _queue('status', ('Purchase confirmed; opening %s new box(es)' %
+                          len(new_slots), COLOR_SUCCESS))
+        _queue('progress', None)
+        _schedule(selected_delay_ms, _open_step, current_generation)
+
+
+def _purchase_boxes_opened(current_generation):
+    global purchase_in_cycle, purchase_total, purchase_cycle
+    purchase_in_cycle += 1
+    purchase_total += 1
+    if purchase_in_cycle < purchase_boxes:
+        _queue('progress', None)
+        _schedule(NEXT_PURCHASE_MS, _purchase_request, current_generation)
+        return
+    purchase_cycle += 1
+    purchase_in_cycle = 0
+    _queue('progress', None)
+    if purchase_limit and purchase_cycle >= purchase_limit:
+        _finish('Purchase loop completed', COLOR_SUCCESS)
+    else:
+        _schedule(NEXT_PURCHASE_MS, _purchase_request, current_generation)
+
+
+def purchase_start_clicked():
+    global running, mode, generation, selected_delay_ms, purchase_boxes
+    global purchase_limit, purchase_cycle, purchase_in_cycle, purchase_total
+    if get_locale() != ISRO_LOCALE:
+        _set_status('Purchase loop requires iSRO locale 18', COLOR_ERROR)
+        return
+    boxes = _read_positive(txt_purchase_count)
+    limit = _read_positive(txt_cycle_limit, True)
+    delay = _read_delay(txt_purchase_delay)
+    if boxes is None or limit is None:
+        _set_status('Boxes must be >= 1; cycle limit must be >= 0', COLOR_ERROR)
+        return
+    if delay is None:
+        _set_status('Delay must be between 50 and 60000 ms', COLOR_ERROR)
+        return
+    with state_lock:
+        if running:
+            _set_status('Another task is already running', COLOR_WARNING)
+            return
+        running, mode = True, 'purchase'
+        selected_delay_ms = delay
+        purchase_boxes, purchase_limit = boxes, limit
+        purchase_cycle, purchase_in_cycle, purchase_total = 0, 0, 0
+        generation += 1
+        current_generation = generation
+    _set_progress()
+    _set_status('Starting iSRO F10 purchase loop...', COLOR_WARNING)
+    _activity('Started iSRO purchase-and-open loop: %s request(s) per cycle, '
+              '%s cycles.' % (boxes, 'infinite' if limit == 0 else limit))
+    _schedule(0, _purchase_request, current_generation)
+
+
+def purchase_only_clicked():
+    global running, mode, generation, purchase_boxes, purchase_limit
+    global purchase_cycle, purchase_in_cycle, purchase_total
+    if get_locale() != ISRO_LOCALE:
+        _set_status('Buy Only requires iSRO locale 18', COLOR_ERROR)
+        return
+    quantity = _read_positive(txt_purchase_count)
+    if quantity is None:
+        _set_status('Purchase quantity must be at least 1', COLOR_ERROR)
+        return
+    with state_lock:
+        if running:
+            _set_status('Another task is already running', COLOR_WARNING)
+            return
+        running, mode = True, 'purchase_only'
+        purchase_boxes, purchase_limit = quantity, 1
+        purchase_cycle, purchase_in_cycle, purchase_total = 0, 0, 0
+        generation += 1
+        current_generation = generation
+    _set_progress()
+    _set_status('Buying %s iSRO Silkroad Box(es)...' % quantity, COLOR_WARNING)
+    _activity('Started iSRO Buy Only for %s purchase request(s).' % quantity)
+    _schedule(0, _purchase_request, current_generation)
+
+
+def _stop(message, color=COLOR_WARNING):
+    global running, generation, purchase_waiting, mode
     with state_lock:
         was_running = running
-        running = False
-        run_generation += 1
+        running, purchase_waiting, mode = False, False, None
+        generation += 1
         _cancel_timer()
     if was_running:
-        _set_status(reason, color)
-        _log_activity('%s Progress: %s/%s.' %
-                      (reason, opened_count, len(slot_queue)))
+        _set_status(message, color)
+        _activity(message)
 
 
 def stop_clicked():
-    if not running:
+    if running:
+        _stop('Stopped by user')
+    else:
         _set_status('Nothing is currently running', COLOR_MUTED)
-        return
-    _stop('Stopped by user')
+
+
+def purchase_stop_clicked():
+    stop_clicked()
+
+
+def refresh_clicked():
+    if running:
+        _set_status('Stop the active task before refreshing', COLOR_WARNING)
+    else:
+        _refresh_pages(True)
+
+
+def handle_joymax(opcode, data):
+    global purchase_waiting
+    if opcode != ISRO_PURCHASE_RESPONSE:
+        return True
+    with state_lock:
+        if not (running and mode in ('purchase', 'purchase_only') and
+                purchase_waiting):
+            return True
+        if not data or data[0] != 1:
+            _finish('F10 purchase was rejected - loop stopped', COLOR_ERROR)
+            return True
+        current_generation = generation
+        purchase_waiting = False
+        _cancel_timer()
+        if mode == 'purchase_only':
+            _queue('status', ('F10 purchase confirmed (%s/%s)' %
+                              (purchase_total + 1, purchase_boxes), COLOR_SUCCESS))
+            _purchase_boxes_opened(current_generation)
+            return True
+        _queue('status', ('F10 response received; checking inventory', COLOR_SUCCESS))
+        _schedule(INVENTORY_SETTLE_MS, _check_purchased_box, current_generation)
+    return True
 
 
 def event_loop():
@@ -403,9 +500,18 @@ def event_loop():
         if kind == 'status':
             _set_status(value[0], value[1])
         elif kind == 'progress':
-            _set_progress(value[0], value[1])
-        elif kind == 'log':
-            _log_activity(value)
+            _set_progress()
+        elif kind == 'activity':
+            _activity(value)
+
+
+def discord_clicked():
+    try:
+        webbrowser.open(DISCORD_URL)
+        _set_status('Opening Discord invite...', COLOR_SUCCESS)
+    except Exception as error:
+        log('[%s] Discord link error: %s' % (pName, error))
+        _set_status('Could not open Discord invite', COLOR_ERROR)
 
 
 def teleported():
@@ -414,14 +520,14 @@ def teleported():
 
 def disconnected():
     if running:
-        _stop('Disconnected - opening stopped', COLOR_ERROR)
+        _stop('Disconnected - task stopped', COLOR_ERROR)
 
 
 def finished():
-    global running, run_generation
+    global running, generation, purchase_waiting, mode
     with state_lock:
-        running = False
-        run_generation += 1
+        running, purchase_waiting, mode = False, False, None
+        generation += 1
         _cancel_timer()
 
 

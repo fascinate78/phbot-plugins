@@ -56,11 +56,11 @@ downloaded version.
 | [FAutoHWT](plugins/FAutoHWT/) | 0.8.0 | Automates repeatable solo and party HWT runs from entry through dungeon completion, exit, and final return to normal botting. |
 | [FAutoPetClock](plugins/FAutoPetClock/) | 1.5.1 | Monitors Pick Pets and safely renews expired or expiring pets with available clocks. |
 | [FAutoTrade](plugins/FAutoTrade/) | 2.2.0 | Automates town-specific trade NPC click sequences and paired travel scripts. |
-| [FAutoUnique V2](plugins/FAutoUnique/) | 3.2.9 | Hunts unique monsters through prioritized script or learned coordinate routes. |
+| [FAutoUnique V2](plugins/FAutoUnique/) | 3.3.0 | Hunts unique monsters through prioritized script or learned coordinate routes. |
 | [FCaravanNavigator V3](plugins/FCaravanNavigator/) | 3.1.1 | Navigates caravan routes and recovers interrupted travel. |
-| [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.6.1 | Coordinates party entry, combat, exit, and repeat runs for the Vicious Shadows dungeon. |
+| [FChamberViciousShadows](plugins/FChamberViciousShadows/) | 1.8.1 | Coordinates Chamber of Vicious Shadows runs, with an optional solo-inside mode that skips party synchronization. |
 | [FCharacterPluginManager](plugins/FCharacterPluginManager/) | 1.0.0 | Loads a separate set of local phBot plugins for each server and character. |
-| [FControl](plugins/FControl/) | 1.9.1 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
+| [FControl](plugins/FControl/) | 1.10.0 | Remotely controls phBot characters through authorized in-game chat commands and synchronized actions. |
 | [FDevilAwakener](plugins/FDevilAwakener/) | 1.1.3 | Automatically applies Awakening Enhancement Scrolls to an inventory or equipped Devil's Spirit until it reaches the requested enhancement level. |
 | [FEventAutomation](plugins/FEventAutomation/) | 1.0.4 | Automatically exchanges supported event items through Event So-Ok and opens Silkroad Boxes. |
 | [FExchangeManager](plugins/FExchangeManager/) | 1.7.1 | Automatically accepts exchange requests from trusted nearby players or optionally from all nearby guild members. |
@@ -69,7 +69,7 @@ downloaded version.
 | [FScriptHelper](plugins/FScriptHelper/) | 1.2.2 | Records NPC interactions and replays them from phBot scripts. |
 | [FSereness](plugins/FSereness/) | 2.6.2 | Detects boss petrification and temporarily moves the character to avoid it. |
 | [FShining](plugins/FShining/) | 1.3.0 | Automates lightstone crafting and required material-stack splitting. |
-| [FSilkroadBox](plugins/FSilkroadBox/) | 1.0.0 | Opens Silkroad Boxes automatically from selected inventory pages in sequential or random order. |
+| [FSilkroadBox](plugins/FSilkroadBox/) | 1.1.2 | Opens inventory Silkroad Boxes and runs an iSRO-only F10 purchase-and-open loop. |
 | [FSroRAutoTrade](plugins/FSroRAutoTrade/) | 4.1.1 | Automatically starts and manages trade runs when the configured Specialty Goods Box target is reached. |
 | [FTarget](plugins/FTarget/) | 3.5.1 | Sends a configurable key combination and follow-up key through hotkey, chat, or timed-loop triggers. |
 | [FUniqueNotifier](plugins/FUniqueNotifier/) | 1.0.0 | Notifies you when configured unique monsters appear. |
